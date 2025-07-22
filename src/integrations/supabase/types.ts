@@ -74,6 +74,45 @@ export type Database = {
         }
         Relationships: []
       }
+      blog_ads: {
+        Row: {
+          advertisement_id: string
+          blog_id: string
+          created_at: string
+          id: string
+          position_after_heading: number
+        }
+        Insert: {
+          advertisement_id: string
+          blog_id: string
+          created_at?: string
+          id?: string
+          position_after_heading: number
+        }
+        Update: {
+          advertisement_id?: string
+          blog_id?: string
+          created_at?: string
+          id?: string
+          position_after_heading?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_ads_advertisement_id_fkey"
+            columns: ["advertisement_id"]
+            isOneToOne: false
+            referencedRelation: "advertisements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_ads_blog_id_fkey"
+            columns: ["blog_id"]
+            isOneToOne: false
+            referencedRelation: "blogs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blogs: {
         Row: {
           author: string
@@ -179,6 +218,33 @@ export type Database = {
           id?: string
           message?: string | null
           name?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+          username?: string
         }
         Relationships: []
       }
