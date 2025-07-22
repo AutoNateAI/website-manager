@@ -150,7 +150,6 @@ const PreviewManager = () => {
               </div>
 
               <ReactMarkdown 
-                className="prose prose-invert max-w-none"
                 components={{
                   h1: ({ children }) => <h1 className="text-2xl font-bold mt-8 mb-4 gradient-text">{children}</h1>,
                   h2: ({ children }) => <h2 className="text-xl font-semibold mt-6 mb-3 text-primary">{children}</h2>,
