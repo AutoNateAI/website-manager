@@ -14,9 +14,13 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, size = "1024x1024" } = await req.json();
+    const { prompt, size = "1024x1024", quality = "high" } = await req.json();
 
     console.log('Generating image for prompt:', prompt);
+
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
 
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -29,8 +33,8 @@ serve(async (req) => {
         prompt: prompt,
         n: 1,
         size: size,
-        quality: 'high',
-        response_format: 'b64_json'
+        quality: quality,
+        output_format: 'png'
       }),
     });
 
@@ -41,6 +45,7 @@ serve(async (req) => {
       throw new Error(data.error?.message || 'Failed to generate image');
     }
 
+    // gpt-image-1 returns base64 by default
     const imageData = data.data[0].b64_json;
     const imageUrl = `data:image/png;base64,${imageData}`;
 
@@ -48,7 +53,9 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       imageUrl,
-      prompt
+      prompt,
+      size,
+      quality
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
