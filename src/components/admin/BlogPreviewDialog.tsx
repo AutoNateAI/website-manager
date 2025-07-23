@@ -11,12 +11,13 @@ interface BlogPreviewDialogProps {
 }
 
 const BlogPreviewDialog = ({ blog, open, onOpenChange, contentImages = [], ads = [] }: BlogPreviewDialogProps) => {
-  const insertContentInMarkdown = (content: string, contentImages: any[], ads: any[]) => {
-    if (!content) return content;
+  const renderContentWithInserts = (content: string, contentImages: any[], ads: any[]): (string | JSX.Element)[] => {
+    if (!content) return [];
 
     const lines = content.split('\n');
-    const result: string[] = [];
+    const result: (string | JSX.Element)[] = [];
     let headingCount = 0;
+    let insertKey = 0;
 
     for (const line of lines) {
       result.push(line);
@@ -32,12 +33,14 @@ const BlogPreviewDialog = ({ blog, open, onOpenChange, contentImages = [], ads =
         
         imagesForThisPosition.forEach(image => {
           result.push('');
-          result.push(`<div class="content-image my-6">`);
-          result.push(`  <img src="${image.url}" alt="${image.alt || ''}" class="w-full rounded-lg" />`);
-          if (image.caption) {
-            result.push(`  <p class="text-sm text-muted-foreground mt-2 text-center italic">${image.caption}</p>`);
-          }
-          result.push(`</div>`);
+          result.push(
+            <div key={`image-${insertKey++}`} className="content-image my-6">
+              <img src={image.url} alt={image.alt || ''} className="w-full rounded-lg" />
+              {image.caption && (
+                <p className="text-sm text-muted-foreground mt-2 text-center italic">{image.caption}</p>
+              )}
+            </div>
+          );
           result.push('');
         });
         
@@ -45,21 +48,23 @@ const BlogPreviewDialog = ({ blog, open, onOpenChange, contentImages = [], ads =
         if (headingCount % 2 === 0 && ads.length > 0 && imagesForThisPosition.length === 0) {
           const randomAd = ads[Math.floor(Math.random() * ads.length)];
           result.push('');
-          result.push(`<div class="ad-container my-6 p-4 border border-primary/20 rounded-lg bg-primary/5">`);
-          result.push(`  <div class="text-xs text-muted-foreground mb-2">Advertisement</div>`);
-          if (randomAd.image_url) {
-            result.push(`  <img src="${randomAd.image_url}" alt="${randomAd.alt_text || randomAd.title}" class="w-full max-w-sm mx-auto rounded" />`);
-          }
-          result.push(`  <div class="text-center mt-2">`);
-          result.push(`    <h4 class="font-semibold">${randomAd.title}</h4>`);
-          result.push(`  </div>`);
-          result.push(`</div>`);
+          result.push(
+            <div key={`ad-${insertKey++}`} className="ad-container my-6 p-4 border border-primary/20 rounded-lg bg-primary/5">
+              <div className="text-xs text-muted-foreground mb-2">Advertisement</div>
+              {randomAd.image_url && (
+                <img src={randomAd.image_url} alt={randomAd.alt_text || randomAd.title} className="w-full max-w-sm mx-auto rounded" />
+              )}
+              <div className="text-center mt-2">
+                <h4 className="font-semibold">{randomAd.title}</h4>
+              </div>
+            </div>
+          );
           result.push('');
         }
       }
     }
 
-    return result.join('\n');
+    return result;
   };
 
   if (!blog) return null;
@@ -95,18 +100,28 @@ const BlogPreviewDialog = ({ blog, open, onOpenChange, contentImages = [], ads =
           )}
 
           <article className="prose prose-invert max-w-none prose-sm">
-            <ReactMarkdown 
-              components={{
-                h1: ({ children }) => <h1 className="text-xl font-bold mt-6 mb-3 gradient-text">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-lg font-semibold mt-5 mb-2 text-primary">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-base font-medium mt-4 mb-2">{children}</h3>,
-                p: ({ children }) => <p className="mb-3 leading-relaxed text-sm">{children}</p>,
-                ul: ({ children }) => <ul className="list-disc list-inside mb-3 space-y-1 text-sm">{children}</ul>,
-                ol: ({ children }) => <ol className="list-decimal list-inside mb-3 space-y-1 text-sm">{children}</ol>,
-              }}
-            >
-              {insertContentInMarkdown(blog.content, blog.content_images || [], ads)}
-            </ReactMarkdown>
+            <div>
+              {renderContentWithInserts(blog.content, blog.content_images || [], ads).map((element, index) => {
+                if (typeof element === 'string') {
+                  return (
+                    <ReactMarkdown 
+                      key={index}
+                      components={{
+                        h1: ({ children }) => <h1 className="text-xl font-bold mt-6 mb-3 gradient-text">{children}</h1>,
+                        h2: ({ children }) => <h2 className="text-lg font-semibold mt-5 mb-2 text-primary">{children}</h2>,
+                        h3: ({ children }) => <h3 className="text-base font-medium mt-4 mb-2">{children}</h3>,
+                        p: ({ children }) => <p className="mb-3 leading-relaxed text-sm">{children}</p>,
+                        ul: ({ children }) => <ul className="list-disc list-inside mb-3 space-y-1 text-sm">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal list-inside mb-3 space-y-1 text-sm">{children}</ol>,
+                      }}
+                    >
+                      {element}
+                    </ReactMarkdown>
+                  );
+                }
+                return element;
+              })}
+            </div>
           </article>
         </div>
       </DialogContent>
