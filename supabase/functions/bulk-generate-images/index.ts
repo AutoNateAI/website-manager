@@ -41,6 +41,21 @@ serve(async (req) => {
 
     console.log(`Starting bulk generation for batch ${batchId} with ${images.length} images`);
 
+    // Create session record
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { error: sessionError } = await supabase
+      .from('generation_sessions')
+      .insert([{
+        batch_id: batchId,
+        total_images: images.length,
+        completed_images: 0,
+        status: 'active'
+      }]);
+
+    if (sessionError) {
+      console.error('Failed to create session:', sessionError);
+    }
+
     // Start background task for bulk generation
     const backgroundTask = async () => {
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -94,6 +109,15 @@ serve(async (req) => {
 
           console.log(`Successfully generated and saved image ${index + 1}/${images.length}`);
           
+          // Update session progress
+          await supabase
+            .from('generation_sessions')
+            .update({ 
+              completed_images: supabase.sql`completed_images + 1`,
+              updated_at: new Date().toISOString()
+            })
+            .eq('batch_id', batchId);
+          
         } catch (error) {
           console.error(`Error generating image ${index + 1}:`, error);
           // Continue with other images even if one fails
@@ -104,6 +128,15 @@ serve(async (req) => {
       await Promise.allSettled(
         images.map((imageReq, index) => generateSingleImage(imageReq, index))
       );
+
+      // Mark session as completed
+      await supabase
+        .from('generation_sessions')
+        .update({ 
+          status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('batch_id', batchId);
 
       console.log(`Completed bulk generation for batch ${batchId}`);
     };

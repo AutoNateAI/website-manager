@@ -263,6 +263,36 @@ export type Database = {
         }
         Relationships: []
       }
+      generation_sessions: {
+        Row: {
+          batch_id: string
+          completed_images: number
+          created_at: string
+          id: string
+          status: string
+          total_images: number
+          updated_at: string
+        }
+        Insert: {
+          batch_id: string
+          completed_images?: number
+          created_at?: string
+          id?: string
+          status?: string
+          total_images: number
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string
+          completed_images?: number
+          created_at?: string
+          id?: string
+          status?: string
+          total_images?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       images: {
         Row: {
           alt_text: string | null

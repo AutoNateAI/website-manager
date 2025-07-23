@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Edit, Trash2, Plus, Sparkles } from 'lucide-react';
 import BulkImageGenerator from './BulkImageGenerator';
+import GenerationProgress from './GenerationProgress';
 
 interface Image {
   id: string;
@@ -47,6 +48,28 @@ const ImageManager = () => {
 
   useEffect(() => {
     fetchData();
+
+    // Set up real-time subscription for new images
+    const imageChannel = supabase
+      .channel('images-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'images'
+        },
+        (payload) => {
+          console.log('New image added:', payload);
+          // Add the new image to the list
+          setImages(prev => [payload.new as Image, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(imageChannel);
+    };
   }, []);
 
   const fetchData = async () => {
@@ -525,6 +548,8 @@ const ImageManager = () => {
           </div>
         </div>
       </div>
+
+      <GenerationProgress />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {images.map((image) => (
