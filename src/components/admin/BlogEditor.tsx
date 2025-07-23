@@ -7,8 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Wand2, Image, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Wand2, Image, Save, Loader2, Plus, Trash2, ImageIcon } from 'lucide-react';
 
 interface Blog {
   id: string;
@@ -26,6 +27,24 @@ interface Blog {
   content_images?: any[];
   created_at: string;
   updated_at: string;
+}
+
+interface ImageItem {
+  id: string;
+  title: string;
+  url: string;
+  alt_text: string;
+  caption: string;
+  created_at: string;
+}
+
+interface BlogImage {
+  id: string;
+  blog_id: string;
+  image_id: string;
+  position: string;
+  display_order: number;
+  image: ImageItem;
 }
 
 interface BlogEditorProps {
@@ -53,6 +72,9 @@ const BlogEditor = ({ blog, onClose }: BlogEditorProps) => {
   const [generatingImage, setGeneratingImage] = useState(false);
   const [saving, setSaving] = useState(false);
   const [imageSuggestions, setImageSuggestions] = useState<any[]>([]);
+  const [availableImages, setAvailableImages] = useState<ImageItem[]>([]);
+  const [attachedImages, setAttachedImages] = useState<BlogImage[]>([]);
+  const [showImageGallery, setShowImageGallery] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -69,8 +91,50 @@ const BlogEditor = ({ blog, onClose }: BlogEditorProps) => {
         hero_image: blog.hero_image || '',
         hero_image_alt: blog.hero_image_alt || '',
       });
+      fetchAttachedImages(blog.id);
     }
+    fetchAvailableImages();
   }, [blog]);
+
+  const fetchAvailableImages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('images')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setAvailableImages(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch images: " + error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchAttachedImages = async (blogId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('blog_images')
+        .select(`
+          *,
+          image:images(*)
+        `)
+        .eq('blog_id', blogId)
+        .order('display_order');
+
+      if (error) throw error;
+      setAttachedImages(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch attached images: " + error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   const generateSlug = (title: string) => {
     return title.toLowerCase()
@@ -194,6 +258,8 @@ const BlogEditor = ({ blog, onClose }: BlogEditorProps) => {
         content_images: imageSuggestions
       };
 
+      let blogId = blog?.id;
+
       if (blog) {
         // Update existing blog
         const { error } = await supabase
@@ -204,11 +270,19 @@ const BlogEditor = ({ blog, onClose }: BlogEditorProps) => {
         if (error) throw error;
       } else {
         // Create new blog
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('blogs')
-          .insert([blogData]);
+          .insert([blogData])
+          .select()
+          .single();
 
         if (error) throw error;
+        blogId = data.id;
+      }
+
+      // Rebuild content_images if blog exists
+      if (blogId && attachedImages.length > 0) {
+        await supabase.rpc('rebuild_blog_content_images', { blog_id_param: blogId });
       }
 
       toast({
@@ -226,6 +300,94 @@ const BlogEditor = ({ blog, onClose }: BlogEditorProps) => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const attachImageToBlog = async (imageId: string, position: string) => {
+    if (!blog?.id) {
+      toast({
+        title: "Error",
+        description: "Please save the blog first before attaching images",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('blog_images')
+        .insert({
+          blog_id: blog.id,
+          image_id: imageId,
+          position,
+          display_order: attachedImages.length + 1
+        });
+
+      if (error) throw error;
+
+      // Rebuild content_images
+      await supabase.rpc('rebuild_blog_content_images', { blog_id_param: blog.id });
+      
+      // Refresh attached images
+      await fetchAttachedImages(blog.id);
+
+      toast({
+        title: "Success",
+        description: "Image attached to blog successfully!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to attach image: " + error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const detachImageFromBlog = async (blogImageId: string) => {
+    if (!blog?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('blog_images')
+        .delete()
+        .eq('id', blogImageId);
+
+      if (error) throw error;
+
+      // Rebuild content_images
+      await supabase.rpc('rebuild_blog_content_images', { blog_id_param: blog.id });
+      
+      // Refresh attached images
+      await fetchAttachedImages(blog.id);
+
+      toast({
+        title: "Success",
+        description: "Image detached from blog successfully!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to detach image: " + error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const extractHeadings = (content: string) => {
+    const headingRegex = /^#{1,6}\s+(.+)$/gm;
+    const headings = [];
+    let match;
+    let headingIndex = 1;
+
+    while ((match = headingRegex.exec(content)) !== null) {
+      headings.push({
+        position: `after_heading_${headingIndex}`,
+        text: match[1].trim()
+      });
+      headingIndex++;
+    }
+
+    return headings;
   };
 
   return (
@@ -460,6 +622,124 @@ const BlogEditor = ({ blog, onClose }: BlogEditorProps) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Image Management Section */}
+      {formData.content && (
+        <Card className="glass-card">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ImageIcon size={20} />
+                  Image Management
+                </CardTitle>
+                <CardDescription>
+                  Attach images to specific positions in your blog content
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowImageGallery(!showImageGallery)}
+                className="glass-button"
+              >
+                {showImageGallery ? 'Hide Gallery' : 'Show Gallery'}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Attached Images */}
+            {attachedImages.length > 0 && (
+              <div className="space-y-4">
+                <h4 className="font-semibold">Attached Images ({attachedImages.length})</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {attachedImages.map((blogImage) => (
+                    <div key={blogImage.id} className="glass-card p-4 space-y-3">
+                      <img
+                        src={blogImage.image.url}
+                        alt={blogImage.image.alt_text}
+                        className="w-full h-32 object-cover rounded"
+                      />
+                      <div className="space-y-2">
+                        <p className="font-medium text-sm">{blogImage.image.title}</p>
+                        <Badge variant="secondary" className="text-xs">
+                          Position: {blogImage.position.replace('after_heading_', 'After Heading ')}
+                        </Badge>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => detachImageFromBlog(blogImage.id)}
+                          className="w-full"
+                        >
+                          <Trash2 size={14} className="mr-2" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Image Gallery */}
+            {showImageGallery && (
+              <div className="space-y-4">
+                <h4 className="font-semibold">Available Images ({availableImages.length})</h4>
+                {availableImages.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <ImageIcon size={48} className="mx-auto mb-4 opacity-50" />
+                    <p>No images available. Go to the Image Library to add some.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {availableImages.map((image) => {
+                      const isAttached = attachedImages.some(bi => bi.image_id === image.id);
+                      return (
+                        <div key={image.id} className="glass-card p-4 space-y-3">
+                          <img
+                            src={image.url}
+                            alt={image.alt_text}
+                            className="w-full h-32 object-cover rounded"
+                          />
+                          <div className="space-y-2">
+                            <p className="font-medium text-sm">{image.title}</p>
+                            {isAttached ? (
+                              <Badge variant="default" className="w-full justify-center">
+                                Already Attached
+                              </Badge>
+                            ) : (
+                              <Select onValueChange={(position) => attachImageToBlog(image.id, position)}>
+                                <SelectTrigger className="glass bg-transparent">
+                                  <SelectValue placeholder="Attach to position..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {extractHeadings(formData.content).map((heading) => (
+                                    <SelectItem key={heading.position} value={heading.position}>
+                                      After: {heading.text}
+                                    </SelectItem>
+                                  ))}
+                                  <SelectItem value="end_of_content">End of Content</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!blog && (
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                <p className="text-amber-800 dark:text-amber-200 text-sm">
+                  💡 <strong>Tip:</strong> Save your blog first to attach images to specific positions in the content.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
