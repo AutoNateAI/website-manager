@@ -74,10 +74,8 @@ serve(async (req) => {
             output_format: 'png'
           };
 
-          // Add reference image if provided
-          if (imageReq.referenceImage) {
-            requestBody.image = imageReq.referenceImage;
-          }
+          // Note: Reference images are not supported by OpenAI's image generation API
+          // The referenceImage will be handled differently in future updates
 
           const response = await fetch('https://api.openai.com/v1/images/generations', {
             method: 'POST',
