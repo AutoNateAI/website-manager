@@ -3,9 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, ExternalLink } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import BlogPreviewDialog from './BlogPreviewDialog';
 
 const PreviewManager = () => {
   const [blogs, setBlogs] = useState<any[]>([]);
@@ -13,6 +15,8 @@ const PreviewManager = () => {
   const [selectedBlog, setSelectedBlog] = useState<any>(null);
   const [ads, setAds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewBlog, setPreviewBlog] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -48,8 +52,13 @@ const PreviewManager = () => {
     setSelectedBlog(blog);
   };
 
-  const insertAdsInContent = (content: string) => {
-    if (!content || ads.length === 0) return content;
+  const handleBlogPreview = (blog: any) => {
+    setPreviewBlog(blog);
+    setPreviewDialogOpen(true);
+  };
+
+  const insertContentInMarkdown = (content: string, contentImages: any[], ads: any[]) => {
+    if (!content) return content;
 
     const lines = content.split('\n');
     const result: string[] = [];
@@ -62,8 +71,24 @@ const PreviewManager = () => {
       if (line.match(/^#{1,2}\s+/)) {
         headingCount++;
         
-        // Insert ad after every 2 headings
-        if (headingCount % 2 === 0 && ads.length > 0) {
+        // Insert images based on position
+        const imagesForThisPosition = contentImages.filter(
+          img => img.position === `after_heading_${headingCount}`
+        );
+        
+        imagesForThisPosition.forEach(image => {
+          result.push('');
+          result.push(`<div class="content-image my-6">`);
+          result.push(`  <img src="${image.url}" alt="${image.alt || ''}" class="w-full rounded-lg" />`);
+          if (image.caption) {
+            result.push(`  <p class="text-sm text-muted-foreground mt-2 text-center italic">${image.caption}</p>`);
+          }
+          result.push(`</div>`);
+          result.push('');
+        });
+        
+        // Insert ad after every 2 headings (but not if we just inserted an image)
+        if (headingCount % 2 === 0 && ads.length > 0 && imagesForThisPosition.length === 0) {
           const randomAd = ads[Math.floor(Math.random() * ads.length)];
           result.push('');
           result.push(`<div class="ad-container my-6 p-4 border border-primary/20 rounded-lg bg-primary/5">`);
@@ -93,11 +118,11 @@ const PreviewManager = () => {
 
   return (
     <div className="space-y-6">
-      <div className="glass-card p-6">
+      <div className="glass-card p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold gradient-text">Preview</h2>
-            <p className="text-muted-foreground mt-1">
+            <h2 className="text-xl sm:text-2xl font-bold gradient-text">Preview</h2>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
               Preview how your blogs will look with advertisements
             </p>
           </div>
@@ -126,8 +151,8 @@ const PreviewManager = () => {
 
       {selectedBlog && (
         <Card className="glass-card">
-          <CardContent className="p-8">
-            <article className="prose prose-invert max-w-none">
+          <CardContent className="p-4 sm:p-8">
+            <article className="prose prose-invert max-w-none prose-sm sm:prose-base">
               {selectedBlog.hero_image && (
                 <img 
                   src={selectedBlog.hero_image} 
@@ -137,8 +162,8 @@ const PreviewManager = () => {
               )}
               
               <div className="mb-6">
-                <h1 className="text-3xl font-bold gradient-text mb-2">{selectedBlog.title}</h1>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <h1 className="text-2xl sm:text-3xl font-bold gradient-text mb-2">{selectedBlog.title}</h1>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
                   <span>By {selectedBlog.author}</span>
                   <span>{selectedBlog.category}</span>
                   <span>{selectedBlog.read_time}</span>
@@ -159,12 +184,53 @@ const PreviewManager = () => {
                   ol: ({ children }) => <ol className="list-decimal list-inside mb-4 space-y-2">{children}</ol>,
                 }}
               >
-                {insertAdsInContent(selectedBlog.content)}
+                {insertContentInMarkdown(selectedBlog.content, selectedBlog.content_images || [], ads)}
               </ReactMarkdown>
             </article>
           </CardContent>
         </Card>
       )}
+
+      {/* Blog List for Quick Preview */}
+      {blogs.length > 0 && (
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle>Quick Blog Preview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {blogs.map(blog => (
+                <div
+                  key={blog.id}
+                  className="p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => handleBlogPreview(blog)}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-semibold text-sm truncate flex-1">{blog.title}</h3>
+                    <Eye className="h-4 w-4 text-muted-foreground ml-2" />
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                    {blog.excerpt}
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="outline" className="text-xs">{blog.category}</Badge>
+                    {blog.published && <Badge className="text-xs bg-green-500/20 text-green-400">Published</Badge>}
+                    {blog.featured && <Badge className="text-xs bg-yellow-500/20 text-yellow-400">Featured</Badge>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <BlogPreviewDialog
+        blog={previewBlog}
+        open={previewDialogOpen}
+        onOpenChange={setPreviewDialogOpen}
+        contentImages={previewBlog?.content_images || []}
+        ads={ads}
+      />
     </div>
   );
 };
