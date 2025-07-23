@@ -113,6 +113,48 @@ export type Database = {
           },
         ]
       }
+      blog_images: {
+        Row: {
+          blog_id: string
+          created_at: string
+          display_order: number | null
+          id: string
+          image_id: string
+          position: string
+        }
+        Insert: {
+          blog_id: string
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          image_id: string
+          position: string
+        }
+        Update: {
+          blog_id?: string
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          image_id?: string
+          position?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_images_blog_id_fkey"
+            columns: ["blog_id"]
+            isOneToOne: false
+            referencedRelation: "blogs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_images_image_id_fkey"
+            columns: ["image_id"]
+            isOneToOne: false
+            referencedRelation: "images"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blogs: {
         Row: {
           author: string
@@ -221,6 +263,48 @@ export type Database = {
         }
         Relationships: []
       }
+      images: {
+        Row: {
+          alt_text: string | null
+          caption: string | null
+          created_at: string
+          file_size: number | null
+          height: number | null
+          id: string
+          mime_type: string | null
+          title: string
+          updated_at: string
+          url: string
+          width: number | null
+        }
+        Insert: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          file_size?: number | null
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          title: string
+          updated_at?: string
+          url: string
+          width?: number | null
+        }
+        Update: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          file_size?: number | null
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          title?: string
+          updated_at?: string
+          url?: string
+          width?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -253,7 +337,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      rebuild_blog_content_images: {
+        Args: { blog_id_param: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
