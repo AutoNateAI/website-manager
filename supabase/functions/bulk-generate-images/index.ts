@@ -75,7 +75,7 @@ serve(async (req) => {
               prompt: imageReq.prompt,
               n: 1,
               size: imageReq.size || "1024x1024",
-              quality: imageReq.quality || "high",
+              quality: "high",
               output_format: 'png'
             }),
           });
