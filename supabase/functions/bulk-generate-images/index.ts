@@ -18,6 +18,7 @@ interface ImageRequest {
   caption?: string;
   size?: string;
   quality?: string;
+  referenceImage?: string;
 }
 
 serve(async (req) => {
@@ -64,20 +65,27 @@ serve(async (req) => {
         try {
           console.log(`Generating image ${index + 1}/${images.length}: ${imageReq.prompt}`);
           
+          const requestBody: any = {
+            model: 'gpt-image-1',
+            prompt: imageReq.prompt,
+            n: 1,
+            size: imageReq.size || "1024x1024",
+            quality: "high",
+            output_format: 'png'
+          };
+
+          // Add reference image if provided
+          if (imageReq.referenceImage) {
+            requestBody.image = imageReq.referenceImage;
+          }
+
           const response = await fetch('https://api.openai.com/v1/images/generations', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${openAIApiKey}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              model: 'gpt-image-1',
-              prompt: imageReq.prompt,
-              n: 1,
-              size: imageReq.size || "1024x1024",
-              quality: "high",
-              output_format: 'png'
-            }),
+            body: JSON.stringify(requestBody),
           });
 
           const data = await response.json();

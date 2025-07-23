@@ -14,12 +14,26 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, size = "1024x1024", quality = "high" } = await req.json();
+    const { prompt, size = "1024x1024", quality = "high", referenceImage } = await req.json();
 
     console.log('Generating image for prompt:', prompt);
 
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
+    }
+
+    const requestBody: any = {
+      model: 'gpt-image-1',
+      prompt: prompt,
+      n: 1,
+      size: size,
+      quality: quality,
+      output_format: 'png'
+    };
+
+    // Add reference image if provided
+    if (referenceImage) {
+      requestBody.image = referenceImage;
     }
 
     const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -28,14 +42,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'gpt-image-1',
-        prompt: prompt,
-        n: 1,
-        size: size,
-        quality: quality,
-        output_format: 'png'
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const data = await response.json();

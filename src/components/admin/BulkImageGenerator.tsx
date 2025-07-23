@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles, Plus, Trash2, Wand2 } from 'lucide-react';
+import { Sparkles, Plus, Trash2, Wand2, Upload, X, Image as ImageIcon } from 'lucide-react';
 
 interface ImageRequest {
   id: string;
@@ -14,12 +14,15 @@ interface ImageRequest {
   title: string;
   alt_text: string;
   caption: string;
+  referenceImage?: string; // base64 image data
 }
 
 const BulkImageGenerator = () => {
   const [imageRequests, setImageRequests] = useState<ImageRequest[]>([]);
   const [showDialog, setShowDialog] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [sharedReferenceImage, setSharedReferenceImage] = useState<string>('');
+  const [useSharedReference, setUseSharedReference] = useState(false);
   const { toast } = useToast();
 
   const addImageRequest = () => {
@@ -43,6 +46,39 @@ const BulkImageGenerator = () => {
 
   const removeImageRequest = (id: string) => {
     setImageRequests(requests => requests.filter(req => req.id !== id));
+  };
+
+  const handleImageUpload = async (file: File, requestId?: string) => {
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Error",
+        description: "Please select a valid image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
+      
+      if (requestId) {
+        // Individual image reference
+        updateImageRequest(requestId, 'referenceImage', base64);
+      } else {
+        // Shared reference image
+        setSharedReferenceImage(base64);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeReferenceImage = (requestId?: string) => {
+    if (requestId) {
+      updateImageRequest(requestId, 'referenceImage', '');
+    } else {
+      setSharedReferenceImage('');
+    }
   };
 
   const generateBulkImages = async () => {
@@ -77,7 +113,8 @@ const BulkImageGenerator = () => {
             alt_text: req.alt_text || req.prompt,
             caption: req.caption,
             size: "1024x1024",
-            quality: "high"
+            quality: "high",
+            referenceImage: useSharedReference ? sharedReferenceImage : req.referenceImage
           })),
           batchId
         }
@@ -96,6 +133,8 @@ const BulkImageGenerator = () => {
 
       // Clear the form and close dialog
       setImageRequests([]);
+      setSharedReferenceImage('');
+      setUseSharedReference(false);
       setShowDialog(false);
 
     } catch (error: any) {
@@ -139,6 +178,70 @@ const BulkImageGenerator = () => {
               Add Image
             </Button>
           </div>
+
+          {/* Reference Image Options */}
+          <Card className="glass-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <ImageIcon className="h-4 w-4" />
+                Reference Image Options
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="useSharedReference"
+                  checked={useSharedReference}
+                  onChange={(e) => setUseSharedReference(e.target.checked)}
+                  className="rounded"
+                />
+                <label htmlFor="useSharedReference" className="text-sm font-medium">
+                  Use the same reference image for all generations
+                </label>
+              </div>
+              
+              {useSharedReference && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium">Shared Reference Image</label>
+                  {sharedReferenceImage ? (
+                    <div className="relative inline-block">
+                      <img 
+                        src={sharedReferenceImage} 
+                        alt="Shared reference" 
+                        className="w-20 h-20 object-cover rounded border"
+                      />
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full"
+                        onClick={() => removeReferenceImage()}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+                        className="hidden"
+                        id="shared-reference-upload"
+                      />
+                      <label
+                        htmlFor="shared-reference-upload"
+                        className="inline-flex items-center px-3 py-2 border border-dashed border-muted rounded-lg cursor-pointer hover:bg-accent transition-colors"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Reference Image
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {imageRequests.length === 0 ? (
             <div className="text-center py-8 border-2 border-dashed border-muted rounded-lg">
@@ -207,6 +310,45 @@ const BulkImageGenerator = () => {
                         className="glass bg-transparent text-sm"
                       />
                     </div>
+                    
+                    {!useSharedReference && (
+                      <div>
+                        <label className="text-xs font-medium">Individual Reference Image</label>
+                        {request.referenceImage ? (
+                          <div className="flex items-center gap-2 mt-1">
+                            <img 
+                              src={request.referenceImage} 
+                              alt="Reference" 
+                              className="w-12 h-12 object-cover rounded border"
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => removeReferenceImage(request.id)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="mt-1">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], request.id)}
+                              className="hidden"
+                              id={`reference-upload-${request.id}`}
+                            />
+                            <label
+                              htmlFor={`reference-upload-${request.id}`}
+                              className="inline-flex items-center px-2 py-1 text-xs border border-dashed border-muted rounded cursor-pointer hover:bg-accent transition-colors"
+                            >
+                              <Upload className="h-3 w-3 mr-1" />
+                              Upload Reference
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
