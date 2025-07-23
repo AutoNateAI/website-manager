@@ -6,8 +6,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Edit, Trash2, Plus } from 'lucide-react';
+import { Upload, Edit, Trash2, Plus, Sparkles } from 'lucide-react';
 
 interface Image {
   id: string;
@@ -39,6 +40,8 @@ const ImageManager = () => {
     width: '',
     height: ''
   });
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [generatingImage, setGeneratingImage] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -176,6 +179,57 @@ const ImageManager = () => {
     }
   };
 
+  const generateImageWithAI = async () => {
+    if (!aiPrompt.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a prompt for AI image generation",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGeneratingImage(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-image', {
+        body: {
+          prompt: aiPrompt,
+          size: "1024x1024",
+          quality: "high"
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Set the generated image URL and title in the form
+      setFormData({
+        ...formData,
+        url: data.imageUrl,
+        title: aiPrompt.slice(0, 100), // Use first 100 chars of prompt as title
+        alt_text: aiPrompt,
+        width: '1024',
+        height: '1024'
+      });
+
+      toast({
+        title: "Success",
+        description: "Image generated successfully! You can now save it.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to generate image: " + error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       title: '',
@@ -185,6 +239,7 @@ const ImageManager = () => {
       width: '',
       height: ''
     });
+    setAiPrompt('');
     setEditingImage(null);
     setShowAddDialog(false);
   };
@@ -227,74 +282,241 @@ const ImageManager = () => {
                 <span className="sm:inline">Add Image</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="glass-card max-w-md mx-4">
+            <DialogContent className="glass-card max-w-lg mx-4">
               <DialogHeader>
                 <DialogTitle>{editingImage ? 'Edit Image' : 'Add New Image'}</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium">Title</label>
-                  <Input
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    required
-                    className="glass bg-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Image URL</label>
-                  <Input
-                    value={formData.url}
-                    onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                    required
-                    className="glass bg-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Alt Text</label>
-                  <Input
-                    value={formData.alt_text}
-                    onChange={(e) => setFormData({ ...formData, alt_text: e.target.value })}
-                    className="glass bg-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Caption</label>
-                  <Textarea
-                    value={formData.caption}
-                    onChange={(e) => setFormData({ ...formData, caption: e.target.value })}
-                    className="glass bg-transparent"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+              
+              {editingImage ? (
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium">Width</label>
+                    <label className="text-sm font-medium">Title</label>
                     <Input
-                      type="number"
-                      value={formData.width}
-                      onChange={(e) => setFormData({ ...formData, width: e.target.value })}
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      required
                       className="glass bg-transparent"
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Height</label>
+                    <label className="text-sm font-medium">Image URL</label>
                     <Input
-                      type="number"
-                      value={formData.height}
-                      onChange={(e) => setFormData({ ...formData, height: e.target.value })}
+                      value={formData.url}
+                      onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                      required
                       className="glass bg-transparent"
                     />
                   </div>
-                </div>
-                <div className="flex gap-2 pt-4">
-                  <Button type="submit" className="flex-1">
-                    {editingImage ? 'Update' : 'Add'} Image
-                  </Button>
-                  <Button type="button" variant="outline" onClick={resetForm}>
-                    Cancel
-                  </Button>
-                </div>
-              </form>
+                  <div>
+                    <label className="text-sm font-medium">Alt Text</label>
+                    <Input
+                      value={formData.alt_text}
+                      onChange={(e) => setFormData({ ...formData, alt_text: e.target.value })}
+                      className="glass bg-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Caption</label>
+                    <Textarea
+                      value={formData.caption}
+                      onChange={(e) => setFormData({ ...formData, caption: e.target.value })}
+                      className="glass bg-transparent"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">Width</label>
+                      <Input
+                        type="number"
+                        value={formData.width}
+                        onChange={(e) => setFormData({ ...formData, width: e.target.value })}
+                        className="glass bg-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Height</label>
+                      <Input
+                        type="number"
+                        value={formData.height}
+                        onChange={(e) => setFormData({ ...formData, height: e.target.value })}
+                        className="glass bg-transparent"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-4">
+                    <Button type="submit" className="flex-1">
+                      Update Image
+                    </Button>
+                    <Button type="button" variant="outline" onClick={resetForm}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <Tabs defaultValue="manual" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="manual" className="flex items-center gap-2">
+                      <Upload className="h-4 w-4" />
+                      Manual Entry
+                    </TabsTrigger>
+                    <TabsTrigger value="ai" className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      AI Generate
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="manual">
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium">Title</label>
+                        <Input
+                          value={formData.title}
+                          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                          required
+                          className="glass bg-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Image URL</label>
+                        <Input
+                          value={formData.url}
+                          onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                          required
+                          className="glass bg-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Alt Text</label>
+                        <Input
+                          value={formData.alt_text}
+                          onChange={(e) => setFormData({ ...formData, alt_text: e.target.value })}
+                          className="glass bg-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Caption</label>
+                        <Textarea
+                          value={formData.caption}
+                          onChange={(e) => setFormData({ ...formData, caption: e.target.value })}
+                          className="glass bg-transparent"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium">Width</label>
+                          <Input
+                            type="number"
+                            value={formData.width}
+                            onChange={(e) => setFormData({ ...formData, width: e.target.value })}
+                            className="glass bg-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Height</label>
+                          <Input
+                            type="number"
+                            value={formData.height}
+                            onChange={(e) => setFormData({ ...formData, height: e.target.value })}
+                            className="glass bg-transparent"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-4">
+                        <Button type="submit" className="flex-1">
+                          Add Image
+                        </Button>
+                        <Button type="button" variant="outline" onClick={resetForm}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  </TabsContent>
+                  
+                  <TabsContent value="ai" className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium">AI Prompt</label>
+                      <Textarea
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value)}
+                        placeholder="Describe the image you want to generate (e.g., 'A futuristic city skyline at sunset with flying cars')"
+                        className="glass bg-transparent"
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <Button 
+                      onClick={generateImageWithAI} 
+                      disabled={generatingImage || !aiPrompt.trim()}
+                      className="w-full"
+                    >
+                      {generatingImage ? (
+                        <>
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          Generate with AI
+                        </>
+                      )}
+                    </Button>
+                    
+                    {formData.url && (
+                      <>
+                        <div className="border rounded-lg p-4 glass">
+                          <div className="aspect-video bg-muted rounded-lg mb-4 overflow-hidden">
+                            <img 
+                              src={formData.url} 
+                              alt="Generated preview"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Preview of generated image. You can edit the details below before saving.
+                          </p>
+                        </div>
+                        
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium">Title</label>
+                            <Input
+                              value={formData.title}
+                              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                              required
+                              className="glass bg-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Alt Text</label>
+                            <Input
+                              value={formData.alt_text}
+                              onChange={(e) => setFormData({ ...formData, alt_text: e.target.value })}
+                              className="glass bg-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Caption</label>
+                            <Textarea
+                              value={formData.caption}
+                              onChange={(e) => setFormData({ ...formData, caption: e.target.value })}
+                              className="glass bg-transparent"
+                            />
+                          </div>
+                          <div className="flex gap-2 pt-4">
+                            <Button type="submit" className="flex-1">
+                              Save Generated Image
+                            </Button>
+                            <Button type="button" variant="outline" onClick={resetForm}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </form>
+                      </>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              )}
             </DialogContent>
           </Dialog>
         </div>
