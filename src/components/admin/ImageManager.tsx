@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Upload, Edit, Trash2, Plus, Sparkles } from 'lucide-react';
 import BulkImageGenerator from './BulkImageGenerator';
 import GenerationProgress from './GenerationProgress';
+import ImageViewer from './ImageViewer';
 
 interface Image {
   id: string;
@@ -44,6 +45,8 @@ const ImageManager = () => {
   });
   const [aiPrompt, setAiPrompt] = useState('');
   const [generatingImage, setGeneratingImage] = useState(false);
+  const [viewingImage, setViewingImage] = useState<Image | null>(null);
+  const [showImageViewer, setShowImageViewer] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -279,6 +282,16 @@ const ImageManager = () => {
       height: image.height?.toString() || ''
     });
     setShowAddDialog(true);
+  };
+
+  const openImageViewer = (image: Image) => {
+    setViewingImage(image);
+    setShowImageViewer(true);
+  };
+
+  const closeImageViewer = () => {
+    setViewingImage(null);
+    setShowImageViewer(false);
   };
 
   if (loading) {
@@ -555,7 +568,10 @@ const ImageManager = () => {
         {images.map((image) => (
           <Card key={image.id} className="glass-card">
             <CardContent className="p-4">
-              <div className="aspect-video bg-muted rounded-lg mb-4 overflow-hidden">
+              <div 
+                className="aspect-video bg-muted rounded-lg mb-4 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => openImageViewer(image)}
+              >
                 <img 
                   src={image.url} 
                   alt={image.alt_text || image.title}
@@ -634,6 +650,12 @@ const ImageManager = () => {
           </Button>
         </div>
       )}
+
+      <ImageViewer 
+        image={viewingImage}
+        isOpen={showImageViewer}
+        onClose={closeImageViewer}
+      />
     </div>
   );
 };
