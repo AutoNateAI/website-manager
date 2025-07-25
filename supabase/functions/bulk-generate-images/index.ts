@@ -65,29 +65,46 @@ serve(async (req) => {
         try {
           console.log(`Generating image ${index + 1}/${images.length}: ${imageReq.prompt}`);
           
-          const requestBody: any = {
-            model: 'gpt-image-1',
-            prompt: imageReq.prompt,
-            n: 1,
-            size: imageReq.size || "1024x1024",
-            quality: "high",
-            output_format: 'png'
-          };
-
-          // Add reference image if provided (OpenAI gpt-image-1 supports reference images)
+          let response;
+          
           if (imageReq.referenceImage) {
-            requestBody.prompt = `${imageReq.prompt}. Style and composition should closely follow this reference image`;
-            requestBody.reference_image = imageReq.referenceImage;
-          }
+            // Use edits endpoint for reference images with form data
+            const formData = new FormData();
+            formData.append('model', 'gpt-image-1');
+            formData.append('prompt', imageReq.prompt);
+            
+            // Convert base64 to blob and add as image
+            const base64Data = imageReq.referenceImage.split(',')[1];
+            const imageBlob = new Blob([Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))], { type: 'image/png' });
+            formData.append('image[]', imageBlob, 'reference.png');
+            
+            response = await fetch('https://api.openai.com/v1/images/edits', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${openAIApiKey}`,
+              },
+              body: formData,
+            });
+          } else {
+            // Use generations endpoint for text-only prompts
+            const requestBody = {
+              model: 'gpt-image-1',
+              prompt: imageReq.prompt,
+              n: 1,
+              size: imageReq.size || "1024x1024",
+              quality: "high",
+              output_format: 'png'
+            };
 
-          const response = await fetch('https://api.openai.com/v1/images/generations', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${openAIApiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-          });
+            response = await fetch('https://api.openai.com/v1/images/generations', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${openAIApiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(requestBody),
+            });
+          }
 
           const data = await response.json();
           
