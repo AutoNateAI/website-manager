@@ -24,17 +24,12 @@ serve(async (req) => {
 
     const requestBody: any = {
       model: 'gpt-image-1',
-      prompt: prompt,
+      prompt: referenceImage ? `${prompt}. Use this reference image for style and composition: ${referenceImage}` : prompt,
       n: 1,
       size: size,
       quality: quality,
       output_format: 'png'
     };
-
-    // Add reference image if provided
-    if (referenceImage) {
-      requestBody.image = referenceImage;
-    }
 
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',

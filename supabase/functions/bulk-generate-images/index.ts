@@ -74,8 +74,10 @@ serve(async (req) => {
             output_format: 'png'
           };
 
-          // Note: Reference images are not supported by OpenAI's image generation API
-          // The referenceImage will be handled differently in future updates
+          // Add reference image if provided (OpenAI supports this via prompt enhancement)
+          if (imageReq.referenceImage) {
+            requestBody.prompt = `${imageReq.prompt}. Use this reference image for style and composition: ${imageReq.referenceImage}`;
+          }
 
           const response = await fetch('https://api.openai.com/v1/images/generations', {
             method: 'POST',
@@ -116,13 +118,21 @@ serve(async (req) => {
           console.log(`Successfully generated and saved image ${index + 1}/${images.length}`);
           
           // Update session progress
-          await supabase
+          const { data: sessionData } = await supabase
             .from('generation_sessions')
-            .update({ 
-              completed_images: supabase.sql`completed_images + 1`,
-              updated_at: new Date().toISOString()
-            })
-            .eq('batch_id', batchId);
+            .select('completed_images')
+            .eq('batch_id', batchId)
+            .single();
+          
+          if (sessionData) {
+            await supabase
+              .from('generation_sessions')
+              .update({ 
+                completed_images: sessionData.completed_images + 1,
+                updated_at: new Date().toISOString()
+              })
+              .eq('batch_id', batchId);
+          }
           
         } catch (error) {
           console.error(`Error generating image ${index + 1}:`, error);

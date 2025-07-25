@@ -12,6 +12,7 @@ import { Upload, Edit, Trash2, Plus, Sparkles } from 'lucide-react';
 import BulkImageGenerator from './BulkImageGenerator';
 import GenerationProgress from './GenerationProgress';
 import ImageViewer from './ImageViewer';
+import BlogAssignmentSelector from './BlogAssignmentSelector';
 
 interface Image {
   id: string;
@@ -610,30 +611,11 @@ const ImageManager = () => {
                 </Button>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-medium">Assign to Blog:</label>
-                <div className="flex gap-2">
-                  <Select
-                    onValueChange={(blogId) => {
-                      const position = prompt('Enter position (e.g., after_heading_1, after_heading_2):');
-                      if (position && blogId) {
-                        assignImageToBlog(image.id, blogId, position);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="glass bg-transparent text-xs">
-                      <SelectValue placeholder="Select blog" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {blogs.map((blog) => (
-                        <SelectItem key={blog.id} value={blog.id}>
-                          {blog.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              <BlogAssignmentSelector 
+                imageId={image.id}
+                blogs={blogs}
+                onAssign={assignImageToBlog}
+              />
             </CardContent>
           </Card>
         ))}
