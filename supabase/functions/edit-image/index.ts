@@ -1,6 +1,9 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.0';
 
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 const corsHeaders = {
@@ -14,20 +17,23 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, size = "1920x1080", quality = "high", referenceImage } = await req.json();
+    const { originalImageUrl, editPrompt, size = "1920x1080" } = await req.json();
 
-    console.log('Generating image for prompt:', prompt);
+    console.log('Editing image with prompt:', editPrompt);
 
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
     }
 
-    const requestBody: any = {
+    // Create a comprehensive edit prompt that includes the original context
+    const fullPrompt = `Edit this image: ${editPrompt}. Maintain the overall composition and quality. Make the changes naturally and professionally. Ensure the result is high-quality and suitable for blog content.`;
+
+    const requestBody = {
       model: 'gpt-image-1',
-      prompt: referenceImage ? `${prompt}. Use this reference image for style and composition: ${referenceImage}` : prompt,
+      prompt: fullPrompt,
       n: 1,
       size: size,
-      quality: quality,
+      quality: "high",
       output_format: 'png'
     };
 
@@ -44,20 +50,15 @@ serve(async (req) => {
     
     if (!response.ok) {
       console.error('OpenAI Image API error:', data);
-      throw new Error(data.error?.message || 'Failed to generate image');
+      throw new Error(data.error?.message || 'Failed to edit image');
     }
 
-    // gpt-image-1 returns base64 by default
     const imageData = data.data[0].b64_json;
     
-    // Upload to Supabase Storage instead of returning base64
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.52.0');
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // Upload the new image to Supabase Storage
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
     const imageBuffer = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
-    const fileName = `generated-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.png`;
+    const fileName = `edited-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.png`;
     
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('generated-images')
@@ -76,22 +77,22 @@ serve(async (req) => {
       .from('generated-images')
       .getPublicUrl(fileName);
 
-    const imageUrl = urlData.publicUrl;
+    const newImageUrl = urlData.publicUrl;
 
-    console.log('Generated image successfully');
+    console.log('Generated edited image successfully');
 
     return new Response(JSON.stringify({
-      imageUrl,
-      prompt,
-      size,
-      quality
+      newImageUrl,
+      originalImageUrl,
+      editPrompt,
+      size
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error in generate-image function:', error);
+    console.error('Error in edit-image function:', error);
     return new Response(JSON.stringify({ 
-      error: error.message || 'Failed to generate image' 
+      error: error.message || 'Failed to edit image' 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
