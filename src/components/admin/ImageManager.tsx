@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Edit, Trash2, Plus, Sparkles } from 'lucide-react';
 import BlogImageCreator from './BlogImageCreator';
@@ -23,6 +24,9 @@ interface Image {
   width?: number;
   height?: number;
   created_at: string;
+  blog_id?: string;
+  blog_section?: string;
+  generation_batch_id?: string;
 }
 
 interface Blog {
@@ -57,17 +61,54 @@ const ImageManager = () => {
     // Set up real-time subscription for new images
     const imageChannel = supabase
       .channel('images-changes')
-      .on(
+        .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'images'
         },
-        (payload) => {
+        async (payload) => {
           console.log('New image added:', payload);
-          // Add the new image to the list
-          setImages(prev => [payload.new as Image, ...prev]);
+          // Fetch the complete image data with blog info
+          const { data: newImage } = await supabase
+            .from('images')
+            .select(`
+              *, 
+              blogs!blog_id(title)
+            `)
+            .eq('id', payload.new.id)
+            .single();
+          
+          if (newImage) {
+            setImages(prev => [newImage as Image, ...prev]);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'images'
+        },
+        async (payload) => {
+          console.log('Image updated:', payload);
+          // Fetch the complete updated image data
+          const { data: updatedImage } = await supabase
+            .from('images')
+            .select(`
+              *, 
+              blogs!blog_id(title)
+            `)
+            .eq('id', payload.new.id)
+            .single();
+          
+          if (updatedImage) {
+            setImages(prev => prev.map(img => 
+              img.id === updatedImage.id ? updatedImage as Image : img
+            ));
+          }
         }
       )
       .subscribe();
@@ -80,7 +121,10 @@ const ImageManager = () => {
   const fetchData = async () => {
     try {
       const [imagesResult, blogsResult] = await Promise.all([
-        supabase.from('images').select('*').order('created_at', { ascending: false }),
+        supabase.from('images').select(`
+          *, 
+          blogs!blog_id(title)
+        `).order('created_at', { ascending: false }),
         supabase.from('blogs').select('id, title, content').order('title')
       ]);
 
@@ -585,6 +629,26 @@ const ImageManager = () => {
               </div>
               
               <h3 className="font-semibold mb-2 truncate">{image.title}</h3>
+              
+              {/* Blog and Section Tags */}
+              <div className="flex flex-wrap gap-1 mb-2">
+                {image.blog_id && (image as any).blogs && (
+                  <Badge variant="outline" className="text-xs">
+                    📖 {(image as any).blogs.title}
+                  </Badge>
+                )}
+                {image.blog_section && (
+                  <Badge variant="secondary" className="text-xs">
+                    📍 {image.blog_section}
+                  </Badge>
+                )}
+                {image.generation_batch_id && (
+                  <Badge variant="outline" className="text-xs">
+                    🤖 AI Generated
+                  </Badge>
+                )}
+              </div>
+              
               {image.caption && (
                 <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                   {image.caption}

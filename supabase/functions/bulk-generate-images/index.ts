@@ -19,6 +19,8 @@ interface ImageRequest {
   size?: string;
   quality?: string;
   referenceImage?: string;
+  blog_id?: string;
+  blog_section?: string;
 }
 
 serve(async (req) => {
@@ -126,6 +128,9 @@ serve(async (req) => {
               url: imageUrl,
               width: 1024,
               height: 1024,
+              blog_id: imageReq.blog_id || null,
+              blog_section: imageReq.blog_section || null,
+              generation_batch_id: batchId,
             }]);
 
           if (insertError) {
@@ -171,6 +176,36 @@ serve(async (req) => {
           updated_at: new Date().toISOString()
         })
         .eq('batch_id', batchId);
+
+      // If images have blog_id, trigger blog content update
+      const blogImages = images.filter(img => img.blog_id);
+      if (blogImages.length > 0) {
+        const uniqueBlogIds = [...new Set(blogImages.map(img => img.blog_id))];
+        
+        for (const blogId of uniqueBlogIds) {
+          try {
+            const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/update-blog-with-images`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+              },
+              body: JSON.stringify({
+                blogId,
+                batchId
+              }),
+            });
+            
+            if (!response.ok) {
+              console.error(`Failed to update blog ${blogId}:`, await response.text());
+            } else {
+              console.log(`Successfully triggered blog update for ${blogId}`);
+            }
+          } catch (error) {
+            console.error(`Error updating blog ${blogId}:`, error);
+          }
+        }
+      }
 
       console.log(`Completed bulk generation for batch ${batchId}`);
     };

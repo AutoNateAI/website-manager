@@ -296,9 +296,12 @@ export type Database = {
       images: {
         Row: {
           alt_text: string | null
+          blog_id: string | null
+          blog_section: string | null
           caption: string | null
           created_at: string
           file_size: number | null
+          generation_batch_id: string | null
           height: number | null
           id: string
           mime_type: string | null
@@ -309,9 +312,12 @@ export type Database = {
         }
         Insert: {
           alt_text?: string | null
+          blog_id?: string | null
+          blog_section?: string | null
           caption?: string | null
           created_at?: string
           file_size?: number | null
+          generation_batch_id?: string | null
           height?: number | null
           id?: string
           mime_type?: string | null
@@ -322,9 +328,12 @@ export type Database = {
         }
         Update: {
           alt_text?: string | null
+          blog_id?: string | null
+          blog_section?: string | null
           caption?: string | null
           created_at?: string
           file_size?: number | null
+          generation_batch_id?: string | null
           height?: number | null
           id?: string
           mime_type?: string | null
@@ -333,7 +342,15 @@ export type Database = {
           url?: string
           width?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "images_blog_id_fkey"
+            columns: ["blog_id"]
+            isOneToOne: false
+            referencedRelation: "blogs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

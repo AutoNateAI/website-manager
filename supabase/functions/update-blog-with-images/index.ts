@@ -16,13 +16,46 @@ serve(async (req) => {
   }
 
   try {
-    const { blogId, imageUpdates } = await req.json();
+    const { blogId, imageUpdates, batchId } = await req.json();
 
-    if (!blogId || !imageUpdates || imageUpdates.length === 0) {
-      throw new Error('Blog ID and image updates are required');
+    if (!blogId) {
+      throw new Error('Blog ID is required');
     }
 
-    console.log(`Updating blog ${blogId} with ${imageUpdates.length} images`);
+    // If batchId is provided, fetch images from that generation batch
+    let updates = imageUpdates || [];
+    if (batchId && (!imageUpdates || imageUpdates.length === 0)) {
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      const { data: batchImages, error: batchError } = await supabase
+        .from('images')
+        .select('url, alt_text, caption, blog_section')
+        .eq('generation_batch_id', batchId)
+        .eq('blog_id', blogId);
+
+      if (batchError) {
+        console.error('Failed to fetch batch images:', batchError);
+      } else if (batchImages && batchImages.length > 0) {
+        updates = batchImages.map(img => ({
+          imageUrl: img.url,
+          section: img.blog_section,
+          alt_text: img.alt_text,
+          caption: img.caption
+        }));
+      }
+    }
+
+    if (updates.length === 0) {
+      console.log('No image updates to process');
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'No image updates to process'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log(`Updating blog ${blogId} with ${updates.length} images`);
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -40,7 +73,7 @@ serve(async (req) => {
     let updatedContent = blog.content;
 
     // Insert images into content at specified sections
-    for (const update of imageUpdates) {
+    for (const update of updates) {
       const { imageUrl, section, alt_text, caption } = update;
       
       // Find the section heading in the content

@@ -215,7 +215,9 @@ const BlogImageCreator = () => {
             caption: req.caption,
             size: "1024x1024",
             quality: "high",
-            referenceImage: useSharedReference ? sharedReferenceImage : req.referenceImage
+            referenceImage: useSharedReference ? sharedReferenceImage : req.referenceImage,
+            blog_id: selectedBlog,
+            blog_section: req.section
           })),
           batchId
         }
@@ -223,6 +225,29 @@ const BlogImageCreator = () => {
 
       if (bulkError) throw bulkError;
       if (bulkData.error) throw new Error(bulkData.error);
+
+      // Update blog content with generated images once complete
+      const imageUpdates = imageRequests.map(req => ({
+        imageUrl: '', // Will be filled when images are generated
+        section: req.section,
+        alt_text: req.alt_text || req.prompt,
+        caption: req.caption
+      }));
+
+      // Store the batch and blog info for later update
+      if (bulkData.batchId) {
+        // We'll trigger the blog update after images are generated
+        // This will be handled by the bulk-generate-images function
+        const { error: updateError } = await supabase.functions.invoke('update-blog-with-images', {
+          body: {
+            blogId: selectedBlog,
+            batchId: bulkData.batchId
+          }
+        });
+        if (updateError) {
+          console.error('Failed to schedule blog update:', updateError);
+        }
+      }
 
       toast({
         title: "Success",
