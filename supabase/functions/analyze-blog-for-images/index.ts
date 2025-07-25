@@ -84,10 +84,18 @@ Limit to 3-5 high-impact image suggestions.`;
 
     const content = data.choices[0].message.content;
     
-    // Parse the JSON response
+    // Parse the JSON response, handling markdown code blocks
     let imageSuggestions;
     try {
-      imageSuggestions = JSON.parse(content);
+      // Remove markdown code block wrapper if present
+      let cleanContent = content.trim();
+      if (cleanContent.startsWith('```json') && cleanContent.endsWith('```')) {
+        cleanContent = cleanContent.slice(7, -3).trim();
+      } else if (cleanContent.startsWith('```') && cleanContent.endsWith('```')) {
+        cleanContent = cleanContent.slice(3, -3).trim();
+      }
+      
+      imageSuggestions = JSON.parse(cleanContent);
     } catch (parseError) {
       console.error('Failed to parse AI response:', content);
       throw new Error('Failed to parse image suggestions from AI response');
