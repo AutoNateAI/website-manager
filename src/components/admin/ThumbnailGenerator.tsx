@@ -96,11 +96,11 @@ const ThumbnailGenerator = ({
             <Card className="glass-card">
               <CardContent className="p-4">
                 <h4 className="font-medium mb-3">Generated Thumbnail</h4>
-                <div className="rounded-lg overflow-hidden">
+                <div className="rounded-xl overflow-hidden shadow-lg">
                   <img 
                     src={generatedThumbnail} 
                     alt="Generated thumbnail" 
-                    className="w-full h-64 object-cover rounded-lg"
+                    className="w-full h-64 object-cover rounded-xl"
                   />
                 </div>
               </CardContent>

@@ -305,6 +305,7 @@ export type Database = {
           height: number | null
           id: string
           mime_type: string | null
+          parent_image_id: string | null
           title: string
           updated_at: string
           url: string
@@ -321,6 +322,7 @@ export type Database = {
           height?: number | null
           id?: string
           mime_type?: string | null
+          parent_image_id?: string | null
           title: string
           updated_at?: string
           url: string
@@ -337,12 +339,20 @@ export type Database = {
           height?: number | null
           id?: string
           mime_type?: string | null
+          parent_image_id?: string | null
           title?: string
           updated_at?: string
           url?: string
           width?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_parent_image"
+            columns: ["parent_image_id"]
+            isOneToOne: false
+            referencedRelation: "images"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "images_blog_id_fkey"
             columns: ["blog_id"]

@@ -86,7 +86,7 @@ const BlogContentImages = ({ content, onImageUpdated }: BlogContentImagesProps) 
                 <img 
                   src={image.url} 
                   alt={image.alt}
-                  className="w-24 h-24 object-cover rounded-lg"
+                  className="w-24 h-24 object-cover rounded-xl shadow-lg"
                 />
               </div>
               <div className="flex-1 space-y-2">

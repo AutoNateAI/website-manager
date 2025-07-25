@@ -96,11 +96,11 @@ const ImageEditor = ({ isOpen, onClose, imageUrl, imageId, onImageUpdated }: Ima
           <Card className="glass-card">
             <CardContent className="p-4">
               <Label className="text-sm font-medium text-muted-foreground">Current Image</Label>
-              <div className="mt-2 rounded-lg overflow-hidden">
+              <div className="mt-2 rounded-xl overflow-hidden shadow-lg">
                 <img 
                   src={imageUrl} 
                   alt="Current image" 
-                  className="w-full h-48 object-cover rounded-lg"
+                  className="w-full h-48 object-cover rounded-xl"
                 />
               </div>
             </CardContent>

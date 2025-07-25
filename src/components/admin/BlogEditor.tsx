@@ -10,6 +10,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Wand2, Image, Save, Loader2, Plus, Trash2, ImageIcon } from 'lucide-react';
+import BlogContentImages from './BlogContentImages';
+import ThumbnailGenerator from './ThumbnailGenerator';
 
 interface Blog {
   id: string;
@@ -75,6 +77,7 @@ const BlogEditor = ({ blog, onClose }: BlogEditorProps) => {
   const [availableImages, setAvailableImages] = useState<ImageItem[]>([]);
   const [attachedImages, setAttachedImages] = useState<BlogImage[]>([]);
   const [showImageGallery, setShowImageGallery] = useState(false);
+  const [showThumbnailGenerator, setShowThumbnailGenerator] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -212,7 +215,10 @@ const BlogEditor = ({ blog, onClose }: BlogEditorProps) => {
     setGeneratingImage(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-image', {
-        body: { prompt }
+        body: { 
+          prompt,
+          size: "1920x1080"
+        }
       });
 
       if (error) throw error;
@@ -388,6 +394,12 @@ const BlogEditor = ({ blog, onClose }: BlogEditorProps) => {
     }
 
     return headings;
+  };
+
+  const handleImageUpdated = (oldUrl: string, newUrl: string) => {
+    // Update the content by replacing the old image URL with the new one
+    const updatedContent = formData.content.replace(oldUrl, newUrl);
+    setFormData(prev => ({ ...prev, content: updatedContent }));
   };
 
   return (
@@ -623,6 +635,38 @@ const BlogEditor = ({ blog, onClose }: BlogEditorProps) => {
         </CardContent>
       </Card>
 
+      {/* Content Images Display */}
+      {formData.content && (
+        <BlogContentImages 
+          content={formData.content}
+          onImageUpdated={handleImageUpdated}
+        />
+      )}
+
+      {/* Thumbnail Generator */}
+      {(formData.title || formData.excerpt) && (
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Image size={20} />
+              Thumbnail Generator
+            </CardTitle>
+            <CardDescription>
+              Generate a professional thumbnail for your blog post
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={() => setShowThumbnailGenerator(true)}
+              className="glass-button glow-accent"
+            >
+              <Image size={18} className="mr-2" />
+              Generate Thumbnail
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Image Management Section */}
       {formData.content && (
         <Card className="glass-card">
@@ -657,7 +701,7 @@ const BlogEditor = ({ blog, onClose }: BlogEditorProps) => {
                       <img
                         src={blogImage.image.url}
                         alt={blogImage.image.alt_text}
-                        className="w-full h-32 object-cover rounded"
+                        className="w-full h-32 object-cover rounded-xl shadow-lg"
                       />
                       <div className="space-y-2">
                         <p className="font-medium text-sm">{blogImage.image.title}</p>
@@ -698,7 +742,7 @@ const BlogEditor = ({ blog, onClose }: BlogEditorProps) => {
                           <img
                             src={image.url}
                             alt={image.alt_text}
-                            className="w-full h-32 object-cover rounded"
+                            className="w-full h-32 object-cover rounded-xl shadow-lg"
                           />
                           <div className="space-y-2">
                             <p className="font-medium text-sm">{image.title}</p>
@@ -740,6 +784,18 @@ const BlogEditor = ({ blog, onClose }: BlogEditorProps) => {
           </CardContent>
         </Card>
       )}
+
+      {/* Thumbnail Generator Dialog */}
+      <ThumbnailGenerator
+        isOpen={showThumbnailGenerator}
+        onClose={() => setShowThumbnailGenerator(false)}
+        blogTitle={formData.title}
+        blogExcerpt={formData.excerpt}
+        blogCategory={formData.category}
+        onThumbnailGenerated={(thumbnailUrl) => {
+          setFormData(prev => ({ ...prev, hero_image: thumbnailUrl }));
+        }}
+      />
     </div>
   );
 };
