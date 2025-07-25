@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Edit, Trash2, Plus, Sparkles } from 'lucide-react';
-import BulkImageGenerator from './BulkImageGenerator';
+import BlogImageCreator from './BlogImageCreator';
 import GenerationProgress from './GenerationProgress';
 import ImageViewer from './ImageViewer';
 import BlogAssignmentSelector from './BlogAssignmentSelector';
@@ -315,7 +315,7 @@ const ImageManager = () => {
             </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            <BulkImageGenerator />
+            <BlogImageCreator />
             <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
               <DialogTrigger asChild>
                 <Button className="w-full sm:w-auto" size="sm">
