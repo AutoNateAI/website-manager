@@ -116,7 +116,29 @@ serve(async (req) => {
           }
 
           const imageData = data.data[0].b64_json;
-          const imageUrl = `data:image/png;base64,${imageData}`;
+          
+          // Convert base64 to blob and upload to Supabase Storage
+          const imageBuffer = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
+          const fileName = `${batchId}-${index + 1}-${Date.now()}.png`;
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('generated-images')
+            .upload(fileName, imageBuffer, {
+              contentType: 'image/png',
+              upsert: false
+            });
+
+          if (uploadError) {
+            console.error(`Storage upload error for image ${index + 1}:`, uploadError);
+            throw uploadError;
+          }
+
+          // Get public URL for the uploaded image
+          const { data: urlData } = supabase.storage
+            .from('generated-images')
+            .getPublicUrl(fileName);
+
+          const imageUrl = urlData.publicUrl;
 
           // Save to database
           const { error: insertError } = await supabase
