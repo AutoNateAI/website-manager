@@ -40,7 +40,7 @@ const ThumbnailGenerator = ({
       const { data, error } = await supabase.functions.invoke('generate-image', {
         body: { 
           prompt: thumbnailPrompt,
-          size: "1920x1080"
+          size: "1536x1024"
         }
       });
 
