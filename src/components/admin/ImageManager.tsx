@@ -28,6 +28,7 @@ interface Image {
 interface Blog {
   id: string;
   title: string;
+  content: string;
 }
 
 const ImageManager = () => {
@@ -80,7 +81,7 @@ const ImageManager = () => {
     try {
       const [imagesResult, blogsResult] = await Promise.all([
         supabase.from('images').select('*').order('created_at', { ascending: false }),
-        supabase.from('blogs').select('id, title').order('title')
+        supabase.from('blogs').select('id, title, content').order('title')
       ]);
 
       if (imagesResult.error) throw imagesResult.error;

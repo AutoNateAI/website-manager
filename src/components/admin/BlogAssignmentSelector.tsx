@@ -7,6 +7,7 @@ import { ChevronRight } from 'lucide-react';
 interface Blog {
   id: string;
   title: string;
+  content: string;
 }
 
 interface BlogAssignmentSelectorProps {
@@ -15,24 +16,66 @@ interface BlogAssignmentSelectorProps {
   onAssign: (imageId: string, blogId: string, position: string) => void;
 }
 
+interface BlogSection {
+  value: string;
+  label: string;
+}
+
 const BlogAssignmentSelector = ({ imageId, blogs, onAssign }: BlogAssignmentSelectorProps) => {
   const [selectedBlogId, setSelectedBlogId] = useState<string>('');
   const [selectedPosition, setSelectedPosition] = useState<string>('');
   const [showDialog, setShowDialog] = useState(false);
+  const [availableSections, setAvailableSections] = useState<BlogSection[]>([]);
 
-  const blogSections = [
-    { value: 'hero', label: 'Hero Section' },
-    { value: 'after_heading_1', label: 'After Heading 1' },
-    { value: 'after_heading_2', label: 'After Heading 2' },
-    { value: 'after_heading_3', label: 'After Heading 3' },
-    { value: 'after_heading_4', label: 'After Heading 4' },
-    { value: 'after_heading_5', label: 'After Heading 5' },
-    { value: 'after_paragraph_1', label: 'After Paragraph 1' },
-    { value: 'after_paragraph_2', label: 'After Paragraph 2' },
-    { value: 'after_paragraph_3', label: 'After Paragraph 3' },
-    { value: 'before_conclusion', label: 'Before Conclusion' },
-    { value: 'conclusion', label: 'Conclusion' },
-  ];
+  const extractSectionsFromContent = (content: string): BlogSection[] => {
+    const sections: BlogSection[] = [
+      { value: 'hero', label: 'Hero Section' }
+    ];
+    
+    // Extract headings from markdown content
+    const headingMatches = content.match(/^#{1,6}\s+(.+)$/gm);
+    
+    if (headingMatches) {
+      headingMatches.forEach((match, index) => {
+        const headingText = match.replace(/^#{1,6}\s+/, '').trim();
+        const headingNumber = index + 1;
+        sections.push({
+          value: `after_heading_${headingNumber}`,
+          label: `After "${headingText}"`
+        });
+      });
+    }
+    
+    // Extract paragraphs
+    const paragraphMatches = content.split('\n\n').filter(p => 
+      p.trim() && !p.match(/^#{1,6}\s/) && p.length > 50
+    );
+    
+    paragraphMatches.slice(0, 3).forEach((_, index) => {
+      const paragraphNumber = index + 1;
+      sections.push({
+        value: `after_paragraph_${paragraphNumber}`,
+        label: `After Paragraph ${paragraphNumber}`
+      });
+    });
+    
+    sections.push(
+      { value: 'before_conclusion', label: 'Before Conclusion' },
+      { value: 'conclusion', label: 'Conclusion' }
+    );
+    
+    return sections;
+  };
+
+  const handleBlogSelect = (blogId: string) => {
+    setSelectedBlogId(blogId);
+    const selectedBlog = blogs.find(blog => blog.id === blogId);
+    if (selectedBlog) {
+      const sections = extractSectionsFromContent(selectedBlog.content);
+      setAvailableSections(sections);
+    }
+    setSelectedPosition(''); // Reset position when blog changes
+  };
 
   const handleAssign = () => {
     if (selectedBlogId && selectedPosition) {
@@ -65,7 +108,7 @@ const BlogAssignmentSelector = ({ imageId, blogs, onAssign }: BlogAssignmentSele
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Select Blog</label>
-              <Select value={selectedBlogId} onValueChange={setSelectedBlogId}>
+              <Select value={selectedBlogId} onValueChange={handleBlogSelect}>
                 <SelectTrigger className="glass bg-transparent">
                   <SelectValue placeholder="Choose a blog" />
                 </SelectTrigger>
@@ -86,7 +129,7 @@ const BlogAssignmentSelector = ({ imageId, blogs, onAssign }: BlogAssignmentSele
                   <SelectValue placeholder="Choose a section" />
                 </SelectTrigger>
                 <SelectContent>
-                  {blogSections.map((section) => (
+                  {availableSections.map((section) => (
                     <SelectItem key={section.value} value={section.value}>
                       {section.label}
                     </SelectItem>

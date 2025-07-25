@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Wand2, Image, Save, Trash2, Edit, Eye } from 'lucide-react';
 import BlogEditor from './BlogEditor';
+import BlogPreviewDialog from './BlogPreviewDialog';
 
 interface Blog {
   id: string;
@@ -34,6 +35,8 @@ const BlogManager = () => {
   const [loading, setLoading] = useState(true);
   const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
   const [showEditor, setShowEditor] = useState(false);
+  const [previewBlog, setPreviewBlog] = useState<Blog | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -127,6 +130,11 @@ const BlogManager = () => {
     fetchBlogs(); // Refresh the list
   };
 
+  const handlePreview = (blog: Blog) => {
+    setPreviewBlog(blog);
+    setShowPreview(true);
+  };
+
   if (showEditor) {
     return (
       <BlogEditor
@@ -182,7 +190,7 @@ const BlogManager = () => {
           </Card>
         ) : (
           blogs.map((blog) => (
-            <Card key={blog.id} className="glass-card">
+            <Card key={blog.id} className="glass-card cursor-pointer hover:glow-soft transition-all" onClick={() => handlePreview(blog)}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -209,7 +217,10 @@ const BlogManager = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => togglePublished(blog.id, blog.published)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePublished(blog.id, blog.published);
+                      }}
                       className="glass-button"
                     >
                       <Eye size={16} className="mr-1" />
@@ -218,7 +229,10 @@ const BlogManager = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleEdit(blog)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(blog);
+                      }}
                       className="glass-button"
                     >
                       <Edit size={16} className="mr-1" />
@@ -227,7 +241,10 @@ const BlogManager = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => deleteBlog(blog.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteBlog(blog.id);
+                      }}
                       className="glass-button hover:border-destructive hover:text-destructive"
                     >
                       <Trash2 size={16} />
@@ -239,6 +256,15 @@ const BlogManager = () => {
           ))
         )}
       </div>
+
+      {/* Blog Preview Dialog */}
+      {previewBlog && (
+        <BlogPreviewDialog
+          blog={previewBlog}
+          open={showPreview}
+          onOpenChange={setShowPreview}
+        />
+      )}
     </div>
   );
 };

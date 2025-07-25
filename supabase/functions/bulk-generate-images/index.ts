@@ -74,9 +74,10 @@ serve(async (req) => {
             output_format: 'png'
           };
 
-          // Add reference image if provided (OpenAI supports this via prompt enhancement)
+          // Add reference image if provided (OpenAI gpt-image-1 supports reference images)
           if (imageReq.referenceImage) {
-            requestBody.prompt = `${imageReq.prompt}. Use this reference image for style and composition: ${imageReq.referenceImage}`;
+            requestBody.prompt = `${imageReq.prompt}. Style and composition should closely follow this reference image`;
+            requestBody.reference_image = imageReq.referenceImage;
           }
 
           const response = await fetch('https://api.openai.com/v1/images/generations', {
