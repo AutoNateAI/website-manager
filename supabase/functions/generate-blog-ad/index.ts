@@ -1,0 +1,153 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { blogTitle, blogContent, blogCategory, position, imageSize } = await req.json();
+
+    console.log('Generating ad for blog:', blogTitle);
+
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    // Generate ad copy first
+    const copyResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a creative advertising copywriter specializing in funny, memorable ads with optical illusions and visual tricks. Create engaging ad copy that relates to blog content while being humorous and clever.`
+          },
+          {
+            role: 'user',
+            content: `Create a funny advertisement based on this blog:
+
+Title: ${blogTitle}
+Category: ${blogCategory}
+Content excerpt: ${blogContent}
+
+The ad is for position: ${position}
+
+Requirements:
+1. Create a catchy, humorous title (max 60 characters)
+2. Write engaging copy that references the blog content but promotes a related product/service
+3. Include clever wordplay or optical illusion concepts
+4. Keep it fun and memorable
+5. Make it relevant to the blog topic
+
+Return a JSON object with:
+{
+  "title": "Ad title",
+  "copy": "Full ad copy (2-3 sentences max)",
+  "imagePrompt": "Detailed prompt for generating an optical illusion-style image that matches the ad"
+}`
+          }
+        ],
+        temperature: 0.8,
+      }),
+    });
+
+    const copyData = await copyResponse.json();
+    
+    if (!copyResponse.ok) {
+      console.error('OpenAI Copy API error:', copyData);
+      throw new Error(copyData.error?.message || 'Failed to generate ad copy');
+    }
+
+    let adContent;
+    try {
+      adContent = JSON.parse(copyData.choices[0].message.content);
+    } catch (parseError) {
+      throw new Error('Failed to parse ad copy response');
+    }
+
+    // Generate the image based on the copy and image prompt
+    const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-image-1',
+        prompt: `Create a funny advertisement image with optical illusion elements. ${adContent.imagePrompt}. Style: vibrant, eye-catching, professional advertising design with clever visual tricks and humor. Include text space for "${adContent.title}". High-quality commercial ad style.`,
+        n: 1,
+        size: imageSize,
+        quality: 'high',
+        output_format: 'png'
+      }),
+    });
+
+    const imageData = await imageResponse.json();
+    
+    if (!imageResponse.ok) {
+      console.error('OpenAI Image API error:', imageData);
+      throw new Error(imageData.error?.message || 'Failed to generate image');
+    }
+
+    // Upload image to Supabase Storage
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.52.0');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const imageBuffer = Uint8Array.from(atob(imageData.data[0].b64_json), c => c.charCodeAt(0));
+    const fileName = `ad-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.png`;
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('generated-images')
+      .upload(fileName, imageBuffer, {
+        contentType: 'image/png',
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError);
+      throw uploadError;
+    }
+
+    // Get public URL for the uploaded image
+    const { data: urlData } = supabase.storage
+      .from('generated-images')
+      .getPublicUrl(fileName);
+
+    const imageUrl = urlData.publicUrl;
+
+    console.log('Generated ad successfully');
+
+    return new Response(JSON.stringify({
+      title: adContent.title,
+      copy: adContent.copy,
+      imageUrl: imageUrl,
+      imagePrompt: adContent.imagePrompt
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error in generate-blog-ad function:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Failed to generate blog ad' 
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
