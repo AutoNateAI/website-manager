@@ -30,7 +30,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4.1-2025-04-14',
         messages: [
           {
             role: 'system',
@@ -74,9 +74,18 @@ Return a JSON object with:
 
     let adContent;
     try {
-      adContent = JSON.parse(copyData.choices[0].message.content);
+      const rawContent = copyData.choices[0].message.content;
+      console.log('Raw OpenAI response:', rawContent);
+      
+      // Extract JSON from response if it's wrapped in markdown
+      const jsonMatch = rawContent.match(/```json\n([\s\S]*?)\n```/) || rawContent.match(/```\n([\s\S]*?)\n```/);
+      const contentToParse = jsonMatch ? jsonMatch[1] : rawContent;
+      
+      adContent = JSON.parse(contentToParse);
     } catch (parseError) {
-      throw new Error('Failed to parse ad copy response');
+      console.error('Parse error:', parseError);
+      console.error('Content that failed to parse:', copyData.choices[0]?.message?.content);
+      throw new Error(`Failed to parse ad copy response: ${parseError.message}`);
     }
 
     // Generate the image based on the copy and image prompt
