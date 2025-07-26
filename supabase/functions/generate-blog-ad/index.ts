@@ -99,7 +99,7 @@ Return a JSON object with:
         model: 'gpt-image-1',
         prompt: `Create a funny advertisement image with optical illusion elements. ${adContent.imagePrompt}. Style: vibrant, eye-catching, professional advertising design with clever visual tricks and humor. Include text space for "${adContent.title}". High-quality commercial ad style.`,
         n: 1,
-        size: imageSize,
+        size: imageSize || '1024x1024',
         quality: 'high',
         output_format: 'png'
       }),
