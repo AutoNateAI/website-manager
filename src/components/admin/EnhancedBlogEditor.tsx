@@ -125,6 +125,7 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
         featured: blog.featured,
         hero_image: blog.hero_image || '',
         hero_image_alt: blog.hero_image_alt || '',
+        read_time: blog.read_time,
       });
       fetchAttachedImages(blog.id);
     }
@@ -1035,12 +1036,12 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
             {blog && (
               <>
                 <BlogContentImages
-                  blog={blog}
                   content={currentData.content}
-                  onImageUpdated={(updatedContent) => handleInputChange('content', updatedContent)}
+                  onImageUpdated={(oldUrl, newUrl) => {
+                    const updatedContent = currentData.content.replace(oldUrl, newUrl);
+                    handleInputChange('content', updatedContent);
+                  }}
                 />
-
-                <ThumbnailGenerator blog={blog} />
               </>
             )}
           </>
