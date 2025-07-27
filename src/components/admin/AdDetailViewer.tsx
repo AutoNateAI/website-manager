@@ -217,7 +217,7 @@ const AdDetailViewer = ({ ad, isOpen, onClose, onAdUpdated }: AdDetailViewerProp
                       <img 
                         src={ad.image_url} 
                         alt={ad.alt_text || ad.title}
-                        className="w-full max-w-md h-auto rounded-lg border"
+                        className="w-full h-auto max-w-full object-contain rounded-lg border"
                       />
                       <p className="text-sm text-muted-foreground">
                         Current advertisement image
@@ -374,7 +374,7 @@ const AdDetailViewer = ({ ad, isOpen, onClose, onAdUpdated }: AdDetailViewerProp
                       <img 
                         src={ad.image_url} 
                         alt="Current"
-                        className="w-full h-32 object-cover rounded border"
+                        className="w-full h-32 object-contain rounded border"
                       />
                     </div>
                   )}
@@ -383,7 +383,7 @@ const AdDetailViewer = ({ ad, isOpen, onClose, onAdUpdated }: AdDetailViewerProp
                     <img 
                       src={newImageUrl} 
                       alt="New version"
-                      className="w-full h-32 object-cover rounded border"
+                      className="w-full h-32 object-contain rounded border"
                     />
                   </div>
                 </div>

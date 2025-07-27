@@ -81,7 +81,7 @@ const ImageViewer = ({ image, isOpen, onClose }: ImageViewerProps) => {
               <img
                 src={image.url}
                 alt={image.alt_text || image.title}
-                className={`max-w-full max-h-[80vh] object-contain transition-opacity duration-300 ${
+                className={`w-full h-full max-w-full max-h-[80vh] object-contain transition-opacity duration-300 ${
                   imageLoaded ? 'opacity-100' : 'opacity-0'
                 }`}
                 onLoad={() => setImageLoaded(true)}
