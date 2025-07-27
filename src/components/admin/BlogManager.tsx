@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Wand2, Image, Save, Trash2, Edit, Eye } from 'lucide-react';
-import BlogEditor from './BlogEditor';
+import EnhancedBlogEditor from './EnhancedBlogEditor';
 import BlogPreviewDialog from './BlogPreviewDialog';
 
 interface Blog {
@@ -137,7 +137,7 @@ const BlogManager = () => {
 
   if (showEditor) {
     return (
-      <BlogEditor
+      <EnhancedBlogEditor
         blog={selectedBlog}
         onClose={handleEditorClose}
       />

@@ -7,8 +7,6 @@ import { LogOut, PenTool, Megaphone, Image } from 'lucide-react';
 import BlogManager from '@/components/admin/BlogManager';
 import AdManager from '@/components/admin/AdManager';
 import ImageManager from '@/components/admin/ImageManager';
-import { BlogAdCreator } from '@/components/admin/BlogAdCreator';
-import { BlogAdAssignmentSelector } from '@/components/admin/BlogAdAssignmentSelector';
 
 const Admin = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
@@ -90,11 +88,7 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="ads" className="space-y-4 sm:space-y-6">
-            <div className="space-y-6">
-              <BlogAdAssignmentSelector />
-              <BlogAdCreator />
-              <AdManager />
-            </div>
+            <AdManager />
           </TabsContent>
         </Tabs>
       </div>
