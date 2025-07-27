@@ -9,7 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, Sparkles, Zap, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, Sparkles, Zap, Image as ImageIcon, Settings, Eye } from 'lucide-react';
+import AdDetailViewer from './AdDetailViewer';
+import BlogListAdManager from './BlogListAdManager';
 
 interface Advertisement {
   id: string;
@@ -73,6 +75,9 @@ const AdManager = () => {
   });
   const [generatingAd, setGeneratingAd] = useState(false);
   const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [selectedAdForDetail, setSelectedAdForDetail] = useState<Advertisement | null>(null);
+  const [showAdDetail, setShowAdDetail] = useState(false);
+  const [showBlogListAdManager, setShowBlogListAdManager] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -300,57 +305,79 @@ const AdManager = () => {
     }
   };
 
+  const handleAdClick = (ad: Advertisement) => {
+    setSelectedAdForDetail(ad);
+    setShowAdDetail(true);
+  };
+
+  const handleAdDetailClose = () => {
+    setShowAdDetail(false);
+    setSelectedAdForDetail(null);
+  };
+
+  const handleAdUpdated = () => {
+    fetchData();
+    if (selectedBlog) fetchBlogAds();
+  };
+
   const generateAdWithAI = async (position: string) => {
     if (!selectedBlog) return;
 
     setGeneratingAd(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-blog-ad', {
-        body: {
-          blogTitle: selectedBlog.title,
-          blogContent: selectedBlog.content.slice(0, 500),
-          blogCategory: selectedBlog.category,
-          position,
-          imageSize: getImageSizeForPosition(position)
+      // Use setTimeout to make this non-blocking
+      setTimeout(async () => {
+        try {
+          const { data, error } = await supabase.functions.invoke('generate-blog-ad', {
+            body: {
+              blogTitle: selectedBlog.title,
+              blogContent: selectedBlog.content.slice(0, 500),
+              blogCategory: selectedBlog.category,
+              position,
+              imageSize: getImageSizeForPosition(position)
+            }
+          });
+
+          if (error) throw error;
+          if (data.error) throw new Error(data.error);
+
+          // Create the ad with the generated content
+          const adData = {
+            title: data.title,
+            image_url: data.imageUrl,
+            link_url: '#', // Default link
+            link_type: 'external',
+            target_type: 'specific_post',
+            target_value: selectedBlog.slug,
+            position,
+            is_active: true,
+            alt_text: data.imagePrompt,
+            ...getDimensionsForPosition(position)
+          };
+
+          const { error: insertError } = await supabase
+            .from('advertisements')
+            .insert([adData]);
+
+          if (insertError) throw insertError;
+
+          toast({
+            title: "Success",
+            description: "AI advertisement generated successfully!",
+          });
+
+          fetchBlogAds();
+        } catch (error: any) {
+          toast({
+            title: "Error",
+            description: "Failed to generate ad: " + error.message,
+            variant: "destructive",
+          });
+        } finally {
+          setGeneratingAd(false);
         }
-      });
-
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-
-      // Create the ad with the generated content
-      const adData = {
-        title: data.title,
-        image_url: data.imageUrl,
-        link_url: '#', // Default link
-        link_type: 'external',
-        target_type: 'specific_post',
-        target_value: selectedBlog.slug,
-        position,
-        is_active: true,
-        alt_text: data.imagePrompt,
-        ...getDimensionsForPosition(position)
-      };
-
-      const { error: insertError } = await supabase
-        .from('advertisements')
-        .insert([adData]);
-
-      if (insertError) throw insertError;
-
-      toast({
-        title: "Success",
-        description: "AI advertisement generated successfully!",
-      });
-
-      fetchBlogAds();
+      }, 100);
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to generate ad: " + error.message,
-        variant: "destructive",
-      });
-    } finally {
       setGeneratingAd(false);
     }
   };
@@ -359,64 +386,74 @@ const AdManager = () => {
     if (!selectedBlog) return;
 
     setBulkGenerating(true);
-    try {
-      const positions = Object.keys(AD_LIMITS);
-      const promises = positions.map(position => 
-        supabase.functions.invoke('generate-blog-ad', {
-          body: {
-            blogTitle: selectedBlog.title,
-            blogContent: selectedBlog.content.slice(0, 500),
-            blogCategory: selectedBlog.category,
-            position,
-            imageSize: getImageSizeForPosition(position)
+    
+    // Show immediate feedback
+    toast({
+      title: "Generating...",
+      description: "Bulk generating ads for all positions. This will run in the background.",
+    });
+
+    // Use setTimeout to make this non-blocking
+    setTimeout(async () => {
+      try {
+        const positions = Object.keys(AD_LIMITS);
+        const promises = positions.map(position => 
+          supabase.functions.invoke('generate-blog-ad', {
+            body: {
+              blogTitle: selectedBlog.title,
+              blogContent: selectedBlog.content.slice(0, 500),
+              blogCategory: selectedBlog.category,
+              position,
+              imageSize: getImageSizeForPosition(position)
+            }
+          })
+        );
+
+        const results = await Promise.all(promises);
+        const adsToInsert = [];
+
+        for (let i = 0; i < results.length; i++) {
+          const { data, error } = results[i];
+          if (!error && !data.error) {
+            adsToInsert.push({
+              title: data.title,
+              image_url: data.imageUrl,
+              link_url: '#',
+              link_type: 'external',
+              target_type: 'specific_post',
+              target_value: selectedBlog.slug,
+              position: positions[i],
+              is_active: true,
+              alt_text: data.imagePrompt,
+              ...getDimensionsForPosition(positions[i])
+            });
           }
-        })
-      );
-
-      const results = await Promise.all(promises);
-      const adsToInsert = [];
-
-      for (let i = 0; i < results.length; i++) {
-        const { data, error } = results[i];
-        if (!error && !data.error) {
-          adsToInsert.push({
-            title: data.title,
-            image_url: data.imageUrl,
-            link_url: '#',
-            link_type: 'external',
-            target_type: 'specific_post',
-            target_value: selectedBlog.slug,
-            position: positions[i],
-            is_active: true,
-            alt_text: data.imagePrompt,
-            ...getDimensionsForPosition(positions[i])
-          });
         }
-      }
 
-      if (adsToInsert.length > 0) {
-        const { error: insertError } = await supabase
-          .from('advertisements')
-          .insert(adsToInsert);
+        if (adsToInsert.length > 0) {
+          const { error: insertError } = await supabase
+            .from('advertisements')
+            .insert(adsToInsert);
 
-        if (insertError) throw insertError;
+          if (insertError) throw insertError;
 
+          toast({
+            title: "Success",
+            description: `Generated ${adsToInsert.length} advertisements for all positions!`,
+          });
+
+          fetchBlogAds();
+        }
+      } catch (error: any) {
         toast({
-          title: "Success",
-          description: `Generated ${adsToInsert.length} advertisements for all positions!`,
+          title: "Error",
+          description: "Failed to bulk generate ads: " + error.message,
+          variant: "destructive",
         });
-
-        fetchBlogAds();
+      } finally {
+        setBulkGenerating(false);
       }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to bulk generate ads: " + error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setBulkGenerating(false);
-    }
+    }, 100);
   };
 
   const getImageSizeForPosition = (position: string) => {
@@ -461,13 +498,20 @@ const AdManager = () => {
     <div className="space-y-6">
       <div className="glass-card p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold gradient-text">Blog Advertisement Manager</h2>
-            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-              Create and manage targeted advertisements for your blogs
-            </p>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold gradient-text">Blog Advertisement Manager</h2>
+              <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+                Create and manage targeted advertisements for your blogs
+              </p>
+            </div>
+            <Button
+              onClick={() => setShowBlogListAdManager(true)}
+              className="glass-button glow-primary"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Manage Blog List Ads
+            </Button>
           </div>
-        </div>
       </div>
 
       {/* Blog Selection */}
@@ -567,7 +611,11 @@ const AdManager = () => {
                     <CardContent>
                       <div className="space-y-3">
                         {positionAds.map(ad => (
-                          <div key={ad.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                          <div 
+                            key={ad.id} 
+                            className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                            onClick={() => handleAdClick(ad)}
+                          >
                             {ad.image_url && (
                               <img 
                                 src={ad.image_url} 
@@ -586,11 +634,17 @@ const AdManager = () => {
                                     {ad.width}×{ad.height}
                                   </span>
                                 )}
+                                <Badge variant="outline" className="text-xs">
+                                  Click to view
+                                </Badge>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <Button
-                                onClick={() => handleEdit(ad)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(ad);
+                                }}
                                 size="sm"
                                 variant="ghost"
                               >
@@ -598,10 +652,16 @@ const AdManager = () => {
                               </Button>
                               <Switch
                                 checked={ad.is_active}
-                                onCheckedChange={(checked) => toggleActive(ad.id, checked)}
+                                onCheckedChange={(checked) => {
+                                  toggleActive(ad.id, checked);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
                               />
                               <Button
-                                onClick={() => deleteAd(ad.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteAd(ad.id);
+                                }}
                                 size="sm"
                                 variant="ghost"
                                 className="text-destructive"
@@ -770,7 +830,11 @@ const AdManager = () => {
         <h3 className="text-lg font-semibold mb-4">All Advertisements Overview</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {ads.map(ad => (
-            <Card key={ad.id} className="glass-card">
+            <Card 
+              key={ad.id} 
+              className="glass-card hover:glow-soft transition-all cursor-pointer"
+              onClick={() => handleAdClick(ad)}
+            >
               <CardContent className="p-4">
                 <div className="space-y-3">
                   {ad.image_url && (
@@ -802,20 +866,37 @@ const AdManager = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
-                      onClick={() => handleEdit(ad)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAdClick(ad);
+                      }}
                       size="sm"
                       variant="ghost"
                       className="flex-1"
                     >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
+                      <Eye className="h-4 w-4 mr-1" />
+                      View Details
+                    </Button>
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(ad);
+                      }}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      <Edit className="h-4 w-4" />
                     </Button>
                     <Switch
                       checked={ad.is_active}
                       onCheckedChange={(checked) => toggleActive(ad.id, checked)}
+                      onClick={(e) => e.stopPropagation()}
                     />
                     <Button
-                      onClick={() => deleteAd(ad.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteAd(ad.id);
+                      }}
                       size="sm"
                       variant="ghost"
                       className="text-destructive"
@@ -835,6 +916,20 @@ const AdManager = () => {
           </div>
         )}
       </div>
+
+      {/* Ad Detail Viewer */}
+      <AdDetailViewer
+        ad={selectedAdForDetail}
+        isOpen={showAdDetail}
+        onClose={handleAdDetailClose}
+        onAdUpdated={handleAdUpdated}
+      />
+
+      {/* Blog List Ad Manager */}
+      <BlogListAdManager
+        isOpen={showBlogListAdManager}
+        onClose={() => setShowBlogListAdManager(false)}
+      />
     </div>
   );
 };
