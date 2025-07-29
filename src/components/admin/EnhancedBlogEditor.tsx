@@ -9,9 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Wand2, Image, Save, Loader2, Plus, Trash2, ImageIcon } from 'lucide-react';
+import { ArrowLeft, Wand2, Image, Save, Loader2, Plus, Trash2, ImageIcon, Eye } from 'lucide-react';
 import BlogContentImages from './BlogContentImages';
 import ThumbnailGenerator from './ThumbnailGenerator';
+import BlogPreviewDialog from './BlogPreviewDialog';
 
 interface Blog {
   id: string;
@@ -109,6 +110,10 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
   // New thumbnail generation states
   const [generatingThumbnails, setGeneratingThumbnails] = useState<boolean[]>([]);
   const [generatingAllThumbnails, setGeneratingAllThumbnails] = useState(false);
+  
+  // Preview states
+  const [previewBlog, setPreviewBlog] = useState<GeneratedBlog | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   const { toast } = useToast();
 
@@ -722,7 +727,18 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
                           <h4 className="font-semibold text-lg">{blog.title}</h4>
                           <p className="text-sm text-muted-foreground">{blog.excerpt}</p>
                         </div>
-                        <div className="flex gap-2 ml-4">
+                       <div className="flex gap-2 ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setPreviewBlog(blog);
+                              setShowPreview(true);
+                            }}
+                            className="glass-button"
+                          >
+                            <Eye size={16} />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -977,16 +993,27 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="hero_image">Hero Image URL</Label>
-                      <Input
-                        id="hero_image"
-                        value={currentData.hero_image || ''}
-                        onChange={(e) => handleInputChange('hero_image', e.target.value)}
-                        placeholder="https://example.com/image.jpg"
-                        className="glass bg-transparent"
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          id="hero_image"
+                          value={currentData.hero_image || ''}
+                          onChange={(e) => handleInputChange('hero_image', e.target.value)}
+                          placeholder="https://example.com/image.jpg"
+                          className="glass bg-transparent"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowThumbnailGenerator(true)}
+                          className="glass-button shrink-0"
+                          size="sm"
+                        >
+                          <ImageIcon size={16} />
+                        </Button>
+                      </div>
                     </div>
                     <div>
                       <Label htmlFor="hero_image_alt">Hero Image Alt Text</Label>
@@ -1048,6 +1075,26 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
           </>
         )}
       </div>
+
+      {/* Preview Dialog */}
+      <BlogPreviewDialog
+        blog={previewBlog}
+        open={showPreview}
+        onOpenChange={setShowPreview}
+      />
+
+      {/* Thumbnail Generator */}
+      <ThumbnailGenerator
+        isOpen={showThumbnailGenerator}
+        onClose={() => setShowThumbnailGenerator(false)}
+        blogTitle={currentData.title}
+        blogExcerpt={currentData.excerpt}
+        blogCategory={currentData.category}
+        onThumbnailGenerated={(thumbnailUrl) => {
+          handleInputChange('hero_image', thumbnailUrl);
+          handleInputChange('hero_image_alt', `Thumbnail for ${currentData.title}`);
+        }}
+      />
     </div>
   );
 };
