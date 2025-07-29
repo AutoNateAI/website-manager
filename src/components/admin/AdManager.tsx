@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, Sparkles, Zap, Image as ImageIcon, Settings, Eye } from 'lucide-react';
 import AdDetailViewer from './AdDetailViewer';
 import BlogListAdManager from './BlogListAdManager';
+import BlogListAdEditor from './BlogListAdEditor';
 
 interface Advertisement {
   id: string;
@@ -78,6 +79,7 @@ const AdManager = () => {
   const [selectedAdForDetail, setSelectedAdForDetail] = useState<Advertisement | null>(null);
   const [showAdDetail, setShowAdDetail] = useState(false);
   const [showBlogListAdManager, setShowBlogListAdManager] = useState(false);
+  const [showBlogListAdEditor, setShowBlogListAdEditor] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -504,13 +506,22 @@ const AdManager = () => {
                 Create and manage targeted advertisements for your blogs
               </p>
             </div>
-            <Button
-              onClick={() => setShowBlogListAdManager(true)}
-              className="glass-button glow-primary"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Manage Blog List Ads
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setShowBlogListAdEditor(true)}
+                className="glass-button glow-secondary"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Banner & Sidebar
+              </Button>
+              <Button
+                onClick={() => setShowBlogListAdManager(true)}
+                className="glass-button glow-primary"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Manage Blog List Ads
+              </Button>
+            </div>
           </div>
       </div>
 
@@ -929,6 +940,12 @@ const AdManager = () => {
       <BlogListAdManager
         isOpen={showBlogListAdManager}
         onClose={() => setShowBlogListAdManager(false)}
+      />
+
+      {/* Blog List Ad Editor */}
+      <BlogListAdEditor
+        isOpen={showBlogListAdEditor}
+        onClose={() => setShowBlogListAdEditor(false)}
       />
     </div>
   );
