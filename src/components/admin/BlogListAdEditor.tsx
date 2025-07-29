@@ -31,6 +31,7 @@ const BlogListAdEditor = ({ isOpen, onClose }: BlogListAdEditorProps) => {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [editingAd, setEditingAd] = useState<Advertisement | null>(null);
+  const [creatingPosition, setCreatingPosition] = useState<string | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [title, setTitle] = useState('');
@@ -175,6 +176,7 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
 
   const handleCreateNew = (position: string) => {
     setEditingAd(null);
+    setCreatingPosition(position);
     setPrompt('');
     setTitle('');
     setShowEditDialog(true);
@@ -182,6 +184,7 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
 
   const handleEdit = (ad: Advertisement) => {
     setEditingAd(ad);
+    setCreatingPosition(null);
     setPrompt('');
     setTitle(ad.title);
     setShowEditDialog(true);
@@ -190,6 +193,7 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
   const handleCloseEditDialog = () => {
     setShowEditDialog(false);
     setEditingAd(null);
+    setCreatingPosition(null);
     setPrompt('');
     setTitle('');
   };
@@ -333,7 +337,7 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
         <DialogContent className="max-w-2xl glass-modal">
           <DialogHeader>
             <DialogTitle className="gradient-text">
-              {editingAd ? 'Edit' : 'Create'} {editingAd?.position === 'blog-list-banner' ? 'Banner' : 'Sidebar'} Ad with AI
+              {editingAd ? 'Edit' : 'Create'} {(editingAd?.position || creatingPosition) === 'blog-list-banner' ? 'Banner' : 'Sidebar'} Ad with AI
             </DialogTitle>
           </DialogHeader>
 
@@ -360,7 +364,7 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
                 className="glass-input"
               />
               <p className="text-sm text-muted-foreground mt-1">
-                Dimensions: {editingAd?.position === 'blog-list-banner' ? '1536×1024 (wide banner)' : '1024×1024 (square sidebar)'}
+                Dimensions: {(editingAd?.position || creatingPosition) === 'blog-list-banner' ? '1536×1024 (wide banner)' : '1024×1024 (square sidebar)'}
               </p>
             </div>
 
@@ -374,7 +378,7 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
                 Cancel
               </Button>
               <Button
-                onClick={() => generateAdWithAI(editingAd?.position || 'blog-list-banner', editingAd?.id)}
+                onClick={() => generateAdWithAI(editingAd?.position || creatingPosition || 'blog-list-banner', editingAd?.id)}
                 className="glass-button glow-primary"
                 disabled={generating || !prompt.trim() || !title.trim()}
               >
