@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Sparkles, Zap, Loader2, Eye, Settings } from 'lucide-react';
+import { Plus, Sparkles, Zap, Loader2, Settings } from 'lucide-react';
 
 interface Blog {
   id: string;
@@ -39,6 +40,8 @@ const BlogListAdManager = ({ isOpen, onClose }: BlogListAdManagerProps) => {
   const [loading, setLoading] = useState(true);
   const [generatingAds, setGeneratingAds] = useState(false);
   const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmDialogType, setConfirmDialogType] = useState<'all' | 'inline'>('all');
   const { toast } = useToast();
 
   const AD_LIMITS = {
@@ -227,185 +230,234 @@ const BlogListAdManager = ({ isOpen, onClose }: BlogListAdManagerProps) => {
     }
   };
 
-  const bulkGenerateAdsForBlog = async () => {
+  const handleBulkGenerateAds = () => {
+    const nonInlinePositions = Object.keys(AD_LIMITS).filter(pos => pos !== 'inline');
+    const hasExistingAds = nonInlinePositions.some(position => {
+      const currentCount = getAdCountForPosition(position);
+      return currentCount > 0;
+    });
+
+    if (hasExistingAds) {
+      setConfirmDialogType('all');
+      setShowConfirmDialog(true);
+    } else {
+      bulkGenerateAdsForBlog();
+    }
+  };
+
+  const handleBulkGenerateInlineAds = () => {
+    const currentCount = getAdCountForPosition('inline');
+    
+    if (currentCount > 0) {
+      setConfirmDialogType('inline');
+      setShowConfirmDialog(true);
+    } else {
+      bulkGenerateInlineAds();
+    }
+  };
+
+  const confirmRegenerate = () => {
+    setShowConfirmDialog(false);
+    if (confirmDialogType === 'all') {
+      bulkGenerateAdsForBlog(true); // Force regenerate
+    } else {
+      bulkGenerateInlineAds(true); // Force regenerate
+    }
+  };
+
+  const bulkGenerateAdsForBlog = async (forceRegenerate = false) => {
     if (!selectedBlog) return;
 
     setBulkGenerating(true);
     
-    // Start background task - don't await it
-    const generateAdsBackground = async () => {
-      try {
-        const positions = Object.keys(AD_LIMITS).filter(pos => pos !== 'inline'); // Exclude inline from main bulk
-        const adRequests = [];
-        
-        // Create requests only for missing ads
-        for (const position of positions) {
-          const currentCount = getAdCountForPosition(position);
-          const maxCount = position === 'sidebar' ? 2 : 1;
-          const missingCount = maxCount - currentCount;
-          
-          // Only generate ads if we're missing some for this position
-          for (let i = 0; i < missingCount; i++) {
-            adRequests.push({
-              position,
-              blogTitle: selectedBlog.title,
-              blogContent: selectedBlog.content.slice(0, 500),
-              blogCategory: selectedBlog.category,
-              imageSize: getImageSizeForPosition(position)
-            });
-          }
-        }
-
-        const promises = adRequests.map(request => 
-          supabase.functions.invoke('generate-blog-ad', {
-            body: request
-          })
-        );
-
-        const results = await Promise.allSettled(promises);
-        const adsToInsert = [];
-
-        for (let i = 0; i < results.length; i++) {
-          const result = results[i];
-          if (result.status === 'fulfilled') {
-            const { data, error } = result.value;
-            if (!error && !data.error) {
-              adsToInsert.push({
-                title: data.title,
-                image_url: data.imageUrl,
-                link_url: '#',
-                link_type: 'external',
-                target_type: 'specific_post',
-                target_value: selectedBlog.slug,
-                position: adRequests[i].position,
-                is_active: true,
-                alt_text: data.imagePrompt,
-                ...getDimensionsForPosition(adRequests[i].position)
-              });
-            }
-          }
-        }
-
-        if (adsToInsert.length > 0) {
-          const { error: insertError } = await supabase
+    try {
+      const positions = Object.keys(AD_LIMITS).filter(pos => pos !== 'inline');
+      
+      // If force regenerate, delete existing ads first
+      if (forceRegenerate) {
+        const existingAds = assignedAds.filter(ad => positions.includes(ad.position));
+        if (existingAds.length > 0) {
+          await supabase
             .from('advertisements')
-            .insert(adsToInsert);
+            .delete()
+            .in('id', existingAds.map(ad => ad.id));
+        }
+      }
+      
+      const adRequests = [];
+      
+      // Create requests only for missing ads (or all if regenerating)
+      for (const position of positions) {
+        const currentCount = forceRegenerate ? 0 : getAdCountForPosition(position);
+        const maxCount = position === 'sidebar' ? 2 : 1;
+        const missingCount = maxCount - currentCount;
+        
+        for (let i = 0; i < missingCount; i++) {
+          adRequests.push({
+            position,
+            blogTitle: selectedBlog.title,
+            blogContent: selectedBlog.content.slice(0, 500),
+            blogCategory: selectedBlog.category,
+            imageSize: getImageSizeForPosition(position)
+          });
+        }
+      }
 
-          if (!insertError) {
-            toast({
-              title: "Success",
-              description: `Generated ${adsToInsert.length} advertisements for all positions!`,
+      if (adRequests.length === 0) {
+        toast({
+          title: "Info",
+          description: "All positions already have ads. Use individual generate buttons to add more.",
+        });
+        setBulkGenerating(false);
+        return;
+      }
+
+      const promises = adRequests.map(request => 
+        supabase.functions.invoke('generate-blog-ad', {
+          body: request
+        })
+      );
+
+      const results = await Promise.allSettled(promises);
+      const adsToInsert = [];
+
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        if (result.status === 'fulfilled') {
+          const { data, error } = result.value;
+          if (!error && !data.error) {
+            adsToInsert.push({
+              title: data.title,
+              image_url: data.imageUrl,
+              link_url: '#',
+              link_type: 'external',
+              target_type: 'specific_post',
+              target_value: selectedBlog.slug,
+              position: adRequests[i].position,
+              is_active: true,
+              alt_text: data.imagePrompt,
+              ...getDimensionsForPosition(adRequests[i].position)
             });
-            fetchBlogAds();
           }
         }
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: "Failed to bulk generate ads: " + error.message,
-          variant: "destructive",
-        });
       }
-    };
 
-    // Start background generation
-    generateAdsBackground();
-    
-    // Immediate feedback to user
-    toast({
-      title: "Started",
-      description: "Bulk ad generation started in background. You'll be notified when complete.",
-    });
-    
-    setBulkGenerating(false);
+      if (adsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('advertisements')
+          .insert(adsToInsert);
+
+        if (!insertError) {
+          toast({
+            title: "Success",
+            description: `Generated ${adsToInsert.length} advertisements for all positions!`,
+          });
+          fetchBlogAds();
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to bulk generate ads: " + error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setBulkGenerating(false);
+    }
   };
 
-  const bulkGenerateInlineAds = async () => {
+  const bulkGenerateInlineAds = async (forceRegenerate = false) => {
     if (!selectedBlog) return;
 
     setGeneratingAds(true);
     
-    // Start background task for inline ads
-    const generateInlineAdsBackground = async () => {
-      try {
-        const currentCount = getAdCountForPosition('inline');
-        const missingCount = AD_LIMITS.inline.max - currentCount;
-        
-        if (missingCount <= 0) return;
-
-        const adRequests = [];
-        for (let i = 0; i < missingCount; i++) {
-          adRequests.push({
-            position: 'inline',
-            blogTitle: selectedBlog.title,
-            blogContent: selectedBlog.content.slice(0, 500),
-            blogCategory: selectedBlog.category,
-            imageSize: getImageSizeForPosition('inline')
-          });
-        }
-
-        const promises = adRequests.map(request => 
-          supabase.functions.invoke('generate-blog-ad', {
-            body: request
-          })
-        );
-
-        const results = await Promise.allSettled(promises);
-        const adsToInsert = [];
-
-        for (let i = 0; i < results.length; i++) {
-          const result = results[i];
-          if (result.status === 'fulfilled') {
-            const { data, error } = result.value;
-            if (!error && !data.error) {
-              adsToInsert.push({
-                title: data.title,
-                image_url: data.imageUrl,
-                link_url: '#',
-                link_type: 'external',
-                target_type: 'specific_post',
-                target_value: selectedBlog.slug,
-                position: 'inline',
-                is_active: true,
-                alt_text: data.imagePrompt,
-                ...getDimensionsForPosition('inline')
-              });
-            }
-          }
-        }
-
-        if (adsToInsert.length > 0) {
-          const { error: insertError } = await supabase
+    try {
+      // If force regenerate, delete existing inline ads first
+      if (forceRegenerate) {
+        const existingInlineAds = assignedAds.filter(ad => ad.position === 'inline');
+        if (existingInlineAds.length > 0) {
+          await supabase
             .from('advertisements')
-            .insert(adsToInsert);
-
-          if (!insertError) {
-            toast({
-              title: "Success",
-              description: `Generated ${adsToInsert.length} inline advertisements!`,
-            });
-            fetchBlogAds();
-          }
+            .delete()
+            .in('id', existingInlineAds.map(ad => ad.id));
         }
-      } catch (error: any) {
+      }
+
+      const currentCount = forceRegenerate ? 0 : getAdCountForPosition('inline');
+      const missingCount = AD_LIMITS.inline.max - currentCount;
+      
+      if (missingCount <= 0) {
         toast({
-          title: "Error",
-          description: "Failed to bulk generate inline ads: " + error.message,
-          variant: "destructive",
+          title: "Info",
+          description: "All inline ad slots are already filled.",
+        });
+        setGeneratingAds(false);
+        return;
+      }
+
+      const adRequests = [];
+      for (let i = 0; i < missingCount; i++) {
+        adRequests.push({
+          position: 'inline',
+          blogTitle: selectedBlog.title,
+          blogContent: selectedBlog.content.slice(0, 500),
+          blogCategory: selectedBlog.category,
+          imageSize: getImageSizeForPosition('inline')
         });
       }
-    };
 
-    // Start background generation
-    generateInlineAdsBackground();
-    
-    // Immediate feedback to user
-    toast({
-      title: "Started",
-      description: "Bulk inline ad generation started in background.",
-    });
-    
-    setGeneratingAds(false);
+      const promises = adRequests.map(request => 
+        supabase.functions.invoke('generate-blog-ad', {
+          body: request
+        })
+      );
+
+      const results = await Promise.allSettled(promises);
+      const adsToInsert = [];
+
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        if (result.status === 'fulfilled') {
+          const { data, error } = result.value;
+          if (!error && !data.error) {
+            adsToInsert.push({
+              title: data.title,
+              image_url: data.imageUrl,
+              link_url: '#',
+              link_type: 'external',
+              target_type: 'specific_post',
+              target_value: selectedBlog.slug,
+              position: 'inline',
+              is_active: true,
+              alt_text: data.imagePrompt,
+              ...getDimensionsForPosition('inline')
+            });
+          }
+        }
+      }
+
+      if (adsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('advertisements')
+          .insert(adsToInsert);
+
+        if (!insertError) {
+          toast({
+            title: "Success",
+            description: `Generated ${adsToInsert.length} inline advertisements!`,
+          });
+          fetchBlogAds();
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to bulk generate inline ads: " + error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingAds(false);
+    }
   };
 
   const getImageSizeForPosition = (position: string) => {
@@ -438,33 +490,6 @@ const BlogListAdManager = ({ isOpen, onClose }: BlogListAdManagerProps) => {
     return getAdCountForPosition(position) < AD_LIMITS[position as keyof typeof AD_LIMITS].max;
   };
 
-  const hasAnyMissingAds = () => {
-    return Object.keys(AD_LIMITS).some(position => {
-      const currentCount = getAdCountForPosition(position);
-      const maxCount = AD_LIMITS[position as keyof typeof AD_LIMITS].max;
-      return currentCount < maxCount;
-    });
-  };
-
-  const hasNonInlineMissingAds = () => {
-    const nonInlinePositions = Object.keys(AD_LIMITS).filter(pos => pos !== 'inline');
-    console.log('Checking non-inline positions:', nonInlinePositions);
-    
-    return nonInlinePositions.some(position => {
-      const currentCount = getAdCountForPosition(position);
-      const maxCount = position === 'sidebar' ? 2 : 1;
-      console.log(`Position ${position}: ${currentCount}/${maxCount}`);
-      return currentCount < maxCount;
-    });
-  };
-
-  const hasInlineMissingAds = () => {
-    const currentCount = getAdCountForPosition('inline');
-    const maxCount = AD_LIMITS.inline.max;
-    console.log(`Inline ads: ${currentCount}/${maxCount}`);
-    return currentCount < maxCount;
-  };
-
   if (loading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -478,234 +503,244 @@ const BlogListAdManager = ({ isOpen, onClose }: BlogListAdManagerProps) => {
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="glass-card max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Blog List Advertisement Manager
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="glass-card max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Blog List Advertisement Manager
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Blog Selection */}
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle className="text-lg">Select Blog</CardTitle>
-              <CardDescription>
-                Choose a published blog to manage its advertisements
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Select
-                value={selectedBlog?.id || ''}
-                onValueChange={(value) => {
-                  const blog = blogs.find(b => b.id === value);
-                  setSelectedBlog(blog || null);
-                }}
-              >
-                <SelectTrigger className="glass bg-transparent">
-                  <SelectValue placeholder="Choose a blog to manage ads for..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {blogs.map(blog => (
-                    <SelectItem key={blog.id} value={blog.id}>
-                      {blog.title} ({blog.category})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            {/* Blog Selection */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="text-lg">Select Blog</CardTitle>
+                <CardDescription>
+                  Choose a published blog to manage its advertisements
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Select
+                  value={selectedBlog?.id || ''}
+                  onValueChange={(value) => {
+                    const blog = blogs.find(b => b.id === value);
+                    setSelectedBlog(blog || null);
+                  }}
+                >
+                  <SelectTrigger className="glass bg-transparent">
+                    <SelectValue placeholder="Choose a blog to manage ads for..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {blogs.map(blog => (
+                      <SelectItem key={blog.id} value={blog.id}>
+                        {blog.title} ({blog.category})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
 
-          {/* Blog Ad Management */}
-          {selectedBlog && (
-            <div className="space-y-6">
-              {/* Blog Info & Bulk Actions */}
-              <Card className="glass-card">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-lg font-semibold">{selectedBlog.title}</h3>
-                      <p className="text-muted-foreground text-sm">Category: {selectedBlog.category}</p>
-                      <p className="text-muted-foreground text-sm">Total assigned ads: {assignedAds.length}</p>
-                     </div>
-                     <div className="flex gap-2">
-                       {(() => {
-                         const nonInlineHasMissing = hasNonInlineMissingAds();
-                         console.log('hasNonInlineMissingAds result:', nonInlineHasMissing);
-                         console.log('Current assignedAds:', assignedAds);
-                         return nonInlineHasMissing;
-                       })() && (
-                         <Button 
-                           onClick={bulkGenerateAdsForBlog}
-                           disabled={bulkGenerating}
-                           className="glass-button glow-primary"
-                           size="sm"
-                         >
-                           {bulkGenerating ? (
-                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                           ) : (
-                             <Zap className="h-4 w-4 mr-2" />
-                           )}
-                           Generate All Positions
-                         </Button>
-                       )}
-                       {(() => {
-                         const inlineHasMissing = hasInlineMissingAds();
-                         console.log('hasInlineMissingAds result:', inlineHasMissing);
-                         return inlineHasMissing;
-                       })() && (
-                         <Button 
-                           onClick={bulkGenerateInlineAds}
-                           disabled={generatingAds}
-                           className="glass-button glow-secondary"
-                           size="sm"
-                         >
-                           {generatingAds ? (
-                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                           ) : (
-                             <Sparkles className="h-4 w-4 mr-2" />
-                           )}
-                           Generate All Inline
-                         </Button>
-                       )}
-                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Ad Positions Management */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {Object.entries(AD_LIMITS).map(([position, config]) => {
-                  const currentCount = getAdCountForPosition(position);
-                  const canAdd = canAddMoreAds(position);
-                  const positionAds = assignedAds.filter(ad => ad.position === position);
-
-                  return (
-                    <Card key={position} className="glass-card">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle className="text-base capitalize">{position} Ads</CardTitle>
-                            <CardDescription>
-                              {config.dimensions} • {currentCount}/{config.max} ads
-                            </CardDescription>
-                          </div>
-                          {canAdd && (
-                            <Button
-                              onClick={() => generateAdForPosition(position)}
-                              disabled={generatingAds}
-                              size="sm"
-                              variant="outline"
-                              className="glass-button"
-                            >
-                              {generatingAds ? (
-                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                              ) : (
-                                <Sparkles className="h-4 w-4 mr-1" />
-                              )}
-                              Generate AI Ad
-                            </Button>
+            {/* Blog Ad Management */}
+            {selectedBlog && (
+              <div className="space-y-6">
+                {/* Blog Info & Bulk Actions */}
+                <Card className="glass-card">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-lg font-semibold">{selectedBlog.title}</h3>
+                        <p className="text-muted-foreground text-sm">Category: {selectedBlog.category}</p>
+                        <p className="text-muted-foreground text-sm">Total assigned ads: {assignedAds.length}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          onClick={handleBulkGenerateAds}
+                          disabled={bulkGenerating}
+                          className="glass-button glow-primary"
+                          size="sm"
+                        >
+                          {bulkGenerating ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Zap className="h-4 w-4 mr-2" />
                           )}
-                        </div>
-                      </CardHeader>
-                      {positionAds.length > 0 && (
-                        <CardContent>
-                          <div className="space-y-3">
-                            {positionAds.map(ad => (
-                              <div key={ad.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                          Generate All Positions
+                        </Button>
+                        <Button 
+                          onClick={handleBulkGenerateInlineAds}
+                          disabled={generatingAds}
+                          className="glass-button glow-secondary"
+                          size="sm"
+                        >
+                          {generatingAds ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4 mr-2" />
+                          )}
+                          Generate All Inline
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Ad Positions Management */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {Object.entries(AD_LIMITS).map(([position, config]) => {
+                    const currentCount = getAdCountForPosition(position);
+                    const canAdd = canAddMoreAds(position);
+                    const positionAds = assignedAds.filter(ad => ad.position === position);
+
+                    return (
+                      <Card key={position} className="glass-card">
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <CardTitle className="text-base capitalize">{position} Ads</CardTitle>
+                              <CardDescription>
+                                {config.dimensions} • {currentCount}/{config.max} ads
+                              </CardDescription>
+                            </div>
+                            {canAdd && (
+                              <Button
+                                onClick={() => generateAdForPosition(position)}
+                                disabled={generatingAds}
+                                size="sm"
+                                variant="outline"
+                                className="glass-button"
+                              >
+                                {generatingAds ? (
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                ) : (
+                                  <Sparkles className="h-4 w-4 mr-1" />
+                                )}
+                                Generate AI Ad
+                              </Button>
+                            )}
+                          </div>
+                        </CardHeader>
+                        {positionAds.length > 0 && (
+                          <CardContent>
+                            <div className="space-y-3">
+                              {positionAds.map(ad => (
+                                <div key={ad.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                                  {ad.image_url && (
+                                    <img 
+                                      src={ad.image_url} 
+                                      alt={ad.title}
+                                      className="w-12 h-12 object-cover rounded"
+                                    />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-medium truncate text-sm">{ad.title}</h4>
+                                    <Badge variant="default" className="text-xs">
+                                      Assigned
+                                    </Badge>
+                                  </div>
+                                  <Button
+                                    onClick={() => unassignAdFromBlog(ad.id)}
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-xs"
+                                  >
+                                    Unassign
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        )}
+                      </Card>
+                    );
+                  })}
+                </div>
+
+                {/* Available Ads for Assignment */}
+                <Card className="glass-card">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Available Advertisements</CardTitle>
+                    <CardDescription>
+                      Click to assign available ads to this blog
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {availableAds.filter(ad => ad.target_value !== selectedBlog.slug).length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No available advertisements to assign
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {availableAds
+                          .filter(ad => ad.target_value !== selectedBlog.slug)
+                          .map(ad => (
+                          <Card key={ad.id} className="glass-card hover:glow-soft transition-all cursor-pointer">
+                            <CardContent className="p-4">
+                              <div className="space-y-3">
                                 {ad.image_url && (
                                   <img 
                                     src={ad.image_url} 
                                     alt={ad.title}
-                                    className="w-12 h-12 object-cover rounded"
+                                    className="w-full h-24 object-cover rounded"
                                   />
                                 )}
-                                <div className="flex-1 min-w-0">
+                                <div>
                                   <h4 className="font-medium truncate text-sm">{ad.title}</h4>
-                                  <Badge variant="default" className="text-xs">
-                                    Assigned
-                                  </Badge>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <Badge variant="outline" className="text-xs capitalize">
+                                      {ad.position}
+                                    </Badge>
+                                    <Badge variant="secondary" className="text-xs">
+                                      Available
+                                    </Badge>
+                                  </div>
                                 </div>
                                 <Button
-                                  onClick={() => unassignAdFromBlog(ad.id)}
+                                  onClick={() => assignAdToBlog(ad.id)}
                                   size="sm"
-                                  variant="ghost"
-                                  className="text-xs"
+                                  className="w-full glass-button"
                                 >
-                                  Unassign
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Assign to Blog
                                 </Button>
                               </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      )}
-                    </Card>
-                  );
-                })}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
-              {/* Available Ads for Assignment */}
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="text-lg">Available Advertisements</CardTitle>
-                  <CardDescription>
-                    Click to assign available ads to this blog
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {availableAds.filter(ad => ad.target_value !== selectedBlog.slug).length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No available advertisements to assign
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {availableAds
-                        .filter(ad => ad.target_value !== selectedBlog.slug)
-                        .map(ad => (
-                        <Card key={ad.id} className="glass-card hover:glow-soft transition-all cursor-pointer">
-                          <CardContent className="p-4">
-                            <div className="space-y-3">
-                              {ad.image_url && (
-                                <img 
-                                  src={ad.image_url} 
-                                  alt={ad.title}
-                                  className="w-full h-24 object-cover rounded"
-                                />
-                              )}
-                              <div>
-                                <h4 className="font-medium truncate text-sm">{ad.title}</h4>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <Badge variant="outline" className="text-xs capitalize">
-                                    {ad.position}
-                                  </Badge>
-                                  <Badge variant="secondary" className="text-xs">
-                                    Available
-                                  </Badge>
-                                </div>
-                              </div>
-                              <Button
-                                onClick={() => assignAdToBlog(ad.id)}
-                                size="sm"
-                                className="w-full glass-button"
-                              >
-                                <Plus className="h-4 w-4 mr-1" />
-                                Assign to Blog
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Regenerate Advertisements?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDialogType === 'all' 
+                ? 'This blog already has some advertisements. Do you want to regenerate all ads for all positions? This will delete existing ads and create new ones.'
+                : 'This blog already has some inline advertisements. Do you want to regenerate all inline ads? This will delete existing inline ads and create new ones.'
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRegenerate}>
+              Regenerate All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
