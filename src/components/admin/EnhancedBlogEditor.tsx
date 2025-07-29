@@ -372,7 +372,7 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
     try {
       const { data, error } = await supabase.functions.invoke('generate-image', {
         body: {
-          prompt: `Blog thumbnail for: ${blog.title}. ${blog.excerpt}. Professional, engaging, high-quality blog header image.`,
+          prompt: `Blog thumbnail for: ${blog.title}. ${blog.excerpt}. Professional, engaging, high-quality blog header image. CRITICAL: Always include a vibrant, colorful background - NO transparent backgrounds. Use rich colors, gradients, or textured backgrounds.`,
           alt_text: `Thumbnail for ${blog.title}`,
           title: `${blog.title} - Thumbnail`
         }
@@ -414,7 +414,7 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
       const promises = generatedBlogs.map(async (blog, index) => {
         const { data, error } = await supabase.functions.invoke('generate-image', {
           body: {
-            prompt: `Blog thumbnail for: ${blog.title}. ${blog.excerpt}. Professional, engaging, high-quality blog header image.`,
+            prompt: `Blog thumbnail for: ${blog.title}. ${blog.excerpt}. Professional, engaging, high-quality blog header image. CRITICAL: Always include a vibrant, colorful background - NO transparent backgrounds. Use rich colors, gradients, or textured backgrounds.`,
             alt_text: `Thumbnail for ${blog.title}`,
             title: `${blog.title} - Thumbnail`
           }

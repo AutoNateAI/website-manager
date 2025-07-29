@@ -89,11 +89,17 @@ serve(async (req) => {
             });
           } else {
             // Use generations endpoint for text-only prompts
+            const enhancedPrompt = `${imageReq.prompt}. 
+              Style: Professional illustration, modern design, high quality, detailed, 
+              wide format (1536x1024), suitable for blog content, engaging visual.
+              CRITICAL: Always include a vibrant, colorful background - NO transparent backgrounds.
+              Use rich colors, gradients, or textured backgrounds that complement the subject.`;
+
             const requestBody = {
               model: 'gpt-image-1',
-              prompt: imageReq.prompt,
+              prompt: enhancedPrompt,
               n: 1,
-              size: imageReq.size || "1920x1080",
+              size: imageReq.size || "1536x1024",
               quality: "high",
               output_format: 'png'
             };

@@ -264,9 +264,15 @@ const ImageManager = () => {
 
     setGeneratingImage(true);
     try {
+      const fullPrompt = `${aiPrompt}. 
+        Style: Professional illustration, modern design, high quality, detailed, 
+        wide format (1536x1024), suitable for blog content, engaging visual.
+        CRITICAL: Always include a vibrant, colorful background - NO transparent backgrounds.
+        Use rich colors, gradients, or textured backgrounds that complement the subject.`;
+
       const { data, error } = await supabase.functions.invoke('generate-image', {
         body: {
-          prompt: aiPrompt,
+          prompt: fullPrompt,
           size: "1536x1024",
           quality: "high"
         }
