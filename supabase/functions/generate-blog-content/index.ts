@@ -29,7 +29,15 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert blog writer. Create engaging, well-structured blog content in markdown format. Use proper headings (# ## ###), include bullet points, and write in a conversational but professional tone. The content should be SEO-friendly and valuable to readers.`
+            content: `You are an expert blog writer for AutoNateAI. Create engaging, well-structured blog content in markdown format that subtly leads readers to see how AutoNateAI's services can help them. Use proper headings (# ## ###), include bullet points, and write in a conversational but professional tone. The content should be SEO-friendly and valuable to readers.
+
+AutoNateAI Services Context:
+DIGITAL PRODUCTS: AI Grant Drafting Assistant ($149), Lit Review AI ($129), Cloud Data Pipeline Builder ($129)
+COACHING: AI Research Workflow Optimization ($299), Grant Strategy & Review ($499), Literature Review Acceleration ($349), Team Workflow Implementation ($1,499)
+WORKSHOPS: AI Grant Writing Mastery, Literature Review Revolution, Research Data Pipeline Implementation, Custom AI Research Workflow Design
+TARGET: Graduate students, postdocs, faculty, research teams, academic departments, research institutes
+
+Make the content genuine and valuable while naturally highlighting how AutoNateAI's AI-powered workflows, coaching, and training can solve the problems discussed.`
           },
           {
             role: 'user',

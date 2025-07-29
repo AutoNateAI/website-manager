@@ -34,11 +34,19 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a creative advertising copywriter specializing in funny, memorable ads with optical illusions and visual tricks. Create engaging ad copy that relates to blog content while being humorous and clever.`
+            content: `You are a creative advertising copywriter for AutoNateAI, specializing in funny, memorable ads with optical illusions and visual tricks. Create engaging ad copy that relates to blog content while promoting AutoNateAI's specific services. 
+
+AutoNateAI Services:
+DIGITAL PRODUCTS: AI Grant Drafting Assistant ($149), Lit Review AI ($129), Cloud Data Pipeline Builder ($129)
+COACHING: AI Research Workflow Optimization ($299), Grant Strategy & Review ($499), Literature Review Acceleration ($349), Team Workflow Implementation ($1,499)
+WORKSHOPS: AI Grant Writing Mastery, Literature Review Revolution, Research Data Pipeline Implementation, Custom AI Research Workflow Design
+TARGET: Graduate students, postdocs, faculty, research teams, academic departments
+
+Only promote AutoNateAI's actual services and make the ads relevant to the research/academic audience.`
           },
           {
             role: 'user',
-            content: `Create a funny advertisement based on this blog:
+            content: `Create a funny advertisement for AutoNateAI based on this blog:
 
 Title: ${blogTitle}
 Category: ${blogCategory}
@@ -48,10 +56,11 @@ The ad is for position: ${position}
 
 Requirements:
 1. Create a catchy, humorous title (max 60 characters)
-2. Write engaging copy that references the blog content but promotes a related product/service
+2. Write engaging copy that references the blog content but promotes a specific AutoNateAI service
 3. Include clever wordplay or optical illusion concepts
 4. Keep it fun and memorable
-5. Make it relevant to the blog topic
+5. Make it relevant to the blog topic and research/academic audience
+6. Only promote AutoNateAI's actual products, coaching, or workshops listed above
 
 Return a JSON object with:
 {
@@ -99,7 +108,7 @@ Return a JSON object with:
         model: 'gpt-image-1',
         prompt: `Create a funny advertisement image with optical illusion elements. ${adContent.imagePrompt}. Style: vibrant, eye-catching, professional advertising design with clever visual tricks and humor. Include text space for "${adContent.title}". High-quality commercial ad style.`,
         n: 1,
-        size: imageSize || '1024x1024',
+        size: imageSize || '1536x1024',
         quality: 'high',
         output_format: 'png'
       }),

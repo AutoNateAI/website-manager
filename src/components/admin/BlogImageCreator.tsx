@@ -213,7 +213,7 @@ const BlogImageCreator = () => {
             title: req.title,
             alt_text: req.alt_text || req.prompt,
             caption: req.caption,
-            size: "1024x1024",
+            size: "1536x1024",
             quality: "high",
             referenceImage: useSharedReference ? sharedReferenceImage : req.referenceImage,
             blog_id: selectedBlog,

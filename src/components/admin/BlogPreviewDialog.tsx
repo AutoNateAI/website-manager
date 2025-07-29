@@ -78,11 +78,13 @@ const BlogPreviewDialog = ({ blog, open, onOpenChange, contentImages = [], ads =
         
         <div className="space-y-6">
           {blog.hero_image && (
-            <img 
-              src={blog.hero_image} 
-              alt={blog.hero_image_alt || blog.title}
-              className="w-full h-48 sm:h-64 object-cover rounded-lg"
-            />
+            <div className="w-full aspect-video rounded-lg overflow-hidden">
+              <img 
+                src={blog.hero_image} 
+                alt={blog.hero_image_alt || blog.title}
+                className="w-full h-full object-contain"
+              />
+            </div>
           )}
           
           <div className="flex flex-wrap items-center gap-2">

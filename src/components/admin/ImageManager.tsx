@@ -267,7 +267,7 @@ const ImageManager = () => {
       const { data, error } = await supabase.functions.invoke('generate-image', {
         body: {
           prompt: aiPrompt,
-          size: "1024x1024",
+          size: "1536x1024",
           quality: "high"
         }
       });
