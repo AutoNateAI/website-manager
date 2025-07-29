@@ -238,10 +238,14 @@ const BlogListAdManager = ({ isOpen, onClose }: BlogListAdManagerProps) => {
         const positions = Object.keys(AD_LIMITS);
         const adRequests = [];
         
-        // Create requests for all positions
+        // Create requests only for missing ads
         for (const position of positions) {
-          const count = position === 'sidebar' ? 2 : 1; // Generate 2 sidebar ads
-          for (let i = 0; i < count; i++) {
+          const currentCount = getAdCountForPosition(position);
+          const maxCount = position === 'sidebar' ? 2 : 1;
+          const missingCount = maxCount - currentCount;
+          
+          // Only generate ads if we're missing some for this position
+          for (let i = 0; i < missingCount; i++) {
             adRequests.push({
               position,
               blogTitle: selectedBlog.title,
