@@ -77,7 +77,7 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
     excerpt: '',
     content: '',
     category: '',
-    author: 'Admin',
+    author: 'AutoNate',
     slug: '',
     published: false,
     featured: false,
@@ -244,6 +244,7 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
 
         return {
           ...data,
+          author: data.author || 'AutoNate',
           published: false,
           featured: false,
           hero_image: '',
@@ -304,7 +305,7 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
         content: data.content,
         category: data.category,
         slug: data.slug,
-        author: 'Admin'
+        author: data.author || 'AutoNate'
       }));
 
       setImageSuggestions(data.imageSuggestions || []);
