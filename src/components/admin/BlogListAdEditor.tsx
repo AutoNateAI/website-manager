@@ -132,6 +132,8 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
         image_url: data.imageUrl,
         position: position,
         target_type: 'all',
+        link_type: 'external',
+        link_url: 'https://autonateai.com',
         width: position === 'blog-list-banner' ? 1536 : 1024,
         height: position === 'blog-list-banner' ? 1024 : 1024,
         alt_text: `AutoNateAI ${position} advertisement`,
