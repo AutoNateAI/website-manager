@@ -531,7 +531,12 @@ const BlogListAdManager = ({ isOpen, onClose }: BlogListAdManagerProps) => {
                       <p className="text-muted-foreground text-sm">Total assigned ads: {assignedAds.length}</p>
                      </div>
                      <div className="flex gap-2">
-                       {hasNonInlineMissingAds() && (
+                       {(() => {
+                         const nonInlineHasMissing = hasNonInlineMissingAds();
+                         console.log('hasNonInlineMissingAds result:', nonInlineHasMissing);
+                         console.log('Current assignedAds:', assignedAds);
+                         return nonInlineHasMissing;
+                       })() && (
                          <Button 
                            onClick={bulkGenerateAdsForBlog}
                            disabled={bulkGenerating}
@@ -546,7 +551,11 @@ const BlogListAdManager = ({ isOpen, onClose }: BlogListAdManagerProps) => {
                            Generate All Positions
                          </Button>
                        )}
-                       {hasInlineMissingAds() && (
+                       {(() => {
+                         const inlineHasMissing = hasInlineMissingAds();
+                         console.log('hasInlineMissingAds result:', inlineHasMissing);
+                         return inlineHasMissing;
+                       })() && (
                          <Button 
                            onClick={bulkGenerateInlineAds}
                            disabled={generatingAds}
