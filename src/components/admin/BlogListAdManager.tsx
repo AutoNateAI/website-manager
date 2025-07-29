@@ -235,7 +235,7 @@ const BlogListAdManager = ({ isOpen, onClose }: BlogListAdManagerProps) => {
     // Start background task - don't await it
     const generateAdsBackground = async () => {
       try {
-        const positions = Object.keys(AD_LIMITS);
+        const positions = Object.keys(AD_LIMITS).filter(pos => pos !== 'inline'); // Exclude inline from main bulk
         const adRequests = [];
         
         // Create requests only for missing ads
@@ -320,6 +320,94 @@ const BlogListAdManager = ({ isOpen, onClose }: BlogListAdManagerProps) => {
     setBulkGenerating(false);
   };
 
+  const bulkGenerateInlineAds = async () => {
+    if (!selectedBlog) return;
+
+    setGeneratingAds(true);
+    
+    // Start background task for inline ads
+    const generateInlineAdsBackground = async () => {
+      try {
+        const currentCount = getAdCountForPosition('inline');
+        const missingCount = AD_LIMITS.inline.max - currentCount;
+        
+        if (missingCount <= 0) return;
+
+        const adRequests = [];
+        for (let i = 0; i < missingCount; i++) {
+          adRequests.push({
+            position: 'inline',
+            blogTitle: selectedBlog.title,
+            blogContent: selectedBlog.content.slice(0, 500),
+            blogCategory: selectedBlog.category,
+            imageSize: getImageSizeForPosition('inline')
+          });
+        }
+
+        const promises = adRequests.map(request => 
+          supabase.functions.invoke('generate-blog-ad', {
+            body: request
+          })
+        );
+
+        const results = await Promise.allSettled(promises);
+        const adsToInsert = [];
+
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+          if (result.status === 'fulfilled') {
+            const { data, error } = result.value;
+            if (!error && !data.error) {
+              adsToInsert.push({
+                title: data.title,
+                image_url: data.imageUrl,
+                link_url: '#',
+                link_type: 'external',
+                target_type: 'specific_post',
+                target_value: selectedBlog.slug,
+                position: 'inline',
+                is_active: true,
+                alt_text: data.imagePrompt,
+                ...getDimensionsForPosition('inline')
+              });
+            }
+          }
+        }
+
+        if (adsToInsert.length > 0) {
+          const { error: insertError } = await supabase
+            .from('advertisements')
+            .insert(adsToInsert);
+
+          if (!insertError) {
+            toast({
+              title: "Success",
+              description: `Generated ${adsToInsert.length} inline advertisements!`,
+            });
+            fetchBlogAds();
+          }
+        }
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: "Failed to bulk generate inline ads: " + error.message,
+          variant: "destructive",
+        });
+      }
+    };
+
+    // Start background generation
+    generateInlineAdsBackground();
+    
+    // Immediate feedback to user
+    toast({
+      title: "Started",
+      description: "Bulk inline ad generation started in background.",
+    });
+    
+    setGeneratingAds(false);
+  };
+
   const getImageSizeForPosition = (position: string) => {
     switch (position) {
       case 'banner': return '1536x1024';
@@ -348,6 +436,27 @@ const BlogListAdManager = ({ isOpen, onClose }: BlogListAdManagerProps) => {
 
   const canAddMoreAds = (position: string) => {
     return getAdCountForPosition(position) < AD_LIMITS[position as keyof typeof AD_LIMITS].max;
+  };
+
+  const hasAnyMissingAds = () => {
+    return Object.keys(AD_LIMITS).some(position => {
+      const currentCount = getAdCountForPosition(position);
+      const maxCount = AD_LIMITS[position as keyof typeof AD_LIMITS].max;
+      return currentCount < maxCount;
+    });
+  };
+
+  const hasNonInlineMissingAds = () => {
+    return Object.keys(AD_LIMITS).filter(pos => pos !== 'inline').some(position => {
+      const currentCount = getAdCountForPosition(position);
+      const maxCount = position === 'sidebar' ? 2 : 1;
+      return currentCount < maxCount;
+    });
+  };
+
+  const hasInlineMissingAds = () => {
+    const currentCount = getAdCountForPosition('inline');
+    return currentCount < AD_LIMITS.inline.max;
   };
 
   if (loading) {
@@ -414,22 +523,39 @@ const BlogListAdManager = ({ isOpen, onClose }: BlogListAdManagerProps) => {
                       <h3 className="text-lg font-semibold">{selectedBlog.title}</h3>
                       <p className="text-muted-foreground text-sm">Category: {selectedBlog.category}</p>
                       <p className="text-muted-foreground text-sm">Total assigned ads: {assignedAds.length}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button 
-                        onClick={bulkGenerateAdsForBlog}
-                        disabled={bulkGenerating}
-                        className="glass-button glow-primary"
-                        size="sm"
-                      >
-                        {bulkGenerating ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <Zap className="h-4 w-4 mr-2" />
-                        )}
-                        Generate All Positions
-                      </Button>
-                    </div>
+                     </div>
+                     <div className="flex gap-2">
+                       {hasNonInlineMissingAds() && (
+                         <Button 
+                           onClick={bulkGenerateAdsForBlog}
+                           disabled={bulkGenerating}
+                           className="glass-button glow-primary"
+                           size="sm"
+                         >
+                           {bulkGenerating ? (
+                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                           ) : (
+                             <Zap className="h-4 w-4 mr-2" />
+                           )}
+                           Generate All Positions
+                         </Button>
+                       )}
+                       {hasInlineMissingAds() && (
+                         <Button 
+                           onClick={bulkGenerateInlineAds}
+                           disabled={generatingAds}
+                           className="glass-button glow-secondary"
+                           size="sm"
+                         >
+                           {generatingAds ? (
+                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                           ) : (
+                             <Sparkles className="h-4 w-4 mr-2" />
+                           )}
+                           Generate All Inline
+                         </Button>
+                       )}
+                     </div>
                   </div>
                 </CardContent>
               </Card>
