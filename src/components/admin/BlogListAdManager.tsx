@@ -231,64 +231,89 @@ const BlogListAdManager = ({ isOpen, onClose }: BlogListAdManagerProps) => {
     if (!selectedBlog) return;
 
     setBulkGenerating(true);
-    try {
-      const positions = Object.keys(AD_LIMITS);
-      const promises = positions.map(position => 
-        supabase.functions.invoke('generate-blog-ad', {
-          body: {
-            blogTitle: selectedBlog.title,
-            blogContent: selectedBlog.content.slice(0, 500),
-            blogCategory: selectedBlog.category,
-            position,
-            imageSize: getImageSizeForPosition(position)
+    
+    // Start background task - don't await it
+    const generateAdsBackground = async () => {
+      try {
+        const positions = Object.keys(AD_LIMITS);
+        const adRequests = [];
+        
+        // Create requests for all positions
+        for (const position of positions) {
+          const count = position === 'sidebar' ? 2 : 1; // Generate 2 sidebar ads
+          for (let i = 0; i < count; i++) {
+            adRequests.push({
+              position,
+              blogTitle: selectedBlog.title,
+              blogContent: selectedBlog.content.slice(0, 500),
+              blogCategory: selectedBlog.category,
+              imageSize: getImageSizeForPosition(position)
+            });
           }
-        })
-      );
-
-      const results = await Promise.all(promises);
-      const adsToInsert = [];
-
-      for (let i = 0; i < results.length; i++) {
-        const { data, error } = results[i];
-        if (!error && !data.error) {
-          adsToInsert.push({
-            title: data.title,
-            image_url: data.imageUrl,
-            link_url: '#',
-            link_type: 'external',
-            target_type: 'specific_post',
-            target_value: selectedBlog.slug,
-            position: positions[i],
-            is_active: true,
-            alt_text: data.imagePrompt,
-            ...getDimensionsForPosition(positions[i])
-          });
         }
-      }
 
-      if (adsToInsert.length > 0) {
-        const { error: insertError } = await supabase
-          .from('advertisements')
-          .insert(adsToInsert);
+        const promises = adRequests.map(request => 
+          supabase.functions.invoke('generate-blog-ad', {
+            body: request
+          })
+        );
 
-        if (insertError) throw insertError;
+        const results = await Promise.allSettled(promises);
+        const adsToInsert = [];
 
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+          if (result.status === 'fulfilled') {
+            const { data, error } = result.value;
+            if (!error && !data.error) {
+              adsToInsert.push({
+                title: data.title,
+                image_url: data.imageUrl,
+                link_url: '#',
+                link_type: 'external',
+                target_type: 'specific_post',
+                target_value: selectedBlog.slug,
+                position: adRequests[i].position,
+                is_active: true,
+                alt_text: data.imagePrompt,
+                ...getDimensionsForPosition(adRequests[i].position)
+              });
+            }
+          }
+        }
+
+        if (adsToInsert.length > 0) {
+          const { error: insertError } = await supabase
+            .from('advertisements')
+            .insert(adsToInsert);
+
+          if (!insertError) {
+            toast({
+              title: "Success",
+              description: `Generated ${adsToInsert.length} advertisements for all positions!`,
+            });
+            fetchBlogAds();
+          }
+        }
+      } catch (error: any) {
         toast({
-          title: "Success",
-          description: `Generated ${adsToInsert.length} advertisements for all positions!`,
+          title: "Error",
+          description: "Failed to bulk generate ads: " + error.message,
+          variant: "destructive",
         });
-
-        fetchBlogAds();
       }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to bulk generate ads: " + error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setBulkGenerating(false);
-    }
+    };
+
+    // Start background generation
+    generateAdsBackground();
+    
+    // Immediate feedback to user
+    toast({
+      title: "Started",
+      description: "Bulk ad generation started in background. You'll be notified when complete.",
+    });
+    
+    setBulkGenerating(false);
   };
 
   const getImageSizeForPosition = (position: string) => {

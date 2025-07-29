@@ -98,6 +98,11 @@ Return a JSON object with:
     }
 
     // Generate the image based on the copy and image prompt
+    const isSquareFormat = imageSize === '1024x1024';
+    const formatInstruction = isSquareFormat 
+      ? 'SQUARE FORMAT (1024x1024): Use the square space efficiently. Place text strategically - consider top/bottom placement for headlines, center for main elements. Make graphical elements complement text placement. Optimize layout for square aspect ratio.'
+      : 'WIDE FORMAT: Use the horizontal space effectively for banner-style layout.';
+    
     const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
@@ -106,7 +111,7 @@ Return a JSON object with:
       },
       body: JSON.stringify({
         model: 'gpt-image-1',
-        prompt: `Create a funny advertisement image with optical illusion elements. ${adContent.imagePrompt}. Style: vibrant, eye-catching, professional advertising design with clever visual tricks and humor. Include text space for "${adContent.title}". High-quality commercial ad style.`,
+        prompt: `Create a funny advertisement image with optical illusion elements. ${adContent.imagePrompt}. ${formatInstruction} Style: vibrant, eye-catching, professional advertising design with clever visual tricks and humor. Include text space for "${adContent.title}". High-quality commercial ad style. CRITICAL: Always include a vibrant, colorful background - NO transparent backgrounds.`,
         n: 1,
         size: imageSize || '1536x1024',
         quality: 'high',
