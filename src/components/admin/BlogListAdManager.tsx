@@ -447,16 +447,22 @@ const BlogListAdManager = ({ isOpen, onClose }: BlogListAdManagerProps) => {
   };
 
   const hasNonInlineMissingAds = () => {
-    return Object.keys(AD_LIMITS).filter(pos => pos !== 'inline').some(position => {
+    const nonInlinePositions = Object.keys(AD_LIMITS).filter(pos => pos !== 'inline');
+    console.log('Checking non-inline positions:', nonInlinePositions);
+    
+    return nonInlinePositions.some(position => {
       const currentCount = getAdCountForPosition(position);
       const maxCount = position === 'sidebar' ? 2 : 1;
+      console.log(`Position ${position}: ${currentCount}/${maxCount}`);
       return currentCount < maxCount;
     });
   };
 
   const hasInlineMissingAds = () => {
     const currentCount = getAdCountForPosition('inline');
-    return currentCount < AD_LIMITS.inline.max;
+    const maxCount = AD_LIMITS.inline.max;
+    console.log(`Inline ads: ${currentCount}/${maxCount}`);
+    return currentCount < maxCount;
   };
 
   if (loading) {
