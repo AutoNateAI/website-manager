@@ -82,7 +82,7 @@ const BlogPreviewDialog = ({ blog, open, onOpenChange, contentImages = [], ads =
               <img 
                 src={blog.hero_image} 
                 alt={blog.hero_image_alt || blog.title}
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain rounded-lg"
               />
             </div>
           )}
