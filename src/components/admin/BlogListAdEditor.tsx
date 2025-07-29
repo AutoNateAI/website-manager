@@ -250,12 +250,14 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
               <CardContent>
                 {bannerAd ? (
                   <div className="space-y-4">
-                    <div className="border border-border/20 rounded-lg overflow-hidden">
-                      <img 
-                        src={bannerAd.image_url} 
-                        alt={bannerAd.alt_text}
-                        className="w-full h-auto"
-                      />
+                    <div className="border border-border/20 rounded-lg overflow-hidden max-w-4xl mx-auto">
+                      <div className="aspect-[3/2] w-full">
+                        <img 
+                          src={bannerAd.image_url} 
+                          alt={bannerAd.alt_text}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                     </div>
                     <div>
                       <p className="font-medium">{bannerAd.title}</p>
@@ -291,15 +293,17 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
               <CardContent>
                 {sidebarAds.length > 0 ? (
                   <div className="grid md:grid-cols-2 gap-4">
-                    {sidebarAds.map((ad, index) => (
-                      <div key={ad.id} className="space-y-4">
-                        <div className="border border-border/20 rounded-lg overflow-hidden">
-                          <img 
-                            src={ad.image_url} 
-                            alt={ad.alt_text}
-                            className="w-full h-auto"
-                          />
-                        </div>
+                     {sidebarAds.map((ad, index) => (
+                       <div key={ad.id} className="space-y-4">
+                         <div className="border border-border/20 rounded-lg overflow-hidden">
+                           <div className="aspect-square w-full">
+                             <img 
+                               src={ad.image_url} 
+                               alt={ad.alt_text}
+                               className="w-full h-full object-cover"
+                             />
+                           </div>
+                         </div>
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium">{ad.title}</p>
