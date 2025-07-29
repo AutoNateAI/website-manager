@@ -25,6 +25,12 @@ interface BlogListAdEditorProps {
   onClose: () => void;
 }
 
+interface SidebarAdData {
+  title: string;
+  prompt: string;
+  position: number; // 1 for first, 2 for second
+}
+
 const BlogListAdEditor = ({ isOpen, onClose }: BlogListAdEditorProps) => {
   const [bannerAd, setBannerAd] = useState<Advertisement | null>(null);
   const [sidebarAds, setSidebarAds] = useState<Advertisement[]>([]);
@@ -33,8 +39,13 @@ const BlogListAdEditor = ({ isOpen, onClose }: BlogListAdEditorProps) => {
   const [editingAd, setEditingAd] = useState<Advertisement | null>(null);
   const [creatingPosition, setCreatingPosition] = useState<string | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showSidebarBulkDialog, setShowSidebarBulkDialog] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [title, setTitle] = useState('');
+  const [sidebarAdsData, setSidebarAdsData] = useState<SidebarAdData[]>([
+    { title: '', prompt: '', position: 1 },
+    { title: '', prompt: '', position: 2 }
+  ]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -72,8 +83,11 @@ const BlogListAdEditor = ({ isOpen, onClose }: BlogListAdEditorProps) => {
     }
   };
 
-  const generateAdWithAI = async (position: string, editingAdId?: string) => {
-    if (!prompt.trim() || !title.trim()) {
+  const generateAdWithAI = async (position: string, editingAdId?: string, customTitle?: string, customPrompt?: string) => {
+    const adTitle = customTitle || title;
+    const adPrompt = customPrompt || prompt;
+    
+    if (!adPrompt.trim() || !adTitle.trim()) {
       toast({
         title: "Missing Information",
         description: "Please provide both a title and prompt",
@@ -111,13 +125,13 @@ DESIGN REQUIREMENTS:
 - Optimize text placement for readability
 - Balance graphical elements with text content
 
-USER PROMPT: ${prompt}
+USER PROMPT: ${adPrompt}
 
 Create an eye-catching advertisement that combines the user's vision with AutoNateAI's professional positioning and optimal space utilization.`;
 
       const { data, error } = await supabase.functions.invoke('generate-blog-ad', {
         body: {
-          blogTitle: title,
+          blogTitle: adTitle,
           blogContent: enhancedPrompt,
           blogCategory: 'advertisement',
           position: position,
@@ -129,7 +143,7 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
 
       // Save or update the advertisement
       const adData = {
-        title: title,
+        title: adTitle,
         image_url: data.imageUrl,
         position: position,
         target_type: 'all',
@@ -182,6 +196,59 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
     setShowEditDialog(true);
   };
 
+  const handleCreateSidebarAds = () => {
+    setSidebarAdsData([
+      { title: '', prompt: '', position: 1 },
+      { title: '', prompt: '', position: 2 }
+    ]);
+    setShowSidebarBulkDialog(true);
+  };
+
+  const generateBulkSidebarAds = async () => {
+    setGenerating(true);
+    
+    try {
+      const validAds = sidebarAdsData.filter(ad => ad.title.trim() && ad.prompt.trim());
+      
+      if (validAds.length === 0) {
+        toast({
+          title: "Missing Information",
+          description: "Please provide at least one ad with title and prompt",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Generate ads sequentially to avoid overwhelming the API
+      for (const adData of validAds) {
+        await generateAdWithAI('blog-list-sidebar', undefined, adData.title, adData.prompt);
+        // Small delay between requests
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      setShowSidebarBulkDialog(false);
+      setSidebarAdsData([
+        { title: '', prompt: '', position: 1 },
+        { title: '', prompt: '', position: 2 }
+      ]);
+    } catch (error) {
+      console.error('Error generating bulk sidebar ads:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate sidebar ads",
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const updateSidebarAdData = (index: number, field: keyof SidebarAdData, value: string | number) => {
+    setSidebarAdsData(prev => prev.map((ad, i) => 
+      i === index ? { ...ad, [field]: value } : ad
+    ));
+  };
+
   const handleEdit = (ad: Advertisement) => {
     setEditingAd(ad);
     setCreatingPosition(null);
@@ -224,7 +291,7 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>Banner Advertisement (1536×1024)</span>
-                  <div className="flex gap-2">
+                   <div className="flex gap-2">
                     {bannerAd && (
                       <Button
                         onClick={() => handleEdit(bannerAd)}
@@ -244,7 +311,7 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
                        <Plus className="h-4 w-4 mr-1" />
                        {bannerAd ? 'Replace' : 'Create'}
                      </Button>
-                  </div>
+                   </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -280,14 +347,25 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>Sidebar Advertisements (1024×1024)</span>
-                   <Button
-                     onClick={() => handleCreateNew('blog-list-sidebar')}
-                     size="sm"
-                     className="glass-button glow-primary"
-                   >
-                     <Plus className="h-4 w-4 mr-1" />
-                     Add Sidebar Ad
-                   </Button>
+                   <div className="flex gap-2">
+                     <Button
+                       onClick={() => handleCreateNew('blog-list-sidebar')}
+                       variant="outline"
+                       size="sm"
+                       className="glass-button"
+                     >
+                       <Plus className="h-4 w-4 mr-1" />
+                       Add Single
+                     </Button>
+                     <Button
+                       onClick={handleCreateSidebarAds}
+                       size="sm"
+                       className="glass-button glow-primary"
+                     >
+                       <Sparkles className="h-4 w-4 mr-1" />
+                       Create Both
+                     </Button>
+                   </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -304,32 +382,32 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
                              />
                            </div>
                          </div>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{ad.title}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Sidebar {index + 1} • {ad.width}×{ad.height}
-                            </p>
-                          </div>
-                          <Button
-                            onClick={() => handleEdit(ad)}
-                            variant="outline"
-                            size="sm"
-                            className="glass-button"
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                        </div>
+                         <div className="flex items-center justify-between">
+                           <div>
+                             <p className="font-medium">{ad.title}</p>
+                             <p className="text-sm text-muted-foreground">
+                               Position {index + 1} • {ad.width}×{ad.height}
+                             </p>
+                           </div>
+                           <Button
+                             onClick={() => handleEdit(ad)}
+                             variant="outline"
+                             size="sm"
+                             className="glass-button"
+                           >
+                             <Edit className="h-4 w-4 mr-1" />
+                             Edit
+                           </Button>
+                         </div>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="text-center py-8 border-2 border-dashed border-border/20 rounded-lg">
-                    <p className="text-muted-foreground">No sidebar ads created yet</p>
-                    <p className="text-sm text-muted-foreground">Create them using AI with custom prompts</p>
-                  </div>
-                )}
+                 ) : (
+                   <div className="text-center py-8 border-2 border-dashed border-border/20 rounded-lg">
+                     <p className="text-muted-foreground">No sidebar ads created yet</p>
+                     <p className="text-sm text-muted-foreground">Create them individually or generate both at once</p>
+                   </div>
+                 )}
               </CardContent>
             </Card>
           </div>
@@ -395,6 +473,77 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
                   <>
                     <Sparkles className="h-4 w-4 mr-2" />
                     {editingAd ? 'Update' : 'Generate'} Ad
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Sidebar Ads Dialog */}
+      <Dialog open={showSidebarBulkDialog} onOpenChange={setShowSidebarBulkDialog}>
+        <DialogContent className="max-w-4xl glass-modal max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="gradient-text">Create Both Sidebar Ads</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {sidebarAdsData.map((adData, index) => (
+              <Card key={index} className="glass-card">
+                <CardHeader>
+                  <CardTitle className="text-lg">Sidebar Ad #{index + 1} (Position {index + 1})</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor={`title-${index}`}>Advertisement Title</Label>
+                    <Input
+                      id={`title-${index}`}
+                      value={adData.title}
+                      onChange={(e) => updateSidebarAdData(index, 'title', e.target.value)}
+                      placeholder="Enter a descriptive title for the ad"
+                      className="glass-input"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor={`prompt-${index}`}>AI Generation Prompt</Label>
+                    <Textarea
+                      id={`prompt-${index}`}
+                      value={adData.prompt}
+                      onChange={(e) => updateSidebarAdData(index, 'prompt', e.target.value)}
+                      placeholder="Describe the advertisement you want to create. Be specific about the message, style, colors, and elements."
+                      rows={4}
+                      className="glass-input"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            <div className="flex gap-2 justify-end">
+              <Button
+                onClick={() => setShowSidebarBulkDialog(false)}
+                variant="outline"
+                className="glass-button"
+                disabled={generating}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={generateBulkSidebarAds}
+                className="glass-button glow-primary"
+                disabled={generating || sidebarAdsData.every(ad => !ad.title.trim() || !ad.prompt.trim())}
+              >
+                {generating ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+                    Generating Ads...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate Sidebar Ads
                   </>
                 )}
               </Button>
