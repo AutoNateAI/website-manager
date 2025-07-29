@@ -49,13 +49,12 @@ const BlogListAdEditor = ({ isOpen, onClose }: BlogListAdEditorProps) => {
       const { data: ads, error } = await supabase
         .from('advertisements')
         .select('*')
-        .eq('target_type', 'blog_list')
         .eq('is_active', true)
-        .in('position', ['banner', 'sidebar']);
+        .in('position', ['featured', 'sidebar']);
 
       if (error) throw error;
 
-      const banner = ads?.find(ad => ad.position === 'banner') || null;
+      const banner = ads?.find(ad => ad.position === 'featured') || null;
       const sidebars = ads?.filter(ad => ad.position === 'sidebar') || [];
 
       setBannerAd(banner);
@@ -85,8 +84,8 @@ const BlogListAdEditor = ({ isOpen, onClose }: BlogListAdEditorProps) => {
     try {
       setGenerating(true);
       
-      const imageSize = position === 'banner' ? '1536x1024' : '1024x1024';
-      const formatInstruction = position === 'banner' 
+      const imageSize = position === 'featured' ? '1536x1024' : '1024x1024';
+      const formatInstruction = position === 'featured' 
         ? 'BANNER FORMAT (1536x1024): Use the wide horizontal space effectively for banner-style layout. Place text strategically across the width, use bold headlines, and create visual hierarchy with text and graphical elements.'
         : 'SQUARE FORMAT (1024x1024): Use the square space efficiently. Place text strategically - consider top/bottom placement for headlines, center for main elements. Make graphical elements complement text placement.';
       
@@ -132,9 +131,9 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
         title: title,
         image_url: data.imageUrl,
         position: position,
-        target_type: 'blog_list',
-        width: position === 'banner' ? 1536 : 1024,
-        height: position === 'banner' ? 1024 : 1024,
+        target_type: 'all',
+        width: position === 'featured' ? 1536 : 1024,
+        height: position === 'featured' ? 1024 : 1024,
         alt_text: `AutoNateAI ${position} advertisement`,
         is_active: true
       };
@@ -155,7 +154,7 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
 
       toast({
         title: "Success",
-        description: `${position === 'banner' ? 'Banner' : 'Sidebar'} ad ${editingAdId ? 'updated' : 'created'} successfully`,
+        description: `${position === 'featured' ? 'Banner' : 'Sidebar'} ad ${editingAdId ? 'updated' : 'created'} successfully`,
       });
 
       await fetchBlogListAds();
@@ -231,14 +230,14 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
                         Edit
                       </Button>
                     )}
-                    <Button
-                      onClick={() => handleCreateNew('banner')}
-                      size="sm"
-                      className="glass-button glow-primary"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      {bannerAd ? 'Replace' : 'Create'}
-                    </Button>
+                     <Button
+                       onClick={() => handleCreateNew('featured')}
+                       size="sm"
+                       className="glass-button glow-primary"
+                     >
+                       <Plus className="h-4 w-4 mr-1" />
+                       {bannerAd ? 'Replace' : 'Create'}
+                     </Button>
                   </div>
                 </CardTitle>
               </CardHeader>
@@ -332,7 +331,7 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
         <DialogContent className="max-w-2xl glass-modal">
           <DialogHeader>
             <DialogTitle className="gradient-text">
-              {editingAd ? 'Edit' : 'Create'} {editingAd?.position === 'banner' ? 'Banner' : 'Sidebar'} Ad with AI
+              {editingAd ? 'Edit' : 'Create'} {editingAd?.position === 'featured' ? 'Banner' : 'Sidebar'} Ad with AI
             </DialogTitle>
           </DialogHeader>
 
@@ -359,7 +358,7 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
                 className="glass-input"
               />
               <p className="text-sm text-muted-foreground mt-1">
-                Dimensions: {editingAd?.position === 'banner' ? '1536×1024 (wide banner)' : '1024×1024 (square sidebar)'}
+                Dimensions: {editingAd?.position === 'featured' ? '1536×1024 (wide banner)' : '1024×1024 (square sidebar)'}
               </p>
             </div>
 
@@ -373,7 +372,7 @@ Create an eye-catching advertisement that combines the user's vision with AutoNa
                 Cancel
               </Button>
               <Button
-                onClick={() => generateAdWithAI(editingAd?.position || 'banner', editingAd?.id)}
+                onClick={() => generateAdWithAI(editingAd?.position || 'featured', editingAd?.id)}
                 className="glass-button glow-primary"
                 disabled={generating || !prompt.trim() || !title.trim()}
               >
