@@ -705,9 +705,11 @@ const ImageManager = () => {
       )}
 
       <ImageViewer 
-        image={viewingImage}
         isOpen={showImageViewer}
         onClose={closeImageViewer}
+        imageUrl={viewingImage?.url || ''}
+        altText={viewingImage?.alt_text}
+        caption={viewingImage?.caption}
       />
     </div>
   );
