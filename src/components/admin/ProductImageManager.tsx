@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Upload, Trash2, Edit, Star, StarOff, Sparkles, Camera, GripVertical } from 'lucide-react';
+import { Upload, Trash2, Edit, Star, StarOff, Sparkles, Camera, GripVertical, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import ImageViewer from './ImageViewer';
@@ -60,6 +60,10 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
     alt: string;
     caption: string;
   } | null>(null);
+  
+  // Multi-select state
+  const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   
   // AI Generation state
   const [aiPrompt, setAiPrompt] = useState('');
@@ -451,6 +455,75 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
     }
   };
 
+  // Multi-select functions
+  const toggleImageSelection = (imageId: string) => {
+    const newSelected = new Set(selectedImages);
+    if (newSelected.has(imageId)) {
+      newSelected.delete(imageId);
+    } else {
+      newSelected.add(imageId);
+    }
+    setSelectedImages(newSelected);
+  };
+
+  const selectAllImages = () => {
+    setSelectedImages(new Set(images.map(img => img.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedImages(new Set());
+    setIsSelectionMode(false);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedImages.size === 0) return;
+
+    const confirmMessage = `Are you sure you want to delete ${selectedImages.size} image${selectedImages.size > 1 ? 's' : ''}?`;
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      // Delete each selected image
+      for (const imageId of selectedImages) {
+        const image = images.find(img => img.id === imageId);
+        if (!image) continue;
+
+        // Delete from database
+        await (supabase as any)
+          .from('product_images')
+          .delete()
+          .eq('id', imageId);
+
+        // Try to delete from storage (if it's in our bucket)
+        if (image.image_url.includes('generated-images')) {
+          const fileName = image.image_url.split('/').pop();
+          if (fileName) {
+            await supabase.storage
+              .from('generated-images')
+              .remove([fileName]);
+          }
+        }
+      }
+
+      // Reorder remaining images
+      await reorderImages();
+
+      toast({
+        title: "Success",
+        description: `${selectedImages.size} image${selectedImages.size > 1 ? 's' : ''} deleted successfully`
+      });
+
+      clearSelection();
+      fetchImages();
+    } catch (error) {
+      console.error('Error bulk deleting images:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete images",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
@@ -471,34 +544,81 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
         </CardHeader>
         <CardContent className="space-y-4">
           {!disabled && (
-            <div className="flex gap-2">
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="flex-1"
-              >
-                {uploading ? (
-                  <>
-                    <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></div>
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload size={16} className="mr-2" />
-                    Upload Images
-                  </>
-                )}
-              </Button>
-              
-              <Button
-                onClick={() => setShowAIDialog(true)}
-                variant="outline"
-                className="flex-1"
-              >
-                <Sparkles size={16} className="mr-2" />
-                Generate with AI
-              </Button>
-            </div>
+            <>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex-1"
+                >
+                  {uploading ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></div>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={16} className="mr-2" />
+                      Upload Images
+                    </>
+                  )}
+                </Button>
+                
+                <Button
+                  onClick={() => setShowAIDialog(true)}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  <Sparkles size={16} className="mr-2" />
+                  Generate with AI
+                </Button>
+              </div>
+
+              {/* Selection Controls */}
+              {images.length > 0 && (
+                <div className="flex gap-2 items-center">
+                  <Button
+                    onClick={() => setIsSelectionMode(!isSelectionMode)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {isSelectionMode ? 'Cancel Selection' : 'Select Images'}
+                  </Button>
+                  
+                  {isSelectionMode && (
+                    <>
+                      <Button
+                        onClick={selectAllImages}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Select All
+                      </Button>
+                      
+                      {selectedImages.size > 0 && (
+                        <>
+                          <Button
+                            onClick={clearSelection}
+                            variant="outline"
+                            size="sm"
+                          >
+                            Clear ({selectedImages.size})
+                          </Button>
+                          <Button
+                            onClick={handleBulkDelete}
+                            variant="destructive"
+                            size="sm"
+                          >
+                            <Trash2 size={14} className="mr-1" />
+                            Delete Selected ({selectedImages.size})
+                          </Button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
           <input
@@ -529,6 +649,9 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
                 image={image}
                 index={index}
                 disabled={disabled}
+                isSelectionMode={isSelectionMode}
+                isSelected={selectedImages.has(image.id)}
+                onToggleSelection={() => toggleImageSelection(image.id)}
                 onView={(url, alt, caption) => setViewerImage({ url, alt, caption })}
                 onSetPrimary={handleSetPrimary}
                 onEdit={handleEdit}
@@ -732,6 +855,9 @@ interface SortableImageCardProps {
   image: ProductImage;
   index: number;
   disabled: boolean;
+  isSelectionMode: boolean;
+  isSelected: boolean;
+  onToggleSelection: () => void;
   onView: (url: string, alt: string, caption: string) => void;
   onSetPrimary: (id: string) => void;
   onEdit: (image: ProductImage) => void;
@@ -742,6 +868,9 @@ const SortableImageCard = ({
   image, 
   index, 
   disabled, 
+  isSelectionMode,
+  isSelected,
+  onToggleSelection,
   onView, 
   onSetPrimary, 
   onEdit, 
@@ -766,10 +895,25 @@ const SortableImageCard = ({
     <Card 
       ref={setNodeRef} 
       style={style} 
-      className={`overflow-hidden ${isDragging ? 'z-50' : ''}`}
+      className={`overflow-hidden ${isDragging ? 'z-50' : ''} ${isSelected ? 'ring-2 ring-primary' : ''}`}
     >
       <div className="aspect-square relative">
-        {!disabled && (
+        {/* Selection Mode Controls */}
+        {isSelectionMode && (
+          <div className="absolute top-2 left-2 z-20">
+            <Button
+              size="sm"
+              variant={isSelected ? "default" : "secondary"}
+              onClick={onToggleSelection}
+              className={`w-8 h-8 p-0 ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-background/80'}`}
+            >
+              {isSelected ? <Check size={14} /> : <div className="w-4 h-4 border-2 border-current rounded-sm" />}
+            </Button>
+          </div>
+        )}
+
+        {/* Drag Handle */}
+        {!disabled && !isSelectionMode && (
           <div 
             className="absolute top-2 left-2 z-10 cursor-grab active:cursor-grabbing bg-background/80 rounded p-1"
             {...attributes}
@@ -796,7 +940,7 @@ const SortableImageCard = ({
           </Badge>
         )}
         
-        {!disabled && (
+        {!disabled && !isSelectionMode && (
           <div className="absolute top-2 right-2 flex gap-1">
             <Button
               size="sm"
