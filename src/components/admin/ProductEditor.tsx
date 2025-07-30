@@ -32,9 +32,10 @@ interface ProductEditorProps {
   isOpen: boolean;
   onClose: () => void;
   isCreating: boolean;
+  isViewMode?: boolean;
 }
 
-const ProductEditor = ({ product, isOpen, onClose, isCreating }: ProductEditorProps) => {
+const ProductEditor = ({ product, isOpen, onClose, isCreating, isViewMode = false }: ProductEditorProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
@@ -216,7 +217,7 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating }: ProductEditorPr
       };
 
       if (isCreating) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('products')
           .insert([productData]);
 
@@ -227,7 +228,7 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating }: ProductEditorPr
           description: "Product created successfully"
         });
       } else {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('products')
           .update(productData)
           .eq('id', product!.id);
@@ -258,7 +259,7 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating }: ProductEditorPr
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto glass-card">
         <DialogHeader>
           <DialogTitle className="gradient-text">
-            {isCreating ? 'Create New Product' : 'Edit Product'}
+            {isCreating ? 'Create New Product' : isViewMode ? 'View Product' : 'Edit Product'}
           </DialogTitle>
         </DialogHeader>
 
@@ -312,61 +313,67 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating }: ProductEditorPr
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Product Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => handleInputChange('title', e.target.value)}
-                  placeholder="Enter product title"
-                />
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => handleInputChange('title', e.target.value)}
+                    placeholder="Enter product title"
+                    disabled={isViewMode}
+                  />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="tagline">Tagline</Label>
-                <Input
-                  id="tagline"
-                  value={formData.tagline}
-                  onChange={(e) => handleInputChange('tagline', e.target.value)}
-                  placeholder="Short catchy tagline"
-                />
+                  <Input
+                    id="tagline"
+                    value={formData.tagline}
+                    onChange={(e) => handleInputChange('tagline', e.target.value)}
+                    placeholder="Short catchy tagline"
+                    disabled={isViewMode}
+                  />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="price">Price</Label>
-                <Input
-                  id="price"
-                  value={formData.price}
-                  onChange={(e) => handleInputChange('price', e.target.value)}
-                  placeholder="e.g., $99/month, Free, Contact for pricing"
-                />
+                  <Input
+                    id="price"
+                    value={formData.price}
+                    onChange={(e) => handleInputChange('price', e.target.value)}
+                    placeholder="e.g., $99/month, Free, Contact for pricing"
+                    disabled={isViewMode}
+                  />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="slug">URL Slug</Label>
-                <Input
-                  id="slug"
-                  value={formData.slug}
-                  onChange={(e) => handleInputChange('slug', e.target.value)}
-                  placeholder="url-friendly-name"
-                />
+                  <Input
+                    id="slug"
+                    value={formData.slug}
+                    onChange={(e) => handleInputChange('slug', e.target.value)}
+                    placeholder="url-friendly-name"
+                    disabled={isViewMode}
+                  />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="sort_order">Sort Order</Label>
-                <Input
-                  id="sort_order"
-                  type="number"
-                  value={formData.sort_order}
-                  onChange={(e) => handleInputChange('sort_order', parseInt(e.target.value) || 0)}
-                  placeholder="0"
-                />
+                  <Input
+                    id="sort_order"
+                    type="number"
+                    value={formData.sort_order}
+                    onChange={(e) => handleInputChange('sort_order', parseInt(e.target.value) || 0)}
+                    placeholder="0"
+                    disabled={isViewMode}
+                  />
               </div>
 
               <div className="flex items-center space-x-2">
-                <Switch
-                  id="is_active"
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => handleInputChange('is_active', checked)}
-                />
+                  <Switch
+                    id="is_active"
+                    checked={formData.is_active}
+                    onCheckedChange={(checked) => handleInputChange('is_active', checked)}
+                    disabled={isViewMode}
+                  />
                 <Label htmlFor="is_active">Active</Label>
               </div>
             </div>
@@ -379,6 +386,7 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating }: ProductEditorPr
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 placeholder="Detailed product description"
                 rows={4}
+                disabled={isViewMode}
               />
             </div>
           </TabsContent>
@@ -391,6 +399,7 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating }: ProductEditorPr
               onAdd={(value) => handleArrayAdd('features', value)}
               onRemove={(index) => handleArrayRemove('features', index)}
               placeholder="Add a feature"
+              disabled={isViewMode}
             />
 
             {/* Benefits */}
@@ -400,6 +409,7 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating }: ProductEditorPr
               onAdd={(value) => handleArrayAdd('benefits', value)}
               onRemove={(index) => handleArrayRemove('benefits', index)}
               placeholder="Add a benefit"
+              disabled={isViewMode}
             />
 
             {/* Testimonials */}
@@ -407,6 +417,7 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating }: ProductEditorPr
               testimonials={formData.testimonials}
               onAdd={handleTestimonialAdd}
               onRemove={handleTestimonialRemove}
+              disabled={isViewMode}
             />
           </TabsContent>
 
@@ -415,6 +426,7 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating }: ProductEditorPr
               <ProductImageManager 
                 productId={product.id}
                 productTitle={product.title}
+                disabled={isViewMode}
               />
             )}
             {isCreating && (
@@ -431,21 +443,23 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating }: ProductEditorPr
 
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {isViewMode ? 'Close' : 'Cancel'}
           </Button>
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? (
-              <>
-                <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></div>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save size={16} className="mr-2" />
-                {isCreating ? 'Create Product' : 'Update Product'}
-              </>
-            )}
-          </Button>
+          {!isViewMode && (
+            <Button onClick={handleSave} disabled={loading}>
+              {loading ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save size={16} className="mr-2" />
+                  {isCreating ? 'Create Product' : 'Update Product'}
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -453,12 +467,13 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating }: ProductEditorPr
 };
 
 // Helper Components
-const ArrayInput = ({ title, items, onAdd, onRemove, placeholder }: {
+const ArrayInput = ({ title, items, onAdd, onRemove, placeholder, disabled = false }: {
   title: string;
   items: string[];
   onAdd: (value: string) => void;
   onRemove: (index: number) => void;
   placeholder: string;
+  disabled?: boolean;
 }) => {
   const [inputValue, setInputValue] = useState('');
 
@@ -473,27 +488,31 @@ const ArrayInput = ({ title, items, onAdd, onRemove, placeholder }: {
         <CardTitle className="text-lg">{title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2">
-          <Input
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder={placeholder}
-            onKeyPress={(e) => e.key === 'Enter' && handleAdd()}
-          />
-          <Button onClick={handleAdd} disabled={!inputValue.trim()}>
-            <Plus size={16} />
-          </Button>
-        </div>
+        {!disabled && (
+          <div className="flex gap-2">
+            <Input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder={placeholder}
+              onKeyPress={(e) => e.key === 'Enter' && handleAdd()}
+            />
+            <Button onClick={handleAdd} disabled={!inputValue.trim()}>
+              <Plus size={16} />
+            </Button>
+          </div>
+        )}
         
         <div className="flex flex-wrap gap-2">
           {items.map((item, index) => (
             <Badge key={index} variant="secondary" className="flex items-center gap-1">
               {item}
-              <X 
-                size={14} 
-                className="cursor-pointer hover:text-destructive" 
-                onClick={() => onRemove(index)}
-              />
+              {!disabled && (
+                <X 
+                  size={14} 
+                  className="cursor-pointer hover:text-destructive" 
+                  onClick={() => onRemove(index)}
+                />
+              )}
             </Badge>
           ))}
         </div>
@@ -502,10 +521,11 @@ const ArrayInput = ({ title, items, onAdd, onRemove, placeholder }: {
   );
 };
 
-const TestimonialInput = ({ testimonials, onAdd, onRemove }: {
+const TestimonialInput = ({ testimonials, onAdd, onRemove, disabled = false }: {
   testimonials: { name: string; content: string; rating: number }[];
   onAdd: (testimonial: { name: string; content: string; rating: number }) => void;
   onRemove: (index: number) => void;
+  disabled?: boolean;
 }) => {
   const [newTestimonial, setNewTestimonial] = useState({
     name: '',
@@ -524,35 +544,39 @@ const TestimonialInput = ({ testimonials, onAdd, onRemove }: {
         <CardTitle className="text-lg">Testimonials</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            placeholder="Customer name"
-            value={newTestimonial.name}
-            onChange={(e) => setNewTestimonial(prev => ({ ...prev, name: e.target.value }))}
-          />
-          <Input
-            type="number"
-            min="1"
-            max="5"
-            placeholder="Rating (1-5)"
-            value={newTestimonial.rating}
-            onChange={(e) => setNewTestimonial(prev => ({ ...prev, rating: parseInt(e.target.value) || 5 }))}
-          />
-        </div>
-        <Textarea
-          placeholder="Testimonial content"
-          value={newTestimonial.content}
-          onChange={(e) => setNewTestimonial(prev => ({ ...prev, content: e.target.value }))}
-          rows={3}
-        />
-        <Button 
-          onClick={handleAdd} 
-          disabled={!newTestimonial.name.trim() || !newTestimonial.content.trim()}
-          className="w-full"
-        >
-          <Plus size={16} className="mr-2" />
-          Add Testimonial
-        </Button>
+        {!disabled && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                placeholder="Customer name"
+                value={newTestimonial.name}
+                onChange={(e) => setNewTestimonial(prev => ({ ...prev, name: e.target.value }))}
+              />
+              <Input
+                type="number"
+                min="1"
+                max="5"
+                placeholder="Rating (1-5)"
+                value={newTestimonial.rating}
+                onChange={(e) => setNewTestimonial(prev => ({ ...prev, rating: parseInt(e.target.value) || 5 }))}
+              />
+            </div>
+            <Textarea
+              placeholder="Testimonial content"
+              value={newTestimonial.content}
+              onChange={(e) => setNewTestimonial(prev => ({ ...prev, content: e.target.value }))}
+              rows={3}
+            />
+            <Button 
+              onClick={handleAdd} 
+              disabled={!newTestimonial.name.trim() || !newTestimonial.content.trim()}
+              className="w-full"
+            >
+              <Plus size={16} className="mr-2" />
+              Add Testimonial
+            </Button>
+          </>
+        )}
         
         <div className="space-y-2">
           {testimonials.map((testimonial, index) => (
@@ -565,14 +589,16 @@ const TestimonialInput = ({ testimonials, onAdd, onRemove }: {
                   </div>
                   <p className="text-sm text-muted-foreground">{testimonial.content}</p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemove(index)}
-                  className="text-destructive hover:text-destructive"
-                >
-                  <X size={16} />
-                </Button>
+                {!disabled && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRemove(index)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <X size={16} />
+                  </Button>
+                )}
               </div>
             </Card>
           ))}

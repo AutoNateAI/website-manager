@@ -40,6 +40,7 @@ const ProductManager = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [creatingNew, setCreatingNew] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -50,7 +51,7 @@ const ProductManager = () => {
       setLoading(true);
       
       // Fetch products
-      const { data: productsData, error: productsError } = await supabase
+      const { data: productsData, error: productsError } = await (supabase as any)
         .from('products')
         .select('*')
         .order('sort_order', { ascending: true });
@@ -60,7 +61,7 @@ const ProductManager = () => {
       setProducts(productsData || []);
 
       // Fetch product images
-      const { data: imagesData, error: imagesError } = await supabase
+      const { data: imagesData, error: imagesError } = await (supabase as any)
         .from('product_images')
         .select('*')
         .order('sort_order', { ascending: true });
@@ -92,12 +93,21 @@ const ProductManager = () => {
   const handleCreateNew = () => {
     setSelectedProduct(null);
     setCreatingNew(true);
+    setIsViewMode(false);
     setShowEditor(true);
   };
 
   const handleEdit = (product: Product) => {
     setSelectedProduct(product);
     setCreatingNew(false);
+    setIsViewMode(false);
+    setShowEditor(true);
+  };
+
+  const handleView = (product: Product) => {
+    setSelectedProduct(product);
+    setCreatingNew(false);
+    setIsViewMode(true);
     setShowEditor(true);
   };
 
@@ -106,7 +116,7 @@ const ProductManager = () => {
 
     try {
       // Delete product images first
-      const { error: imagesError } = await supabase
+      const { error: imagesError } = await (supabase as any)
         .from('product_images')
         .delete()
         .eq('product_id', product.id);
@@ -114,7 +124,7 @@ const ProductManager = () => {
       if (imagesError) throw imagesError;
 
       // Delete product
-      const { error: productError } = await supabase
+      const { error: productError } = await (supabase as any)
         .from('products')
         .delete()
         .eq('id', product.id);
@@ -141,6 +151,7 @@ const ProductManager = () => {
     setShowEditor(false);
     setSelectedProduct(null);
     setCreatingNew(false);
+    setIsViewMode(false);
     fetchProducts();
   };
 
@@ -188,7 +199,11 @@ const ProductManager = () => {
           const imageCount = productImages[product.id]?.length || 0;
 
           return (
-            <Card key={product.id} className="glass-card hover:glow-primary transition-all duration-300">
+            <Card 
+              key={product.id} 
+              className="glass-card hover:glow-primary transition-all duration-300 cursor-pointer"
+              onClick={() => handleView(product)}
+            >
               <CardHeader className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -206,11 +221,14 @@ const ProductManager = () => {
               <CardContent className="p-4 pt-0">
                 {/* Product Image */}
                 {primaryImage ? (
-                  <div className="aspect-video bg-muted rounded-lg mb-4 overflow-hidden">
+                  <div 
+                    className="aspect-video bg-muted rounded-lg mb-4 overflow-hidden cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <img
                       src={primaryImage.image_url}
                       alt={primaryImage.alt_text || product.title}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover hover:scale-105 transition-transform"
                     />
                   </div>
                 ) : (
@@ -239,7 +257,10 @@ const ProductManager = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleEdit(product)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit(product);
+                    }}
                     className="flex-1"
                   >
                     <Edit size={14} className="mr-1" />
@@ -248,7 +269,10 @@ const ProductManager = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDelete(product)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(product);
+                    }}
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 size={14} />
@@ -264,7 +288,7 @@ const ProductManager = () => {
           <div className="col-span-full">
             <Card className="glass-card">
               <CardContent className="p-12 text-center">
-                <Package size={48} className="mx-auto text-muted-foreground mb-4" />
+                <div className="text-4xl mb-4">📦</div>
                 <h3 className="text-lg font-semibold mb-2">No products yet</h3>
                 <p className="text-muted-foreground mb-4">
                   Create your first product to get started
@@ -286,6 +310,7 @@ const ProductManager = () => {
           isOpen={showEditor}
           onClose={handleEditorClose}
           isCreating={creatingNew}
+          isViewMode={isViewMode}
         />
       )}
     </div>

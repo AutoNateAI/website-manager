@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Upload, Trash2, Edit, Star, StarOff, Sparkles, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import ImageViewer from './ImageViewer';
 
 interface ProductImage {
   id: string;
@@ -22,9 +23,10 @@ interface ProductImage {
 interface ProductImageManagerProps {
   productId: string;
   productTitle: string;
+  disabled?: boolean;
 }
 
-const ProductImageManager = ({ productId, productTitle }: ProductImageManagerProps) => {
+const ProductImageManager = ({ productId, productTitle, disabled = false }: ProductImageManagerProps) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -34,6 +36,11 @@ const ProductImageManager = ({ productId, productTitle }: ProductImageManagerPro
   const [editingImage, setEditingImage] = useState<ProductImage | null>(null);
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);
+  const [viewerImage, setViewerImage] = useState<{
+    url: string;
+    alt: string;
+    caption: string;
+  } | null>(null);
   
   // AI Generation state
   const [aiPrompt, setAiPrompt] = useState('');
@@ -55,7 +62,7 @@ const ProductImageManager = ({ productId, productTitle }: ProductImageManagerPro
   const fetchImages = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('product_images')
         .select('*')
         .eq('product_id', productId)
@@ -106,7 +113,7 @@ const ProductImageManager = ({ productId, productTitle }: ProductImageManagerPro
           .getPublicUrl(fileName);
 
         // Save to database
-        const { error: dbError } = await supabase
+        const { error: dbError } = await (supabase as any)
           .from('product_images')
           .insert([{
             product_id: productId,
@@ -181,7 +188,7 @@ const ProductImageManager = ({ productId, productTitle }: ProductImageManagerPro
 
       if (data.imageUrl) {
         // Save generated image to database
-        const { error: dbError } = await supabase
+        const { error: dbError } = await (supabase as any)
           .from('product_images')
           .insert([{
             product_id: productId,
@@ -232,14 +239,14 @@ const ProductImageManager = ({ productId, productTitle }: ProductImageManagerPro
     try {
       // If setting as primary, unset other primary images first
       if (editForm.is_primary && !editingImage.is_primary) {
-        await supabase
+        await (supabase as any)
           .from('product_images')
           .update({ is_primary: false })
           .eq('product_id', productId)
           .eq('is_primary', true);
       }
 
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('product_images')
         .update({
           alt_text: editForm.alt_text || null,
@@ -273,7 +280,7 @@ const ProductImageManager = ({ productId, productTitle }: ProductImageManagerPro
 
     try {
       // Delete from database
-      const { error: dbError } = await supabase
+      const { error: dbError } = await (supabase as any)
         .from('product_images')
         .delete()
         .eq('id', image.id);
@@ -309,13 +316,13 @@ const ProductImageManager = ({ productId, productTitle }: ProductImageManagerPro
   const handleSetPrimary = async (imageId: string) => {
     try {
       // Unset all primary images first
-      await supabase
+      await (supabase as any)
         .from('product_images')
         .update({ is_primary: false })
         .eq('product_id', productId);
 
       // Set the selected image as primary
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('product_images')
         .update({ is_primary: true })
         .eq('id', imageId);
@@ -357,34 +364,36 @@ const ProductImageManager = ({ productId, productTitle }: ProductImageManagerPro
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="flex-1"
-            >
-              {uploading ? (
-                <>
-                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></div>
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload size={16} className="mr-2" />
-                  Upload Images
-                </>
-              )}
-            </Button>
-            
-            <Button
-              onClick={() => setShowAIDialog(true)}
-              variant="outline"
-              className="flex-1"
-            >
-              <Sparkles size={16} className="mr-2" />
-              Generate with AI
-            </Button>
-          </div>
+          {!disabled && (
+            <div className="flex gap-2">
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex-1"
+              >
+                {uploading ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></div>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload size={16} className="mr-2" />
+                    Upload Images
+                  </>
+                )}
+              </Button>
+              
+              <Button
+                onClick={() => setShowAIDialog(true)}
+                variant="outline"
+                className="flex-1"
+              >
+                <Sparkles size={16} className="mr-2" />
+                Generate with AI
+              </Button>
+            </div>
+          )}
 
           <input
             ref={fileInputRef}
@@ -405,37 +414,44 @@ const ProductImageManager = ({ productId, productTitle }: ProductImageManagerPro
               <img
                 src={image.image_url}
                 alt={image.alt_text || `Product image ${index + 1}`}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                onClick={() => setViewerImage({
+                  url: image.image_url,
+                  alt: image.alt_text || `Product image ${index + 1}`,
+                  caption: image.caption || ''
+                })}
               />
               {image.is_primary && (
                 <Badge className="absolute top-2 left-2 bg-primary">
                   Primary
                 </Badge>
               )}
-              <div className="absolute top-2 right-2 flex gap-1">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => handleSetPrimary(image.id)}
-                  disabled={image.is_primary}
-                >
-                  {image.is_primary ? <Star size={14} /> : <StarOff size={14} />}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => handleEdit(image)}
-                >
-                  <Edit size={14} />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleDelete(image)}
-                >
-                  <Trash2 size={14} />
-                </Button>
-              </div>
+              {!disabled && (
+                <div className="absolute top-2 right-2 flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleSetPrimary(image.id)}
+                    disabled={image.is_primary}
+                  >
+                    {image.is_primary ? <Star size={14} /> : <StarOff size={14} />}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleEdit(image)}
+                  >
+                    <Edit size={14} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDelete(image)}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </div>
+              )}
             </div>
             <CardContent className="p-3">
               <div className="space-y-1">
@@ -460,16 +476,18 @@ const ProductImageManager = ({ productId, productTitle }: ProductImageManagerPro
                 <p className="text-muted-foreground mb-4">
                   Upload images or generate them with AI
                 </p>
-                <div className="flex gap-2 justify-center">
-                  <Button onClick={() => fileInputRef.current?.click()}>
-                    <Upload size={16} className="mr-2" />
-                    Upload Images
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowAIDialog(true)}>
-                    <Sparkles size={16} className="mr-2" />
-                    Generate with AI
-                  </Button>
-                </div>
+                {!disabled && (
+                  <div className="flex gap-2 justify-center">
+                    <Button onClick={() => fileInputRef.current?.click()}>
+                      <Upload size={16} className="mr-2" />
+                      Upload Images
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowAIDialog(true)}>
+                      <Sparkles size={16} className="mr-2" />
+                      Generate with AI
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -627,6 +645,14 @@ const ProductImageManager = ({ productId, productTitle }: ProductImageManagerPro
           </DialogContent>
         </Dialog>
       )}
+
+      <ImageViewer
+        isOpen={!!viewerImage}
+        onClose={() => setViewerImage(null)}
+        imageUrl={viewerImage?.url || ''}
+        altText={viewerImage?.alt}
+        caption={viewerImage?.caption}
+      />
     </div>
   );
 };
