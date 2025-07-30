@@ -113,6 +113,7 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
 
     try {
       setUploading(true);
+      let currentMaxOrder = Math.max(...images.map(img => img.sort_order), -1);
 
       for (const file of Array.from(files)) {
         if (!file.type.startsWith('image/')) {
@@ -138,7 +139,10 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
           .from('generated-images')
           .getPublicUrl(fileName);
 
-        // Save to database
+        // Increment order for each new image
+        currentMaxOrder += 1;
+
+        // Save to database with incremental sort_order
         const { error: dbError } = await (supabase as any)
           .from('product_images')
           .insert([{
@@ -146,8 +150,8 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
             image_url: urlData.publicUrl,
             alt_text: `${productTitle} product image`,
             caption: null,
-            is_primary: images.length === 0, // First image is primary
-            sort_order: images.length
+            is_primary: images.length === 0 && currentMaxOrder === 0, // Only first image of first upload is primary
+            sort_order: currentMaxOrder
           }]);
 
         if (dbError) throw dbError;
@@ -213,6 +217,9 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
       if (error) throw error;
 
       if (data.imageUrl) {
+        // Get the next available sort_order
+        const maxOrder = Math.max(...images.map(img => img.sort_order), -1);
+        
         // Save generated image to database
         const { error: dbError } = await (supabase as any)
           .from('product_images')
@@ -222,7 +229,7 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
             alt_text: `AI generated image for ${productTitle}`,
             caption: aiPrompt,
             is_primary: images.length === 0,
-            sort_order: images.length
+            sort_order: maxOrder + 1
           }]);
 
         if (dbError) throw dbError;
@@ -323,6 +330,9 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
         }
       }
 
+      // Reorder remaining images to fill gaps
+      await reorderImages();
+
       toast({
         title: "Success",
         description: "Image deleted successfully"
@@ -368,6 +378,33 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
         description: "Failed to set primary image",
         variant: "destructive"
       });
+    }
+  };
+
+  // Helper function to reorder images and remove gaps
+  const reorderImages = async () => {
+    try {
+      const currentImages = await (supabase as any)
+        .from('product_images')
+        .select('*')
+        .eq('product_id', productId)
+        .order('sort_order', { ascending: true });
+
+      if (currentImages.data) {
+        const updates = currentImages.data.map((image: ProductImage, index: number) => ({
+          id: image.id,
+          sort_order: index
+        }));
+
+        for (const update of updates) {
+          await (supabase as any)
+            .from('product_images')
+            .update({ sort_order: update.sort_order })
+            .eq('id', update.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error reordering images:', error);
     }
   };
 
@@ -766,6 +803,7 @@ const SortableImageCard = ({
               variant="secondary"
               onClick={() => onSetPrimary(image.id)}
               disabled={image.is_primary}
+              title={image.is_primary ? "Primary image" : "Set as primary"}
             >
               {image.is_primary ? <Star size={14} /> : <StarOff size={14} />}
             </Button>
@@ -773,6 +811,7 @@ const SortableImageCard = ({
               size="sm"
               variant="secondary"
               onClick={() => onEdit(image)}
+              title="Edit image details"
             >
               <Edit size={14} />
             </Button>
@@ -780,6 +819,7 @@ const SortableImageCard = ({
               size="sm"
               variant="destructive"
               onClick={() => onDelete(image)}
+              title="Delete image"
             >
               <Trash2 size={14} />
             </Button>
@@ -795,7 +835,20 @@ const SortableImageCard = ({
           {image.caption && (
             <p className="text-xs text-muted-foreground">{image.caption}</p>
           )}
-          <p className="text-xs text-muted-foreground">Order: {image.sort_order}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">Order: {image.sort_order + 1}</p>
+            {!disabled && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onEdit(image)}
+                className="text-xs h-6 px-2"
+                title="Change order"
+              >
+                Change
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
