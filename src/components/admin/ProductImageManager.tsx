@@ -6,10 +6,29 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Upload, Trash2, Edit, Star, StarOff, Sparkles, Camera } from 'lucide-react';
+import { Upload, Trash2, Edit, Star, StarOff, Sparkles, Camera, GripVertical } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import ImageViewer from './ImageViewer';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import {
+  CSS,
+} from '@dnd-kit/utilities';
 
 interface ProductImage {
   id: string;
@@ -58,6 +77,13 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
   useEffect(() => {
     fetchImages();
   }, [productId]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const fetchImages = async () => {
     try {
@@ -345,6 +371,49 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
     }
   };
 
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const activeIndex = images.findIndex((img) => img.id === active.id);
+      const overIndex = images.findIndex((img) => img.id === over?.id);
+
+      const newImages = arrayMove(images, activeIndex, overIndex);
+      
+      // Update local state immediately for better UX
+      setImages(newImages);
+
+      // Update sort_order in database
+      try {
+        const updates = newImages.map((image, index) => ({
+          id: image.id,
+          sort_order: index
+        }));
+
+        for (const update of updates) {
+          await (supabase as any)
+            .from('product_images')
+            .update({ sort_order: update.sort_order })
+            .eq('id', update.id);
+        }
+
+        toast({
+          title: "Success",
+          description: "Image order updated"
+        });
+      } catch (error) {
+        console.error('Error updating image order:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update image order",
+          variant: "destructive"
+        });
+        // Revert on error
+        fetchImages();
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
@@ -407,92 +476,56 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
       </Card>
 
       {/* Images Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {images.map((image, index) => (
-          <Card key={image.id} className="overflow-hidden">
-            <div className="aspect-square relative">
-              <img
-                src={image.image_url}
-                alt={image.alt_text || `Product image ${index + 1}`}
-                className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
-                onClick={() => setViewerImage({
-                  url: image.image_url,
-                  alt: image.alt_text || `Product image ${index + 1}`,
-                  caption: image.caption || ''
-                })}
+      <DndContext 
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext 
+          items={images.map(img => img.id)} 
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {images.map((image, index) => (
+              <SortableImageCard
+                key={image.id}
+                image={image}
+                index={index}
+                disabled={disabled}
+                onView={(url, alt, caption) => setViewerImage({ url, alt, caption })}
+                onSetPrimary={handleSetPrimary}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
               />
-              {image.is_primary && (
-                <Badge className="absolute top-2 left-2 bg-primary">
-                  Primary
-                </Badge>
-              )}
-              {!disabled && (
-                <div className="absolute top-2 right-2 flex gap-1">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => handleSetPrimary(image.id)}
-                    disabled={image.is_primary}
-                  >
-                    {image.is_primary ? <Star size={14} /> : <StarOff size={14} />}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => handleEdit(image)}
-                  >
-                    <Edit size={14} />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleDelete(image)}
-                  >
-                    <Trash2 size={14} />
-                  </Button>
-                </div>
-              )}
-            </div>
-            <CardContent className="p-3">
-              <div className="space-y-1">
-                {image.alt_text && (
-                  <p className="text-sm font-medium">{image.alt_text}</p>
-                )}
-                {image.caption && (
-                  <p className="text-xs text-muted-foreground">{image.caption}</p>
-                )}
-                <p className="text-xs text-muted-foreground">Order: {image.sort_order}</p>
+            ))}
+            {images.length === 0 && (
+              <div className="col-span-full">
+                <Card className="border-dashed">
+                  <CardContent className="p-8 text-center">
+                    <Camera size={48} className="mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No images yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Upload images or generate them with AI
+                    </p>
+                    {!disabled && (
+                      <div className="flex gap-2 justify-center">
+                        <Button onClick={() => fileInputRef.current?.click()}>
+                          <Upload size={16} className="mr-2" />
+                          Upload Images
+                        </Button>
+                        <Button variant="outline" onClick={() => setShowAIDialog(true)}>
+                          <Sparkles size={16} className="mr-2" />
+                          Generate with AI
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-
-        {images.length === 0 && (
-          <div className="col-span-full">
-            <Card className="border-dashed">
-              <CardContent className="p-8 text-center">
-                <Camera size={48} className="mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No images yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Upload images or generate them with AI
-                </p>
-                {!disabled && (
-                  <div className="flex gap-2 justify-center">
-                    <Button onClick={() => fileInputRef.current?.click()}>
-                      <Upload size={16} className="mr-2" />
-                      Upload Images
-                    </Button>
-                    <Button variant="outline" onClick={() => setShowAIDialog(true)}>
-                      <Sparkles size={16} className="mr-2" />
-                      Generate with AI
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            )}
           </div>
-        )}
-      </div>
+        </SortableContext>
+      </DndContext>
 
       {/* Edit Image Dialog */}
       {editingImage && (
@@ -654,6 +687,118 @@ const ProductImageManager = ({ productId, productTitle, disabled = false }: Prod
         caption={viewerImage?.caption}
       />
     </div>
+  );
+};
+
+// Sortable Image Card Component
+interface SortableImageCardProps {
+  image: ProductImage;
+  index: number;
+  disabled: boolean;
+  onView: (url: string, alt: string, caption: string) => void;
+  onSetPrimary: (id: string) => void;
+  onEdit: (image: ProductImage) => void;
+  onDelete: (image: ProductImage) => void;
+}
+
+const SortableImageCard = ({ 
+  image, 
+  index, 
+  disabled, 
+  onView, 
+  onSetPrimary, 
+  onEdit, 
+  onDelete 
+}: SortableImageCardProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: image.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <Card 
+      ref={setNodeRef} 
+      style={style} 
+      className={`overflow-hidden ${isDragging ? 'z-50' : ''}`}
+    >
+      <div className="aspect-square relative">
+        {!disabled && (
+          <div 
+            className="absolute top-2 left-2 z-10 cursor-grab active:cursor-grabbing bg-background/80 rounded p-1"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical size={16} className="text-muted-foreground" />
+          </div>
+        )}
+        
+        <img
+          src={image.image_url}
+          alt={image.alt_text || `Product image ${index + 1}`}
+          className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+          onClick={() => onView(
+            image.image_url,
+            image.alt_text || `Product image ${index + 1}`,
+            image.caption || ''
+          )}
+        />
+        
+        {image.is_primary && (
+          <Badge className="absolute bottom-2 left-2 bg-primary">
+            Primary
+          </Badge>
+        )}
+        
+        {!disabled && (
+          <div className="absolute top-2 right-2 flex gap-1">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => onSetPrimary(image.id)}
+              disabled={image.is_primary}
+            >
+              {image.is_primary ? <Star size={14} /> : <StarOff size={14} />}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => onEdit(image)}
+            >
+              <Edit size={14} />
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => onDelete(image)}
+            >
+              <Trash2 size={14} />
+            </Button>
+          </div>
+        )}
+      </div>
+      
+      <CardContent className="p-3">
+        <div className="space-y-1">
+          {image.alt_text && (
+            <p className="text-sm font-medium">{image.alt_text}</p>
+          )}
+          {image.caption && (
+            <p className="text-xs text-muted-foreground">{image.caption}</p>
+          )}
+          <p className="text-xs text-muted-foreground">Order: {image.sort_order}</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
