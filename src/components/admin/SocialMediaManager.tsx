@@ -48,6 +48,16 @@ interface SocialMediaImage {
   alt_text?: string;
 }
 
+interface PostConcept {
+  id: string;
+  title: string;
+  angle: string;
+  targetAudience: string;
+  keyMessages: string[];
+  tone: string;
+  callToAction: string;
+}
+
 interface GenerationProgress {
   postIndex: number;
   carouselIndex: number;
@@ -87,7 +97,6 @@ const SocialMediaManager = () => {
   const [generating, setGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress | null>(null);
   
-  // Form states
   const [formData, setFormData] = useState({
     title: '',
     platform: 'instagram' as 'instagram' | 'linkedin',
@@ -98,6 +107,10 @@ const SocialMediaManager = () => {
     imageSeedInstructions: '',
     contextDirection: ''
   });
+
+  const [postConcepts, setPostConcepts] = useState<PostConcept[]>([]);
+  const [conceptsGenerated, setConceptsGenerated] = useState(false);
+  const [generatingConcepts, setGeneratingConcepts] = useState(false);
 
   const { toast } = useToast();
 
@@ -161,9 +174,44 @@ const SocialMediaManager = () => {
     setFormData({ ...formData, sourceItems: newSourceItems });
   };
 
-  const generatePost = async () => {
+  const generatePostConcepts = async () => {
     if (!formData.title || !formData.platform || !formData.style || formData.sourceItems.length === 0) {
       toast({ title: 'Please fill in all required fields', variant: 'destructive' });
+      return;
+    }
+
+    setGeneratingConcepts(true);
+
+    try {
+      const { data: conceptsData, error: conceptsError } = await supabase.functions.invoke('generate-post-concepts', {
+        body: {
+          ...formData
+        }
+      });
+
+      if (conceptsError) throw conceptsError;
+
+      setPostConcepts(conceptsData.concepts);
+      setConceptsGenerated(true);
+      
+      toast({ title: 'Post concepts generated successfully!' });
+    } catch (error) {
+      console.error('Error generating concepts:', error);
+      toast({ title: 'Error generating concepts', variant: 'destructive' });
+    } finally {
+      setGeneratingConcepts(false);
+    }
+  };
+
+  const updatePostConcept = (index: number, field: keyof PostConcept, value: string | string[]) => {
+    const updatedConcepts = [...postConcepts];
+    updatedConcepts[index] = { ...updatedConcepts[index], [field]: value };
+    setPostConcepts(updatedConcepts);
+  };
+
+  const generatePostsFromConcepts = async () => {
+    if (postConcepts.length !== 3) {
+      toast({ title: 'Need exactly 3 post concepts to generate posts', variant: 'destructive' });
       return;
     }
 
@@ -171,10 +219,10 @@ const SocialMediaManager = () => {
     setGenerationProgress({ postIndex: 1, carouselIndex: 1, imageIndex: 1, total: 27, completed: 0 });
 
     try {
-      // Generate 3 separate posts using edge function
       const { data: generatedData, error: generateError } = await supabase.functions.invoke('generate-social-media-content', {
         body: {
-          ...formData
+          ...formData,
+          postConcepts
         }
       });
 
@@ -187,8 +235,8 @@ const SocialMediaManager = () => {
       
       toast({ title: `Successfully generated ${generatedData.postsCreated} social media posts!` });
     } catch (error) {
-      console.error('Error generating post:', error);
-      toast({ title: 'Error generating post', variant: 'destructive' });
+      console.error('Error generating posts:', error);
+      toast({ title: 'Error generating posts', variant: 'destructive' });
     } finally {
       setGenerating(false);
       setGenerationProgress(null);
@@ -206,6 +254,8 @@ const SocialMediaManager = () => {
       imageSeedInstructions: '',
       contextDirection: ''
     });
+    setPostConcepts([]);
+    setConceptsGenerated(false);
   };
 
   const copyToClipboard = (text: string) => {
@@ -459,29 +509,131 @@ const SocialMediaManager = () => {
                   </div>
                 )}
 
+                {/* Post Concepts Section */}
+                {conceptsGenerated && (
+                  <div className="space-y-6">
+                    <div className="border-t pt-6">
+                      <h3 className="text-lg font-semibold mb-4">Review & Edit Post Concepts</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        AI has generated 3 distinct post concepts. Review and edit them before generating the final posts.
+                      </p>
+                      
+                      {postConcepts.map((concept, index) => (
+                        <div key={concept.id} className="border rounded-lg p-4 space-y-4 mb-4">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium">Post {index + 1}</h4>
+                            <Badge variant="outline">{concept.tone}</Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label>Title/Hook</Label>
+                              <Input
+                                value={concept.title}
+                                onChange={(e) => updatePostConcept(index, 'title', e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <Label>Target Audience</Label>
+                              <Input
+                                value={concept.targetAudience}
+                                onChange={(e) => updatePostConcept(index, 'targetAudience', e.target.value)}
+                              />
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <Label>Content Angle</Label>
+                            <Textarea
+                              value={concept.angle}
+                              onChange={(e) => updatePostConcept(index, 'angle', e.target.value)}
+                              rows={2}
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label>Key Messages (comma-separated)</Label>
+                            <Textarea
+                              value={concept.keyMessages.join(', ')}
+                              onChange={(e) => updatePostConcept(index, 'keyMessages', e.target.value.split(', '))}
+                              rows={2}
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label>Call to Action</Label>
+                            <Input
+                              value={concept.callToAction}
+                              onChange={(e) => updatePostConcept(index, 'callToAction', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex flex-col gap-3">
+                  {!conceptsGenerated ? (
+                    <Button 
+                      onClick={generatePostConcepts}
+                      disabled={generatingConcepts || formData.sourceItems.length === 0}
+                      className="w-full"
+                    >
+                      {generatingConcepts ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Generating Post Concepts...
+                        </>
+                      ) : (
+                        'Generate 3 Post Concepts'
+                      )}
+                    </Button>
+                  ) : (
+                    <Button 
+                      onClick={generatePostsFromConcepts}
+                      disabled={generating || postConcepts.length !== 3}
+                      className="w-full"
+                    >
+                      {generating ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Generating Posts & Images...
+                          <div className="ml-2">
+                            <p className="text-xs text-muted-foreground">
+                              Generating post {generationProgress?.postIndex}/3, 
+                              Image {generationProgress?.imageIndex}/9
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        'Generate 3 Social Media Posts'
+                      )}
+                    </Button>
+                  )}
+                  
+                  {conceptsGenerated && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setConceptsGenerated(false);
+                        setPostConcepts([]);
+                      }}
+                      disabled={generating}
+                    >
+                      Start Over with New Concepts
+                    </Button>
+                  )}
+                </div>
+
                 <div className="flex justify-end space-x-2">
                   <Button 
                     variant="outline" 
                     onClick={() => setShowCreateDialog(false)}
-                    disabled={generating}
+                    disabled={generating || generatingConcepts}
                   >
                     Cancel
-                  </Button>
-                  <Button 
-                    onClick={generatePost}
-                    disabled={generating || formData.sourceItems.length === 0}
-                  >
-                    {generating ? (
-                      <>
-                        <Wand2 size={16} className="mr-2 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 size={16} className="mr-2" />
-                        Generate Post
-                      </>
-                    )}
                   </Button>
                 </div>
               </div>

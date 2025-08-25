@@ -31,10 +31,11 @@ serve(async (req) => {
       sourceItems,
       imageSeedUrl,
       imageSeedInstructions,
-      contextDirection
+      contextDirection,
+      postConcepts
     } = await req.json();
 
-    console.log('Starting social media content generation for 3 separate posts');
+    console.log('Starting social media content generation for 3 separate posts with refined concepts');
 
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
@@ -45,20 +46,22 @@ serve(async (req) => {
     // Fetch source content details
     const sourceContent = await fetchSourceContent(supabase, sourceItems);
     
-    // Create 3 separate posts
+    // Create 3 separate posts using the refined concepts
     const createdPosts = [];
     
     for (let postIndex = 1; postIndex <= 3; postIndex++) {
-      // Generate caption and hashtags for this post
+      const concept = postConcepts[postIndex - 1];
+      
+      // Generate caption and hashtags for this specific concept
       const { caption, hashtags } = await generateCaptionAndHashtags(
-        sourceContent, platform, style, voice, title, contextDirection, postIndex
+        sourceContent, platform, style, voice, concept, contextDirection
       );
 
       // Create post
       const { data: postData, error: postError } = await supabase
         .from('social_media_posts')
         .insert({
-          title: `${title} - Carousel ${postIndex}`,
+          title: `${title} - ${concept.title}`,
           platform,
           style,
           voice,
@@ -66,7 +69,8 @@ serve(async (req) => {
           caption,
           hashtags,
           image_seed_url: imageSeedUrl || null,
-          image_seed_instructions: imageSeedInstructions || null
+          image_seed_instructions: imageSeedInstructions || null,
+          context_direction: contextDirection || null
         })
         .select()
         .single();
@@ -85,7 +89,7 @@ serve(async (req) => {
         voice,
         imageSeedUrl,
         imageSeedInstructions,
-        contextDirection,
+        concept,
         postIndex
       );
     }
@@ -146,9 +150,8 @@ async function generateCaptionAndHashtags(
   platform: string, 
   style: string, 
   voice: string,
-  title: string,
-  contextDirection?: string,
-  postIndex?: number
+  concept: any,
+  contextDirection?: string
 ) {
   const contentSummary = sourceContent.map(item => {
     if (item.type === 'blog') {
@@ -161,24 +164,30 @@ async function generateCaptionAndHashtags(
   }).join('\n');
 
   const contextText = contextDirection ? `\n\nAdditional Context: ${contextDirection}` : '';
-  const postVariation = postIndex ? `\n\nThis is carousel ${postIndex} of 3 - make it unique but cohesive with the overall theme.` : '';
 
-  const prompt = `Create an engaging ${platform} ${style.toLowerCase()} post with a ${voice.toLowerCase()} voice.
+  const prompt = `Create an engaging ${platform} ${style.toLowerCase()} post with a ${voice.toLowerCase()} voice based on this specific concept:
 
-Title: ${title}
+Post Concept:
+- Title/Hook: ${concept.title}
+- Content Angle: ${concept.angle}
+- Target Audience: ${concept.targetAudience}
+- Key Messages: ${concept.keyMessages.join(', ')}
+- Tone: ${concept.tone}
+- Call to Action: ${concept.callToAction}
+
 Source Content:
-${contentSummary}${contextText}${postVariation}
+${contentSummary}${contextText}
 
 Generate:
-1. A captivating caption that builds energy and engagement (150-300 words for LinkedIn, 100-150 for Instagram)
-2. 10-15 relevant hashtags
+1. A captivating caption that follows the concept's angle and targets the specified audience (150-300 words for LinkedIn, 100-150 for Instagram)
+2. 10-15 relevant hashtags that align with the target audience and content angle
 
 The content should:
-- Use authoritative expertise with great metaphors
-- Be captivating and have smooth language that builds energy
-- Be funny yet informative
-- Make people want to share and repost
-- Include a subtle call-to-action to get custom AI-integrated software built
+- Strictly follow the concept's angle and tone
+- Target the specified audience with appropriate language and examples
+- Include the key messages naturally within the flow
+- End with the specified call-to-action
+- Be engaging enough to encourage sharing and comments
 
 Return in JSON format:
 {
@@ -221,11 +230,11 @@ async function generateImageCarousel(
   voice: string,
   imageSeedUrl?: string,
   imageSeedInstructions?: string,
-  contextDirection?: string,
+  concept?: any,
   carouselNumber?: number
 ) {
   const imagePrompts = await generateImagePrompts(
-    sourceContent, platform, style, voice, imageSeedUrl, imageSeedInstructions, contextDirection, carouselNumber
+    sourceContent, platform, style, voice, imageSeedUrl, imageSeedInstructions, concept, carouselNumber
   );
 
   // Generate 9 images for this carousel
@@ -261,7 +270,7 @@ async function generateImagePrompts(
   voice: string,
   imageSeedUrl?: string,
   imageSeedInstructions?: string,
-  contextDirection?: string,
+  concept?: any,
   carouselNumber?: number
 ) {
   const contentSummary = sourceContent.map(item => {
@@ -275,28 +284,36 @@ async function generateImagePrompts(
   }).join('\n');
 
   const seedContext = imageSeedUrl ? `\n\nReference Image Context: ${imageSeedInstructions || 'Use this image as style/composition reference'}` : '';
-  const contextText = contextDirection ? `\n\nAdditional Context: ${contextDirection}` : '';
-  const carouselVariation = carouselNumber ? `\n\nThis is carousel ${carouselNumber} of 3 - make it visually distinct but thematically consistent.` : '';
+  
+  const conceptContext = concept ? `\n\nPost Concept to Follow:
+- Title/Hook: ${concept.title}
+- Content Angle: ${concept.angle}
+- Target Audience: ${concept.targetAudience}
+- Key Messages: ${concept.keyMessages.join(', ')}
+- Tone: ${concept.tone}
+- Call to Action: ${concept.callToAction}` : '';
 
-  const prompt = `Create 9 image prompts for a social media carousel for ${platform}.
+  const prompt = `Create 9 image prompts for a social media carousel for ${platform} that follows this specific concept.
 
 Source Content:
 ${contentSummary}
 
 Style: ${style}
-Voice: ${voice}${seedContext}${contextText}${carouselVariation}
+Voice: ${voice}${seedContext}${conceptContext}
 
 The carousel should have:
-- Image 1: Captivating hook with bold text overlay that stops scrolling
-- Images 2-8: Detail images with great graphics, building climactic engagement
-- Image 9: Strong CTA pointing to live builds, blogs, or custom AI software
+- Image 1: Captivating hook with bold text overlay that stops scrolling - should match the concept's title/hook
+- Images 2-8: Detail images with great graphics, building climactic engagement - focus on the key messages from the concept
+- Image 9: Strong CTA image that aligns with the concept's call-to-action
 
 Requirements:
 - Square 1:1 aspect ratio
-- Modern, professional design
+- Modern, professional design that matches the concept's tone (${concept?.tone || 'engaging'})
 - Include text overlays where appropriate
+- Target the specified audience: ${concept?.targetAudience || 'general audience'}
 - Be engaging, shareable, and informative
 - Build energy and momentum through the sequence
+- Stay true to the concept's angle and approach
 
 Return as JSON array of 9 prompts:
 ["prompt 1", "prompt 2", ..., "prompt 9"]`;
