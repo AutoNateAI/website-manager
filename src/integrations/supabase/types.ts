@@ -159,6 +159,7 @@ export type Database = {
         Row: {
           author: string
           category: string
+          chatgpt_url: string | null
           content: string
           content_images: Json | null
           created_at: string
@@ -167,6 +168,7 @@ export type Database = {
           hero_image: string | null
           hero_image_alt: string | null
           id: string
+          notebook_lm_url: string | null
           published: boolean | null
           read_time: string
           slug: string
@@ -176,6 +178,7 @@ export type Database = {
         Insert: {
           author: string
           category: string
+          chatgpt_url?: string | null
           content: string
           content_images?: Json | null
           created_at?: string
@@ -184,6 +187,7 @@ export type Database = {
           hero_image?: string | null
           hero_image_alt?: string | null
           id?: string
+          notebook_lm_url?: string | null
           published?: boolean | null
           read_time: string
           slug: string
@@ -193,6 +197,7 @@ export type Database = {
         Update: {
           author?: string
           category?: string
+          chatgpt_url?: string | null
           content?: string
           content_images?: Json | null
           created_at?: string
@@ -201,6 +206,7 @@ export type Database = {
           hero_image?: string | null
           hero_image_alt?: string | null
           id?: string
+          notebook_lm_url?: string | null
           published?: boolean | null
           read_time?: string
           slug?: string
