@@ -790,6 +790,7 @@ export type Database = {
       social_media_posts: {
         Row: {
           caption: string
+          context_direction: string | null
           created_at: string
           hashtags: string[]
           id: string
@@ -805,6 +806,7 @@ export type Database = {
         }
         Insert: {
           caption: string
+          context_direction?: string | null
           created_at?: string
           hashtags?: string[]
           id?: string
@@ -820,6 +822,7 @@ export type Database = {
         }
         Update: {
           caption?: string
+          context_direction?: string | null
           created_at?: string
           hashtags?: string[]
           id?: string
