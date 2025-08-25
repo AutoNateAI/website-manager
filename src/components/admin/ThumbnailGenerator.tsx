@@ -31,21 +31,22 @@ const ThumbnailGenerator = ({
     setGenerating(true);
     try {
       // Create a comprehensive prompt based on blog information
-      const thumbnailPrompt = `Create a scroll-stopping, eye-catching blog thumbnail for "${blogTitle}". 
+      const thumbnailPrompt = `Create a scroll-stopping, premium business blog thumbnail for "${blogTitle}". 
         Category: ${blogCategory}. 
         Context: ${blogExcerpt}. 
         
         CRITICAL REQUIREMENTS:
-        - Wide format (1536x1024) - utilize the horizontal space efficiently
-        - Include witty, engaging text overlay that's relevant to the topic (NOT the blog title)
-        - Text must be large, bold, and highly readable - positioned strategically to avoid being cut off
-        - Design should be irresistible to click - use vibrant colors, strong contrast, and compelling visuals
-        - Professional yet attention-grabbing style that stops scrolling
-        - Ensure all text elements are fully visible within the frame
-        - Use modern typography with excellent readability at small sizes
-        - Create visual hierarchy with the text as the main focal point
+        - Wide format (1536x1024) optimized for business executives and leaders
+        - Include powerful, authoritative text overlay with compelling business insight (NOT the blog title)
+        - Text must be bold, executive-level language that creates FOMO and urgency
+        - Use premium business aesthetics: deep blues, strategic golds, professional gradients
+        - Design for C-suite attention spans - make it impossible to ignore
+        - Include subtle business graphics: charts, growth arrows, network diagrams, or architectural elements
+        - Typography should scream "strategic advantage" and "competitive edge"
+        - Create visual hierarchy that demands executive attention
+        - Professional yet magnetic design that stops the scroll of busy leaders
         
-        Make this thumbnail impossible to scroll past!`;
+        Make this thumbnail irresistible to business decision-makers!`;
 
       const { data, error } = await supabase.functions.invoke('generate-image', {
         body: { 

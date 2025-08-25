@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, Sparkles, Zap, Image as ImageIcon, Settings, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, Sparkles, Zap, Image as ImageIcon, Settings, Eye, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import AdDetailViewer from './AdDetailViewer';
 import BlogListAdManager from './BlogListAdManager';
 import BlogListAdEditor from './BlogListAdEditor';
@@ -51,12 +51,17 @@ const AD_LIMITS = {
   bottom: { max: 1, dimensions: '1200x400px' }
 };
 
+const ITEMS_PER_PAGE = 6;
+
 const AdManager = () => {
   const [ads, setAds] = useState<Advertisement[]>([]);
+  const [filteredAds, setFilteredAds] = useState<Advertisement[]>([]);
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
   const [blogAds, setBlogAds] = useState<Advertisement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editingAd, setEditingAd] = useState<Advertisement | null>(null);
   const [formData, setFormData] = useState({
@@ -91,6 +96,38 @@ const AdManager = () => {
       fetchBlogAds();
     }
   }, [selectedBlog]);
+
+  useEffect(() => {
+    filterAds();
+  }, [ads, searchTerm]);
+
+  useEffect(() => {
+    setFilteredAds(ads);
+  }, [ads]);
+
+  const filterAds = () => {
+    if (!searchTerm) {
+      setFilteredAds(ads);
+      return;
+    }
+
+    const filtered = ads.filter(ad =>
+      ad.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (ad.alt_text && ad.alt_text.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      ad.position.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    setFilteredAds(filtered);
+    setCurrentPage(1);
+  };
+
+  const getPaginatedAds = () => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredAds.slice(startIndex, endIndex);
+  };
+
+  const totalPages = Math.ceil(filteredAds.length / ITEMS_PER_PAGE);
 
   const fetchData = async () => {
     try {
@@ -838,9 +875,21 @@ const AdManager = () => {
 
       {/* Global Ads Overview */}
       <div className="glass-card p-4 sm:p-6">
-        <h3 className="text-lg font-semibold mb-4">All Advertisements Overview</h3>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+          <h3 className="text-lg font-semibold">All Advertisements Overview</h3>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+            <Input
+              placeholder="Search advertisements..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full sm:w-64 glass-input"
+            />
+          </div>
+        </div>
+        
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {ads.map(ad => (
+          {getPaginatedAds().map(ad => (
             <Card 
               key={ad.id} 
               className="glass-card hover:glow-soft transition-all cursor-pointer"
@@ -920,10 +969,47 @@ const AdManager = () => {
             </Card>
           ))}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="glass-button"
+            >
+              <ChevronLeft size={16} />
+            </Button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <Button
+                  key={page}
+                  variant={currentPage === page ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(page)}
+                  className={currentPage === page ? "glass-button glow-primary" : "glass-button"}
+                >
+                  {page}
+                </Button>
+              ))}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="glass-button"
+            >
+              <ChevronRight size={16} />
+            </Button>
+          </div>
+        )}
         
-        {ads.length === 0 && (
+        {filteredAds.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
-            No advertisements found. Select a blog above to start creating targeted ads.
+            {searchTerm ? 'No advertisements found matching your search.' : 'No advertisements found. Select a blog above to start creating targeted ads.'}
           </div>
         )}
       </div>

@@ -34,15 +34,15 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a creative advertising copywriter for AutoNateAI, specializing in funny, memorable ads with optical illusions and visual tricks. Create engaging ad copy that relates to blog content while promoting AutoNateAI's specific services. 
+            content: `You are a creative advertising copywriter for AutoNateAI, a consultancy that bridges critical thinking and intelligent software. Create engaging ad copy that relates to blog content while promoting AutoNateAI's business consulting services with scroll-stopping visual appeal. 
 
 AutoNateAI Services:
-DIGITAL PRODUCTS: AI Grant Drafting Assistant ($149), Lit Review AI ($129), Cloud Data Pipeline Builder ($129)
-COACHING: AI Research Workflow Optimization ($299), Grant Strategy & Review ($499), Literature Review Acceleration ($349), Team Workflow Implementation ($1,499)
-WORKSHOPS: AI Grant Writing Mastery, Literature Review Revolution, Research Data Pipeline Implementation, Custom AI Research Workflow Design
-TARGET: Graduate students, postdocs, faculty, research teams, academic departments
+CONSULTING: AI-Integrated Custom Software Development, Workflow Automation Solutions, AI Copilots for Industry-Specific Needs, Intelligent Dashboards & Data Platforms, Cross-tool Integrations, Business Process Optimization
+LIVE BUILDS: Weekly live demonstrations building AI-powered business solutions transparently using Lovable.dev
+DISCOVERY CALLS: Strategic consulting sessions to identify AI integration opportunities
+TARGET: SMB owners, foundation leaders, community organization leaders, venture capitalists, startup leaders, business executives
 
-Only promote AutoNateAI's actual services and make the ads relevant to the research/academic audience.`
+Focus on business transformation, operational efficiency, and competitive advantage through AI integration. Make ads compelling for business decision-makers who need intelligent software solutions.`
           },
           {
             role: 'user',
@@ -55,12 +55,13 @@ Content excerpt: ${blogContent}
 The ad is for position: ${position}
 
 Requirements:
-1. Create a catchy, humorous title (max 60 characters)
-2. Write engaging copy that references the blog content but promotes a specific AutoNateAI service
-3. Include clever wordplay or optical illusion concepts
-4. Keep it fun and memorable
-5. Make it relevant to the blog topic and research/academic audience
-6. Only promote AutoNateAI's actual products, coaching, or workshops listed above
+1. Create a scroll-stopping, authoritative title (max 60 characters) that speaks to business leaders
+2. Write engaging copy that references the blog content but promotes AutoNateAI's consulting services
+3. Use compelling business metaphors and authoritative tone
+4. Focus on ROI, efficiency, and competitive advantage
+5. Make it relevant to the blog topic and business decision-makers
+6. Include a clear call-to-action (Book Discovery Call, See Live Builds, etc.)
+7. Create urgency and value proposition for business transformation
 
 Return a JSON object with:
 {
@@ -111,7 +112,7 @@ Return a JSON object with:
       },
       body: JSON.stringify({
         model: 'gpt-image-1',
-        prompt: `Create a funny advertisement image with optical illusion elements. ${adContent.imagePrompt}. ${formatInstruction} Style: vibrant, eye-catching, professional advertising design with clever visual tricks and humor. Include text space for "${adContent.title}". High-quality commercial ad style. CRITICAL: Always include a vibrant, colorful background - NO transparent backgrounds.`,
+        prompt: `Create a scroll-stopping business advertisement image. ${adContent.imagePrompt}. ${formatInstruction} Style: Professional, authoritative, modern business aesthetic with strong visual hierarchy. Use bold typography, strategic color blocking, and compelling graphics that speak to C-suite executives and business leaders. Include prominent text space for "${adContent.title}". Corporate-grade design with premium feel. CRITICAL: Use vibrant, business-appropriate colors with strong contrast - NO transparent backgrounds. Make it impossible to scroll past.`,
         n: 1,
         size: imageSize || '1536x1024',
         quality: 'high',

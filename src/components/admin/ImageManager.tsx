@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,72 +55,35 @@ const ImageManager = () => {
   const [generatingImage, setGeneratingImage] = useState(false);
   const [viewingImage, setViewingImage] = useState<Image | null>(null);
   const [showImageViewer, setShowImageViewer] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [filteredImages, setFilteredImages] = useState<Image[]>([]);
   const imagesPerPage = 6;
   const { toast } = useToast();
 
   useEffect(() => {
     fetchData();
-
-    // Set up real-time subscription for new images
-    const imageChannel = supabase
-      .channel('images-changes')
-        .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'images'
-        },
-        async (payload) => {
-          console.log('New image added:', payload);
-          // Fetch the complete image data with blog info
-          const { data: newImage } = await supabase
-            .from('images')
-            .select(`
-              *, 
-              blogs!blog_id(title)
-            `)
-            .eq('id', payload.new.id)
-            .single();
-          
-          if (newImage) {
-            setImages(prev => [newImage as Image, ...prev]);
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'images'
-        },
-        async (payload) => {
-          console.log('Image updated:', payload);
-          // Fetch the complete updated image data
-          const { data: updatedImage } = await supabase
-            .from('images')
-            .select(`
-              *, 
-              blogs!blog_id(title)
-            `)
-            .eq('id', payload.new.id)
-            .single();
-          
-          if (updatedImage) {
-            setImages(prev => prev.map(img => 
-              img.id === updatedImage.id ? updatedImage as Image : img
-            ));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(imageChannel);
-    };
   }, []);
+
+  useEffect(() => {
+    filterImages();
+  }, [images, searchTerm]);
+
+  const filterImages = () => {
+    if (!searchTerm) {
+      setFilteredImages(images);
+      return;
+    }
+
+    const filtered = images.filter(image =>
+      image.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (image.alt_text && image.alt_text.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (image.caption && image.caption.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+    
+    setFilteredImages(filtered);
+    setCurrentPage(1);
+  };
 
   const fetchData = async () => {
     try {
@@ -350,10 +314,10 @@ const ImageManager = () => {
   };
 
   // Pagination calculations
-  const totalPages = Math.ceil(images.length / imagesPerPage);
+  const totalPages = Math.ceil(filteredImages.length / imagesPerPage);
   const startIndex = (currentPage - 1) * imagesPerPage;
   const endIndex = startIndex + imagesPerPage;
-  const currentImages = images.slice(startIndex, endIndex);
+  const currentImages = filteredImages.slice(startIndex, endIndex);
 
   const goToPage = (page: number) => {
     setCurrentPage(page);
@@ -372,16 +336,25 @@ const ImageManager = () => {
       <div className="glass-card p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold gradient-text">Image Manager</h2>
-            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-              Manage your image library and assign images to blogs
+            <h2 className="text-2xl font-bold gradient-text">Image Library</h2>
+            <p className="text-muted-foreground mt-1">
+              Manage your blog images and AI-generated content
             </p>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+              <Input
+                placeholder="Search images..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-full sm:w-64 glass-input"
+              />
+            </div>
             <BlogImageCreator />
             <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
               <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto" size="sm">
+                <Button className="w-full sm:w-auto glass-button" size="sm">
                   <Plus className="h-4 w-4 mr-2" />
                   <span className="sm:inline">Add Image</span>
                 </Button>
@@ -630,15 +603,28 @@ const ImageManager = () => {
       <GenerationProgress />
 
       {/* Images Grid */}
-      {images.length === 0 ? (
+      {filteredImages.length === 0 ? (
         <div className="text-center py-12">
-          <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No images yet</h3>
-          <p className="text-muted-foreground mb-4">Start by adding your first image</p>
-          <Button onClick={() => setShowAddDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add First Image
-          </Button>
+          {searchTerm ? (
+            <>
+              <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No images found</h3>
+              <p className="text-muted-foreground mb-4">Try adjusting your search terms</p>
+              <Button variant="outline" onClick={() => setSearchTerm('')}>
+                Clear Search
+              </Button>
+            </>
+          ) : (
+            <>
+              <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No images yet</h3>
+              <p className="text-muted-foreground mb-4">Start by adding your first image</p>
+              <Button onClick={() => setShowAddDialog(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add First Image
+              </Button>
+            </>
+          )}
         </div>
       ) : (
         <>
