@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Wand2, Image, Save, Trash2, Edit, Eye } from 'lucide-react';
 import EnhancedBlogEditor from './EnhancedBlogEditor';
@@ -37,6 +38,8 @@ const BlogManager = () => {
   const [showEditor, setShowEditor] = useState(false);
   const [previewBlog, setPreviewBlog] = useState<Blog | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const blogsPerPage = 6;
   const { toast } = useToast();
 
   useEffect(() => {
@@ -135,6 +138,16 @@ const BlogManager = () => {
     setShowPreview(true);
   };
 
+  // Pagination calculations
+  const totalPages = Math.ceil(blogs.length / blogsPerPage);
+  const startIndex = (currentPage - 1) * blogsPerPage;
+  const endIndex = startIndex + blogsPerPage;
+  const currentBlogs = blogs.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+  };
+
   if (showEditor) {
     return (
       <EnhancedBlogEditor
@@ -189,71 +202,119 @@ const BlogManager = () => {
             </CardContent>
           </Card>
         ) : (
-          blogs.map((blog) => (
-            <Card key={blog.id} className="glass-card cursor-pointer hover:glow-soft transition-all" onClick={() => handlePreview(blog)}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-xl font-semibold">{blog.title}</h3>
-                      <Badge variant={blog.published ? "default" : "secondary"}>
-                        {blog.published ? "Published" : "Draft"}
-                      </Badge>
-                      {blog.featured && (
-                        <Badge variant="outline" className="border-accent text-accent">
-                          Featured
+          <>
+            {currentBlogs.map((blog) => (
+              <Card key={blog.id} className="glass-card cursor-pointer hover:glow-soft transition-all" onClick={() => handlePreview(blog)}>
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-xl font-semibold">{blog.title}</h3>
+                        <Badge variant={blog.published ? "default" : "secondary"}>
+                          {blog.published ? "Published" : "Draft"}
                         </Badge>
-                      )}
+                        {blog.featured && (
+                          <Badge variant="outline" className="border-accent text-accent">
+                            Featured
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground mb-3">{blog.excerpt}</p>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span>Category: {blog.category}</span>
+                        <span>Author: {blog.author}</span>
+                        <span>Read time: {blog.read_time}</span>
+                        <span>Created: {new Date(blog.created_at).toLocaleDateString()}</span>
+                      </div>
                     </div>
-                    <p className="text-muted-foreground mb-3">{blog.excerpt}</p>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>Category: {blog.category}</span>
-                      <span>Author: {blog.author}</span>
-                      <span>Read time: {blog.read_time}</span>
-                      <span>Created: {new Date(blog.created_at).toLocaleDateString()}</span>
+                    <div className="flex items-center gap-2 ml-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePublished(blog.id, blog.published);
+                        }}
+                        className="glass-button"
+                      >
+                        <Eye size={16} className="mr-1" />
+                        {blog.published ? 'Unpublish' : 'Publish'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(blog);
+                        }}
+                        className="glass-button"
+                      >
+                        <Edit size={16} className="mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteBlog(blog.id);
+                        }}
+                        className="glass-button hover:border-destructive hover:text-destructive"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        togglePublished(blog.id, blog.published);
-                      }}
-                      className="glass-button"
-                    >
-                      <Eye size={16} className="mr-1" />
-                      {blog.published ? 'Unpublish' : 'Publish'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEdit(blog);
-                      }}
-                      className="glass-button"
-                    >
-                      <Edit size={16} className="mr-1" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteBlog(blog.id);
-                      }}
-                      className="glass-button hover:border-destructive hover:text-destructive"
-                    >
-                      <Trash2 size={16} />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            ))}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center mt-6">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage > 1) goToPage(currentPage - 1);
+                        }}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                      />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            goToPage(page);
+                          }}
+                          isActive={currentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage < totalPages) goToPage(currentPage + 1);
+                        }}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </>
         )}
       </div>
 

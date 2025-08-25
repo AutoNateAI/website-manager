@@ -3,11 +3,10 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { LogOut, PenTool, Megaphone, Image, Package } from 'lucide-react';
+import { LogOut, PenTool, Megaphone, Image } from 'lucide-react';
 import BlogManager from '@/components/admin/BlogManager';
 import AdManager from '@/components/admin/AdManager';
 import ImageManager from '@/components/admin/ImageManager';
-import ProductManager from '@/components/admin/ProductManager';
 
 const Admin = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
@@ -53,7 +52,7 @@ const Admin = () => {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
-          <TabsList className="glass-card p-1 grid w-full grid-cols-4 gap-1">
+          <TabsList className="glass-card p-1 grid w-full grid-cols-3 gap-1">
             <TabsTrigger 
               value="blogs" 
               className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
@@ -71,14 +70,6 @@ const Admin = () => {
               <span className="sm:hidden">Images</span>
             </TabsTrigger>
             <TabsTrigger 
-              value="products"
-              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
-            >
-              <Package size={14} className="mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Products</span>
-              <span className="sm:hidden">Products</span>
-            </TabsTrigger>
-            <TabsTrigger 
               value="ads"
               className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
             >
@@ -94,10 +85,6 @@ const Admin = () => {
 
           <TabsContent value="images" className="space-y-4 sm:space-y-6">
             <ImageManager />
-          </TabsContent>
-
-          <TabsContent value="products" className="space-y-4 sm:space-y-6">
-            <ProductManager />
           </TabsContent>
 
           <TabsContent value="ads" className="space-y-4 sm:space-y-6">

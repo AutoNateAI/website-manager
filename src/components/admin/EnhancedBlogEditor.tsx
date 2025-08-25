@@ -87,9 +87,11 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
     read_time: '5 min read',
   });
 
-  // New white paper functionality
-  const [whitePaperBrief, setWhitePaperBrief] = useState('');
-  const [blogDiscussionType, setBlogDiscussionType] = useState('');
+  // Company profile research functionality
+  const [companyBrief, setCompanyBrief] = useState('');
+  const [notebookUrl, setNotebookUrl] = useState('');
+  const [chatgptUrl, setChatgptUrl] = useState('');
+  const [savedBriefing, setSavedBriefing] = useState('');
   const [generatedBlogs, setGeneratedBlogs] = useState<GeneratedBlog[]>([]);
   const [activeEditingBlog, setActiveEditingBlog] = useState<number | null>(null);
   const [generatingBlogs, setGeneratingBlogs] = useState(false);
@@ -216,12 +218,12 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
     }
   };
 
-  // Generate 3 blogs with white paper brief
-  const generateBlogsWithWhitePaper = async () => {
-    if (!whitePaperBrief.trim() || !blogDiscussionType.trim()) {
+  // Generate 3 blogs with company profile research brief
+  const generateBlogsWithCompanyBrief = async () => {
+    if (!companyBrief.trim()) {
       toast({
         title: "Error",
-        description: "Please provide both white paper brief and blog discussion type",
+        description: "Please provide the company profile research brief",
         variant: "destructive",
       });
       return;
@@ -229,45 +231,28 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
 
     setGeneratingBlogs(true);
     try {
-      const prompts = [
-        `Based on this white paper brief: "${whitePaperBrief}". Create a ${blogDiscussionType} blog post focusing on the technical analysis and implementation details. Target length: ${targetLength} words.`,
-        `Based on this white paper brief: "${whitePaperBrief}". Create a ${blogDiscussionType} blog post focusing on business implications and strategic insights. Target length: ${targetLength} words.`,
-        `Based on this white paper brief: "${whitePaperBrief}". Create a ${blogDiscussionType} blog post focusing on industry trends and future predictions. Target length: ${targetLength} words.`
-      ];
-
-      const promises = prompts.map(async (prompt, index) => {
-        const { data, error } = await supabase.functions.invoke('generate-blog-content', {
-          body: {
-            topic: prompt,
-            category: aiCategory || 'Technology',
-            targetLength: parseInt(targetLength)
-          }
-        });
-
-        if (error) throw error;
-        if (data.error) throw new Error(data.error);
-
-        return {
-          ...data,
-          author: data.author || 'AutoNate',
-          published: false,
-          featured: false,
-          hero_image: '',
-          hero_image_alt: '',
-          content_images: [],
-          imageSuggestions: data.imageSuggestions || []
-        };
+      const { data, error } = await supabase.functions.invoke('generate-targeted-blogs', {
+        body: {
+          companyBrief,
+          category: aiCategory || 'Business Strategy',
+          targetLength: parseInt(targetLength),
+          notebookUrl,
+          chatgptUrl
+        }
       });
 
-      const results = await Promise.all(promises);
-      setGeneratedBlogs(results);
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      setGeneratedBlogs(data.blogs);
+      setSavedBriefing(companyBrief);
       
       // Initialize thumbnail generation states
-      setGeneratingThumbnails(new Array(results.length).fill(false));
+      setGeneratingThumbnails(new Array(data.blogs.length).fill(false));
 
       toast({
         title: "Success",
-        description: "Generated 3 unique blog posts successfully!",
+        description: "Generated 3 unique targeted blog posts successfully!",
       });
     } catch (error: any) {
       toast({
@@ -619,33 +604,47 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
           </div>
         </div>
 
-        {/* White Paper Brief Section (only for new blogs) */}
+        {/* Company Profile Research Brief Section (only for new blogs) */}
         {!blog && (
           <div className="glass-card p-4 sm:p-6">
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold mb-4">Generate Targeted Blogs with White Paper Brief</h3>
+                <h3 className="text-lg font-semibold mb-4">Generate From Company Profile Research Brief</h3>
                 <div className="grid gap-4">
                   <div>
-                    <Label htmlFor="whitePaperBrief">White Paper Brief</Label>
+                    <Label htmlFor="companyBrief">Company Profile Research Brief</Label>
                     <Textarea
-                      id="whitePaperBrief"
-                      placeholder="Enter detailed white paper brief..."
-                      value={whitePaperBrief}
-                      onChange={(e) => setWhitePaperBrief(e.target.value)}
+                      id="companyBrief"
+                      placeholder="Enter the detailed company research brief from your NotebookLM and ChatGPT analysis..."
+                      value={companyBrief}
+                      onChange={(e) => setCompanyBrief(e.target.value)}
                       className="glass bg-transparent min-h-[120px]"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="blogDiscussionType">Blog Discussion Type</Label>
-                    <Input
-                      id="blogDiscussionType"
-                      placeholder="e.g., Technical Analysis, Industry Trends, Strategic Overview..."
-                      value={blogDiscussionType}
-                      onChange={(e) => setBlogDiscussionType(e.target.value)}
-                      className="glass bg-transparent"
-                    />
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="notebookUrl">NotebookLM URL (Optional)</Label>
+                      <Input
+                        id="notebookUrl"
+                        placeholder="https://notebooklm.google.com/..."
+                        value={notebookUrl}
+                        onChange={(e) => setNotebookUrl(e.target.value)}
+                        className="glass bg-transparent"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="chatgptUrl">ChatGPT Conversation URL (Optional)</Label>
+                      <Input
+                        id="chatgptUrl"
+                        placeholder="https://chat.openai.com/..."
+                        value={chatgptUrl}
+                        onChange={(e) => setChatgptUrl(e.target.value)}
+                        className="glass bg-transparent"
+                      />
+                    </div>
                   </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="aiCategory">Category</Label>
@@ -654,13 +653,14 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Technology">Technology</SelectItem>
-                          <SelectItem value="Business">Business</SelectItem>
-                          <SelectItem value="Science">Science</SelectItem>
-                          <SelectItem value="Healthcare">Healthcare</SelectItem>
-                          <SelectItem value="Finance">Finance</SelectItem>
-                          <SelectItem value="Education">Education</SelectItem>
-                          <SelectItem value="Marketing">Marketing</SelectItem>
+                          <SelectItem value="Business Strategy">Business Strategy</SelectItem>
+                          <SelectItem value="AI & Technology">AI & Technology</SelectItem>
+                          <SelectItem value="Workflow Automation">Workflow Automation</SelectItem>
+                          <SelectItem value="Leadership">Leadership</SelectItem>
+                          <SelectItem value="Digital Transformation">Digital Transformation</SelectItem>
+                          <SelectItem value="Operational Efficiency">Operational Efficiency</SelectItem>
+                          <SelectItem value="Innovation">Innovation</SelectItem>
+                          <SelectItem value="Data Intelligence">Data Intelligence</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -671,7 +671,6 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="500">500 words</SelectItem>
                           <SelectItem value="800">800 words</SelectItem>
                           <SelectItem value="1200">1200 words</SelectItem>
                           <SelectItem value="1500">1500 words</SelectItem>
@@ -680,9 +679,10 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
                       </Select>
                     </div>
                   </div>
+                  
                   <Button
-                    onClick={generateBlogsWithWhitePaper}
-                    disabled={generatingBlogs || !whitePaperBrief || !blogDiscussionType}
+                    onClick={generateBlogsWithCompanyBrief}
+                    disabled={generatingBlogs || !companyBrief.trim()}
                     className="glass-button glow-primary w-full"
                   >
                     {generatingBlogs ? (
@@ -690,9 +690,17 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
                     ) : (
                       <Wand2 size={16} className="mr-2" />
                     )}
-                    Generate 3 Targeted Blogs
+                    Generate 3 Targeted Strategic Blogs
                   </Button>
                 </div>
+
+                {savedBriefing && (
+                  <div className="mt-4 p-3 bg-muted/10 rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      Last used briefing: {savedBriefing.substring(0, 100)}...
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -880,15 +888,16 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
                             <SelectTrigger className="glass bg-transparent">
                               <SelectValue placeholder="Select category" />
                             </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Technology">Technology</SelectItem>
-                              <SelectItem value="Business">Business</SelectItem>
-                              <SelectItem value="Science">Science</SelectItem>
-                              <SelectItem value="Healthcare">Healthcare</SelectItem>
-                              <SelectItem value="Finance">Finance</SelectItem>
-                              <SelectItem value="Education">Education</SelectItem>
-                              <SelectItem value="Marketing">Marketing</SelectItem>
-                            </SelectContent>
+                        <SelectContent>
+                          <SelectItem value="Business Strategy">Business Strategy</SelectItem>
+                          <SelectItem value="AI & Technology">AI & Technology</SelectItem>
+                          <SelectItem value="Workflow Automation">Workflow Automation</SelectItem>
+                          <SelectItem value="Leadership">Leadership</SelectItem>
+                          <SelectItem value="Digital Transformation">Digital Transformation</SelectItem>
+                          <SelectItem value="Operational Efficiency">Operational Efficiency</SelectItem>
+                          <SelectItem value="Innovation">Innovation</SelectItem>
+                          <SelectItem value="Data Intelligence">Data Intelligence</SelectItem>
+                        </SelectContent>
                           </Select>
                         </div>
                         <div>
@@ -947,13 +956,14 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Technology">Technology</SelectItem>
-                          <SelectItem value="Business">Business</SelectItem>
-                          <SelectItem value="Science">Science</SelectItem>
-                          <SelectItem value="Healthcare">Healthcare</SelectItem>
-                          <SelectItem value="Finance">Finance</SelectItem>
-                          <SelectItem value="Education">Education</SelectItem>
-                          <SelectItem value="Marketing">Marketing</SelectItem>
+                          <SelectItem value="Business Strategy">Business Strategy</SelectItem>
+                          <SelectItem value="AI & Technology">AI & Technology</SelectItem>
+                          <SelectItem value="Workflow Automation">Workflow Automation</SelectItem>
+                          <SelectItem value="Leadership">Leadership</SelectItem>
+                          <SelectItem value="Digital Transformation">Digital Transformation</SelectItem>
+                          <SelectItem value="Operational Efficiency">Operational Efficiency</SelectItem>
+                          <SelectItem value="Innovation">Innovation</SelectItem>
+                          <SelectItem value="Data Intelligence">Data Intelligence</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

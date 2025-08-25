@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Edit, Trash2, Plus, Sparkles } from 'lucide-react';
 import BlogImageCreator from './BlogImageCreator';
@@ -53,6 +54,8 @@ const ImageManager = () => {
   const [generatingImage, setGeneratingImage] = useState(false);
   const [viewingImage, setViewingImage] = useState<Image | null>(null);
   const [showImageViewer, setShowImageViewer] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const imagesPerPage = 6;
   const { toast } = useToast();
 
   useEffect(() => {
@@ -346,6 +349,16 @@ const ImageManager = () => {
     setShowImageViewer(false);
   };
 
+  // Pagination calculations
+  const totalPages = Math.ceil(images.length / imagesPerPage);
+  const startIndex = (currentPage - 1) * imagesPerPage;
+  const endIndex = startIndex + imagesPerPage;
+  const currentImages = images.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+  };
+
   if (loading) {
     return (
       <div className="glass-card p-8">
@@ -616,83 +629,8 @@ const ImageManager = () => {
 
       <GenerationProgress />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {images.map((image) => (
-          <Card key={image.id} className="glass-card">
-            <CardContent className="p-4">
-              <div 
-                className="aspect-video bg-muted rounded-lg mb-4 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => openImageViewer(image)}
-              >
-                <img 
-                  src={image.url} 
-                  alt={image.alt_text || image.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = '/placeholder.svg';
-                  }}
-                />
-              </div>
-              
-              <h3 className="font-semibold mb-2 truncate">{image.title}</h3>
-              
-              {/* Blog and Section Tags */}
-              <div className="flex flex-wrap gap-1 mb-2">
-                {image.blog_id && (image as any).blogs && (
-                  <Badge variant="outline" className="text-xs">
-                    📖 {(image as any).blogs.title}
-                  </Badge>
-                )}
-                {image.blog_section && (
-                  <Badge variant="secondary" className="text-xs">
-                    📍 {image.blog_section}
-                  </Badge>
-                )}
-                {image.generation_batch_id && (
-                  <Badge variant="outline" className="text-xs">
-                    🤖 AI Generated
-                  </Badge>
-                )}
-              </div>
-              
-              {image.caption && (
-                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                  {image.caption}
-                </p>
-              )}
-              
-              <div className="flex gap-2 mb-3">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => openEditDialog(image)}
-                  className="flex-1 sm:flex-none"
-                >
-                  <Edit className="h-3 w-3 sm:mr-1" />
-                  <span className="hidden sm:inline">Edit</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => deleteImage(image.id)}
-                  className="flex-1 sm:flex-none"
-                >
-                  <Trash2 className="h-3 w-3 sm:mr-1" />
-                  <span className="hidden sm:inline">Delete</span>
-                </Button>
-              </div>
-
-              <BlogAssignmentSelector 
-                imageId={image.id}
-                blogs={blogs}
-                onAssign={assignImageToBlog}
-              />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {images.length === 0 && (
+      {/* Images Grid */}
+      {images.length === 0 ? (
         <div className="text-center py-12">
           <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No images yet</h3>
@@ -702,6 +640,130 @@ const ImageManager = () => {
             Add First Image
           </Button>
         </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {currentImages.map((image) => (
+              <Card key={image.id} className="glass-card">
+                <CardContent className="p-4">
+                  <div 
+                    className="aspect-video bg-muted rounded-lg mb-4 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => openImageViewer(image)}
+                  >
+                    <img 
+                      src={image.url} 
+                      alt={image.alt_text || image.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = '/placeholder.svg';
+                      }}
+                    />
+                  </div>
+                  
+                  <h3 className="font-semibold mb-2 truncate">{image.title}</h3>
+                  
+                  {/* Blog and Section Tags */}
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {image.blog_id && (image as any).blogs && (
+                      <Badge variant="outline" className="text-xs">
+                        📖 {(image as any).blogs.title}
+                      </Badge>
+                    )}
+                    {image.blog_section && (
+                      <Badge variant="secondary" className="text-xs">
+                        📍 {image.blog_section}
+                      </Badge>
+                    )}
+                    {image.generation_batch_id && (
+                      <Badge variant="outline" className="text-xs">
+                        🤖 AI Generated
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  {image.caption && (
+                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                      {image.caption}
+                    </p>
+                  )}
+                  
+                  <div className="flex gap-2 mb-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEditDialog(image)}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <Edit className="h-3 w-3 sm:mr-1" />
+                      <span className="hidden sm:inline">Edit</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => deleteImage(image.id)}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <Trash2 className="h-3 w-3 sm:mr-1" />
+                      <span className="hidden sm:inline">Delete</span>
+                    </Button>
+                  </div>
+
+                  <BlogAssignmentSelector 
+                    imageId={image.id}
+                    blogs={blogs}
+                    onAssign={assignImageToBlog}
+                  />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center mt-6">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage > 1) goToPage(currentPage - 1);
+                      }}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                    />
+                  </PaginationItem>
+                  
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          goToPage(page);
+                        }}
+                        isActive={currentPage === page}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage < totalPages) goToPage(currentPage + 1);
+                      }}
+                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
+        </>
       )}
 
       <ImageViewer 
