@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -33,7 +34,9 @@ interface Blog {
 
 const BlogManager = () => {
   const [blogs, setBlogs] = useState<Blog[]>([]);
+  const [filteredBlogs, setFilteredBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [previewBlog, setPreviewBlog] = useState<Blog | null>(null);
@@ -46,6 +49,27 @@ const BlogManager = () => {
     fetchBlogs();
   }, []);
 
+  useEffect(() => {
+    filterBlogs();
+  }, [blogs, searchTerm]);
+
+  const filterBlogs = () => {
+    if (!searchTerm) {
+      setFilteredBlogs(blogs);
+      return;
+    }
+
+    const filtered = blogs.filter(blog =>
+      blog.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      blog.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      blog.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      blog.author.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    setFilteredBlogs(filtered);
+    setCurrentPage(1);
+  };
+
   const fetchBlogs = async () => {
     try {
       const { data, error } = await supabase
@@ -55,6 +79,7 @@ const BlogManager = () => {
 
       if (error) throw error;
       setBlogs(data || []);
+      setFilteredBlogs(data || []);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -78,6 +103,7 @@ const BlogManager = () => {
       if (error) throw error;
 
       setBlogs(blogs.filter(blog => blog.id !== id));
+      setFilteredBlogs(filteredBlogs.filter(blog => blog.id !== id));
       toast({
         title: "Success",
         description: "Blog deleted successfully",
@@ -101,6 +127,9 @@ const BlogManager = () => {
       if (error) throw error;
 
       setBlogs(blogs.map(blog => 
+        blog.id === id ? { ...blog, published: !published } : blog
+      ));
+      setFilteredBlogs(filteredBlogs.map(blog => 
         blog.id === id ? { ...blog, published: !published } : blog
       ));
 
@@ -139,10 +168,10 @@ const BlogManager = () => {
   };
 
   // Pagination calculations
-  const totalPages = Math.ceil(blogs.length / blogsPerPage);
+  const totalPages = Math.ceil(filteredBlogs.length / blogsPerPage);
   const startIndex = (currentPage - 1) * blogsPerPage;
   const endIndex = startIndex + blogsPerPage;
-  const currentBlogs = blogs.slice(startIndex, endIndex);
+  const currentBlogs = filteredBlogs.slice(startIndex, endIndex);
 
   const goToPage = (page: number) => {
     setCurrentPage(page);
@@ -169,36 +198,62 @@ const BlogManager = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="glass-card p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold gradient-text">Blog Management</h2>
             <p className="text-muted-foreground mt-1">
               Create, edit, and manage your blog posts
             </p>
           </div>
-          <Button onClick={handleCreateNew} className="glass-button glow-primary">
-            <Plus size={18} className="mr-2" />
-            Create New Blog
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+              <Input
+                placeholder="Search blogs..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-full sm:w-64 glass-input"
+              />
+            </div>
+            <Button onClick={handleCreateNew} className="glass-button glow-primary">
+              <Plus size={18} className="mr-2" />
+              Create New Blog
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Blog List */}
       <div className="grid gap-6">
-        {blogs.length === 0 ? (
+        {filteredBlogs.length === 0 ? (
           <Card className="glass-card">
             <CardContent className="py-16 text-center">
-              <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
-                <Wand2 className="w-6 h-6 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">No blogs yet</h3>
-              <p className="text-muted-foreground mb-4">
-                Get started by creating your first blog post with AI assistance
-              </p>
-              <Button onClick={handleCreateNew} className="glass-button">
-                <Plus size={16} className="mr-2" />
-                Create Your First Blog
-              </Button>
+              {searchTerm ? (
+                <>
+                  <Search className="mx-auto w-12 h-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No blogs found</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Try adjusting your search terms
+                  </p>
+                  <Button variant="outline" onClick={() => setSearchTerm('')}>
+                    Clear Search
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
+                    <Wand2 className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">No blogs yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Get started by creating your first blog post with AI assistance
+                  </p>
+                  <Button onClick={handleCreateNew} className="glass-button">
+                    <Plus size={16} className="mr-2" />
+                    Create Your First Blog
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         ) : (

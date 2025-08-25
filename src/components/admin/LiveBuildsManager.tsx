@@ -496,11 +496,16 @@ Return in JSON format:
             </CardHeader>
             <CardContent className="space-y-3">
               {build.image_url && (
-                <div className="w-full h-32 rounded-lg overflow-hidden">
+                <div className="w-full h-32 rounded-lg overflow-hidden bg-muted">
                   <img 
                     src={build.image_url} 
                     alt={build.title}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      console.error('Image failed to load:', build.image_url);
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-muted-foreground"><span>Image unavailable</span></div>';
+                    }}
                   />
                 </div>
               )}
@@ -768,11 +773,16 @@ Return in JSON format:
                 className="glass-input"
               />
               {formData.image_url && (
-                <div className="mt-2 w-full h-32 rounded-lg overflow-hidden">
+                <div className="mt-2 w-full h-32 rounded-lg overflow-hidden bg-muted">
                   <img 
                     src={formData.image_url} 
                     alt="Thumbnail preview"
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      console.error('Preview image failed to load:', formData.image_url);
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-muted-foreground"><span>Preview unavailable</span></div>';
+                    }}
                   />
                 </div>
               )}

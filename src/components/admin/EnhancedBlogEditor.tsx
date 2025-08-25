@@ -468,7 +468,9 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
         featured: dataToSave.featured,
         hero_image: dataToSave.hero_image || null,
         hero_image_alt: dataToSave.hero_image_alt || null,
-        read_time: dataToSave.read_time || '5 min read'
+        read_time: dataToSave.read_time || '5 min read',
+        notebook_lm_url: notebookUrl || null,
+        chatgpt_url: chatgptUrl || null
       };
 
       let result;
