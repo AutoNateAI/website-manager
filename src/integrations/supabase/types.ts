@@ -743,6 +743,98 @@ export type Database = {
           },
         ]
       }
+      social_media_images: {
+        Row: {
+          alt_text: string | null
+          carousel_index: number
+          created_at: string
+          id: string
+          image_index: number
+          image_prompt: string
+          image_url: string
+          post_id: string
+          updated_at: string
+        }
+        Insert: {
+          alt_text?: string | null
+          carousel_index: number
+          created_at?: string
+          id?: string
+          image_index: number
+          image_prompt: string
+          image_url: string
+          post_id: string
+          updated_at?: string
+        }
+        Update: {
+          alt_text?: string | null
+          carousel_index?: number
+          created_at?: string
+          id?: string
+          image_index?: number
+          image_prompt?: string
+          image_url?: string
+          post_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_media_images_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_media_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_media_posts: {
+        Row: {
+          caption: string
+          created_at: string
+          hashtags: string[]
+          id: string
+          image_seed_instructions: string | null
+          image_seed_url: string | null
+          is_published: boolean
+          platform: string
+          source_items: Json
+          style: string
+          title: string
+          updated_at: string
+          voice: string
+        }
+        Insert: {
+          caption: string
+          created_at?: string
+          hashtags?: string[]
+          id?: string
+          image_seed_instructions?: string | null
+          image_seed_url?: string | null
+          is_published?: boolean
+          platform: string
+          source_items?: Json
+          style: string
+          title: string
+          updated_at?: string
+          voice: string
+        }
+        Update: {
+          caption?: string
+          created_at?: string
+          hashtags?: string[]
+          id?: string
+          image_seed_instructions?: string | null
+          image_seed_url?: string | null
+          is_published?: boolean
+          platform?: string
+          source_items?: Json
+          style?: string
+          title?: string
+          updated_at?: string
+          voice?: string
+        }
+        Relationships: []
+      }
       workshop_requests: {
         Row: {
           created_at: string
