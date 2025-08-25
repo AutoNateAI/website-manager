@@ -781,6 +781,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      is_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       rebuild_blog_content_images: {
         Args: { blog_id_param: string }
         Returns: Json
