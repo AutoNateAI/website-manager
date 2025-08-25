@@ -95,7 +95,8 @@ const SocialMediaManager = () => {
     voice: VOICE_OPTIONS[0],
     sourceItems: [] as SourceItem[],
     imageSeedUrl: '',
-    imageSeedInstructions: ''
+    imageSeedInstructions: '',
+    contextDirection: ''
   });
 
   const { toast } = useToast();
@@ -160,7 +161,7 @@ const SocialMediaManager = () => {
     setFormData({ ...formData, sourceItems: newSourceItems });
   };
 
-  const generateSocialMediaPost = async () => {
+  const generatePost = async () => {
     if (!formData.title || !formData.platform || !formData.style || formData.sourceItems.length === 0) {
       toast({ title: 'Please fill in all required fields', variant: 'destructive' });
       return;
@@ -170,29 +171,9 @@ const SocialMediaManager = () => {
     setGenerationProgress({ postIndex: 1, carouselIndex: 1, imageIndex: 1, total: 27, completed: 0 });
 
     try {
-      // Create the post first
-      const { data: postData, error: postError } = await supabase
-        .from('social_media_posts')
-        .insert({
-          title: formData.title,
-          platform: formData.platform,
-          style: formData.style,
-          voice: formData.voice,
-          source_items: JSON.parse(JSON.stringify(formData.sourceItems)),
-          caption: '', // Will be generated
-          hashtags: [], // Will be generated
-          image_seed_url: formData.imageSeedUrl || null,
-          image_seed_instructions: formData.imageSeedInstructions || null
-        })
-        .select()
-        .single();
-
-      if (postError) throw postError;
-
-      // Generate content using edge function
+      // Generate 3 separate posts using edge function
       const { data: generatedData, error: generateError } = await supabase.functions.invoke('generate-social-media-content', {
         body: {
-          postId: postData.id,
           ...formData
         }
       });
@@ -204,7 +185,7 @@ const SocialMediaManager = () => {
       setShowCreateDialog(false);
       resetForm();
       
-      toast({ title: 'Social media post generated successfully!' });
+      toast({ title: `Successfully generated ${generatedData.postsCreated} social media posts!` });
     } catch (error) {
       console.error('Error generating post:', error);
       toast({ title: 'Error generating post', variant: 'destructive' });
@@ -222,7 +203,8 @@ const SocialMediaManager = () => {
       voice: VOICE_OPTIONS[0],
       sourceItems: [],
       imageSeedUrl: '',
-      imageSeedInstructions: ''
+      imageSeedInstructions: '',
+      contextDirection: ''
     });
   };
 
@@ -251,33 +233,23 @@ const SocialMediaManager = () => {
 
   const renderCarouselPreview = (postId: string) => {
     const postImages = images[postId] || [];
-    const carousels = [1, 2, 3].map(carouselIndex => 
-      postImages.filter(img => img.carousel_index === carouselIndex)
-    );
 
     return (
-      <div className="space-y-4">
-        {carousels.map((carousel, index) => (
-          <div key={index} className="space-y-2">
-            <h4 className="text-sm font-medium">Carousel {index + 1}</h4>
-            <div className="grid grid-cols-3 gap-2">
-              {carousel.map((image, imgIndex) => (
-                <div 
-                  key={image.id} 
-                  className="aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-                  onClick={() => {
-                    setEditingImage(image);
-                    setShowImageEditor(true);
-                  }}
-                >
-                  <img
-                    src={image.image_url}
-                    alt={image.alt_text || `Carousel ${index + 1} Image ${imgIndex + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
+      <div className="grid grid-cols-3 gap-2">
+        {postImages.map((image, imgIndex) => (
+          <div 
+            key={image.id} 
+            className="aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+            onClick={() => {
+              setEditingImage(image);
+              setShowImageEditor(true);
+            }}
+          >
+            <img
+              src={image.image_url}
+              alt={image.alt_text || `Image ${imgIndex + 1}`}
+              className="w-full h-full object-cover"
+            />
           </div>
         ))}
       </div>
@@ -440,6 +412,18 @@ const SocialMediaManager = () => {
                   )}
                 </div>
 
+                {/* Context Direction */}
+                <div className="space-y-2">
+                  <Label htmlFor="contextDirection">Additional Context & Direction</Label>
+                  <Textarea
+                    id="contextDirection"
+                    placeholder="Add any specific context or direction for the AI to follow when generating your content..."
+                    value={formData.contextDirection}
+                    onChange={(e) => setFormData({ ...formData, contextDirection: e.target.value })}
+                    rows={3}
+                  />
+                </div>
+
                 {/* Image Seed */}
                 <div className="space-y-4">
                   <Label>Reference Image (Optional)</Label>
@@ -469,7 +453,7 @@ const SocialMediaManager = () => {
                       className="w-full" 
                     />
                     <p className="text-xs text-muted-foreground">
-                      Carousel {generationProgress.carouselIndex}/3, 
+                      Generating post {generationProgress.postIndex}/3, 
                       Image {generationProgress.imageIndex}/9
                     </p>
                   </div>
@@ -484,7 +468,7 @@ const SocialMediaManager = () => {
                     Cancel
                   </Button>
                   <Button 
-                    onClick={generateSocialMediaPost}
+                    onClick={generatePost}
                     disabled={generating || formData.sourceItems.length === 0}
                   >
                     {generating ? (
@@ -594,7 +578,7 @@ const SocialMediaManager = () => {
                 </div>
               </div>
               <div>
-                <h4 className="font-medium mb-2">Image Carousels (3 sets of 9 images each)</h4>
+                <h4 className="font-medium mb-2">Images (9 images per post)</h4>
                 <p className="text-xs text-muted-foreground mb-3">Click on any image to edit it</p>
                 {renderCarouselPreview(post.id)}
               </div>

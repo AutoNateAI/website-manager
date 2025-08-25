@@ -24,17 +24,17 @@ serve(async (req) => {
 
   try {
     const { 
-      postId,
       title,
       platform,
       style,
       voice,
       sourceItems,
       imageSeedUrl,
-      imageSeedInstructions
+      imageSeedInstructions,
+      contextDirection
     } = await req.json();
 
-    console.log('Starting social media content generation for post:', postId);
+    console.log('Starting social media content generation for 3 separate posts');
 
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
@@ -45,39 +45,57 @@ serve(async (req) => {
     // Fetch source content details
     const sourceContent = await fetchSourceContent(supabase, sourceItems);
     
-    // Generate caption and hashtags
-    const { caption, hashtags } = await generateCaptionAndHashtags(
-      sourceContent, platform, style, voice, title
-    );
+    // Create 3 separate posts
+    const createdPosts = [];
+    
+    for (let postIndex = 1; postIndex <= 3; postIndex++) {
+      // Generate caption and hashtags for this post
+      const { caption, hashtags } = await generateCaptionAndHashtags(
+        sourceContent, platform, style, voice, title, contextDirection, postIndex
+      );
 
-    // Update post with caption and hashtags
-    await supabase
-      .from('social_media_posts')
-      .update({
-        caption,
-        hashtags
-      })
-      .eq('id', postId);
+      // Create post
+      const { data: postData, error: postError } = await supabase
+        .from('social_media_posts')
+        .insert({
+          title: `${title} - Carousel ${postIndex}`,
+          platform,
+          style,
+          voice,
+          source_items: sourceItems,
+          caption,
+          hashtags,
+          image_seed_url: imageSeedUrl || null,
+          image_seed_instructions: imageSeedInstructions || null
+        })
+        .select()
+        .single();
 
-    // Generate 3 carousels of 9 images each (27 total)
-    await generateImageCarousels(
-      supabase, 
-      postId, 
-      sourceContent, 
-      platform, 
-      style, 
-      voice,
-      imageSeedUrl,
-      imageSeedInstructions
-    );
+      if (postError) throw postError;
+      
+      createdPosts.push(postData);
 
-    console.log('Social media content generation completed');
+      // Generate 1 carousel of 9 images for this post
+      await generateImageCarousel(
+        supabase, 
+        postData.id, 
+        sourceContent, 
+        platform, 
+        style, 
+        voice,
+        imageSeedUrl,
+        imageSeedInstructions,
+        contextDirection,
+        postIndex
+      );
+    }
+
+    console.log('Social media content generation completed for 3 posts');
 
     return new Response(JSON.stringify({
       success: true,
-      postId,
-      caption,
-      hashtags
+      postsCreated: createdPosts.length,
+      postIds: createdPosts.map(p => p.id)
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -128,7 +146,9 @@ async function generateCaptionAndHashtags(
   platform: string, 
   style: string, 
   voice: string,
-  title: string
+  title: string,
+  contextDirection?: string,
+  postIndex?: number
 ) {
   const contentSummary = sourceContent.map(item => {
     if (item.type === 'blog') {
@@ -140,11 +160,14 @@ async function generateCaptionAndHashtags(
     }
   }).join('\n');
 
+  const contextText = contextDirection ? `\n\nAdditional Context: ${contextDirection}` : '';
+  const postVariation = postIndex ? `\n\nThis is carousel ${postIndex} of 3 - make it unique but cohesive with the overall theme.` : '';
+
   const prompt = `Create an engaging ${platform} ${style.toLowerCase()} post with a ${voice.toLowerCase()} voice.
 
 Title: ${title}
 Source Content:
-${contentSummary}
+${contentSummary}${contextText}${postVariation}
 
 Generate:
 1. A captivating caption that builds energy and engagement (150-300 words for LinkedIn, 100-150 for Instagram)
@@ -189,7 +212,7 @@ Return in JSON format:
   };
 }
 
-async function generateImageCarousels(
+async function generateImageCarousel(
   supabase: any,
   postId: string,
   sourceContent: any[],
@@ -197,43 +220,38 @@ async function generateImageCarousels(
   style: string,
   voice: string,
   imageSeedUrl?: string,
-  imageSeedInstructions?: string
+  imageSeedInstructions?: string,
+  contextDirection?: string,
+  carouselNumber?: number
 ) {
   const imagePrompts = await generateImagePrompts(
-    sourceContent, platform, style, voice, imageSeedUrl, imageSeedInstructions
+    sourceContent, platform, style, voice, imageSeedUrl, imageSeedInstructions, contextDirection, carouselNumber
   );
 
-  // Generate images in parallel batches
-  const batchSize = 9; // Process one carousel at a time
+  // Generate 9 images for this carousel
+  const imagePromises = imagePrompts.map(async (prompt, imageIndex) => {
+    const actualImageIndex = imageIndex + 1;
+    console.log(`Generating image ${actualImageIndex}/9 for carousel ${carouselNumber || 1}`);
+    
+    const imageUrl = await generateImage(prompt, imageSeedUrl);
+    
+    // Save to database (carousel_index = 1 since each post has only one carousel now)
+    await supabase
+      .from('social_media_images')
+      .insert({
+        post_id: postId,
+        carousel_index: 1,
+        image_index: actualImageIndex,
+        image_url: imageUrl,
+        image_prompt: prompt,
+        alt_text: `Carousel ${carouselNumber || 1} Image ${actualImageIndex}`
+      });
+    
+    return imageUrl;
+  });
   
-  for (let carouselIndex = 1; carouselIndex <= 3; carouselIndex++) {
-    const carouselPrompts = imagePrompts.slice((carouselIndex - 1) * 9, carouselIndex * 9);
-    
-    // Generate images for this carousel in parallel
-    const imagePromises = carouselPrompts.map(async (prompt, imageIndex) => {
-      const actualImageIndex = imageIndex + 1;
-      console.log(`Generating image ${actualImageIndex}/9 for carousel ${carouselIndex}`);
-      
-      const imageUrl = await generateImage(prompt, imageSeedUrl);
-      
-      // Save to database
-      await supabase
-        .from('social_media_images')
-        .insert({
-          post_id: postId,
-          carousel_index: carouselIndex,
-          image_index: actualImageIndex,
-          image_url: imageUrl,
-          image_prompt: prompt,
-          alt_text: `Carousel ${carouselIndex} Image ${actualImageIndex}`
-        });
-      
-      return imageUrl;
-    });
-    
-    await Promise.all(imagePromises);
-    console.log(`Completed carousel ${carouselIndex}/3`);
-  }
+  await Promise.all(imagePromises);
+  console.log(`Completed carousel ${carouselNumber || 1}`);
 }
 
 async function generateImagePrompts(
@@ -242,7 +260,9 @@ async function generateImagePrompts(
   style: string,
   voice: string,
   imageSeedUrl?: string,
-  imageSeedInstructions?: string
+  imageSeedInstructions?: string,
+  contextDirection?: string,
+  carouselNumber?: number
 ) {
   const contentSummary = sourceContent.map(item => {
     if (item.type === 'blog') {
@@ -255,16 +275,18 @@ async function generateImagePrompts(
   }).join('\n');
 
   const seedContext = imageSeedUrl ? `\n\nReference Image Context: ${imageSeedInstructions || 'Use this image as style/composition reference'}` : '';
+  const contextText = contextDirection ? `\n\nAdditional Context: ${contextDirection}` : '';
+  const carouselVariation = carouselNumber ? `\n\nThis is carousel ${carouselNumber} of 3 - make it visually distinct but thematically consistent.` : '';
 
-  const prompt = `Create 27 image prompts for 3 social media carousels (9 images each) for ${platform}.
+  const prompt = `Create 9 image prompts for a social media carousel for ${platform}.
 
 Source Content:
 ${contentSummary}
 
 Style: ${style}
-Voice: ${voice}${seedContext}
+Voice: ${voice}${seedContext}${contextText}${carouselVariation}
 
-Each carousel should have:
+The carousel should have:
 - Image 1: Captivating hook with bold text overlay that stops scrolling
 - Images 2-8: Detail images with great graphics, building climactic engagement
 - Image 9: Strong CTA pointing to live builds, blogs, or custom AI software
@@ -273,12 +295,11 @@ Requirements:
 - Square 1:1 aspect ratio
 - Modern, professional design
 - Include text overlays where appropriate
-- Use consistent visual theme per carousel
 - Be engaging, shareable, and informative
 - Build energy and momentum through the sequence
 
-Return as JSON array of 27 prompts:
-["prompt 1", "prompt 2", ..., "prompt 27"]`;
+Return as JSON array of 9 prompts:
+["prompt 1", "prompt 2", ..., "prompt 9"]`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
