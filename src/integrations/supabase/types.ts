@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -209,6 +209,78 @@ export type Database = {
         }
         Relationships: []
       }
+      coaching_requests: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          institution: string | null
+          message: string | null
+          name: string
+          research_area: string | null
+          service: string | null
+          timeline: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          institution?: string | null
+          message?: string | null
+          name: string
+          research_area?: string | null
+          service?: string | null
+          timeline?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          institution?: string | null
+          message?: string | null
+          name?: string
+          research_area?: string | null
+          service?: string | null
+          timeline?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      contact_inquiries: {
+        Row: {
+          company: string | null
+          created_at: string
+          email: string
+          id: string
+          inquiry_type: string | null
+          message: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          inquiry_type?: string | null
+          message: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          inquiry_type?: string | null
+          message?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_popup_tracking: {
         Row: {
           browser_fingerprint: string
@@ -362,6 +434,235 @@ export type Database = {
           },
         ]
       }
+      link_previews: {
+        Row: {
+          blog_id: string | null
+          created_at: string
+          description: string
+          id: string
+          image_url: string
+          page_path: string
+          page_type: string
+          product_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          blog_id?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          image_url: string
+          page_path: string
+          page_type?: string
+          product_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          blog_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string
+          page_path?: string
+          page_type?: string
+          product_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      live_builds: {
+        Row: {
+          calendly_url: string | null
+          content: string | null
+          created_at: string
+          current_attendees: number | null
+          description: string
+          duration_minutes: number | null
+          id: string
+          image_url: string | null
+          is_published: boolean | null
+          max_attendees: number | null
+          replay_url: string | null
+          scheduled_date: string
+          short_description: string | null
+          status: string | null
+          tags: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          calendly_url?: string | null
+          content?: string | null
+          created_at?: string
+          current_attendees?: number | null
+          description: string
+          duration_minutes?: number | null
+          id?: string
+          image_url?: string | null
+          is_published?: boolean | null
+          max_attendees?: number | null
+          replay_url?: string | null
+          scheduled_date: string
+          short_description?: string | null
+          status?: string | null
+          tags?: Json | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          calendly_url?: string | null
+          content?: string | null
+          created_at?: string
+          current_attendees?: number | null
+          description?: string
+          duration_minutes?: number | null
+          id?: string
+          image_url?: string | null
+          is_published?: boolean | null
+          max_attendees?: number | null
+          replay_url?: string | null
+          scheduled_date?: string
+          short_description?: string | null
+          status?: string | null
+          tags?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      product_access: {
+        Row: {
+          access_url: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          password: string
+          purchase_id: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          access_url: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          password: string
+          purchase_id: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          access_url?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          password?: string
+          purchase_id?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_access_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_images: {
+        Row: {
+          alt_text: string | null
+          caption: string | null
+          created_at: string
+          id: string
+          image_url: string
+          is_primary: boolean | null
+          product_id: string
+          sort_order: number | null
+        }
+        Insert: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          id?: string
+          image_url: string
+          is_primary?: boolean | null
+          product_id: string
+          sort_order?: number | null
+        }
+        Update: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string
+          is_primary?: boolean | null
+          product_id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_images_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          benefits: Json | null
+          created_at: string
+          description: string
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          price: string
+          slug: string
+          sort_order: number | null
+          tagline: string | null
+          testimonials: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          benefits?: Json | null
+          created_at?: string
+          description: string
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          price: string
+          slug: string
+          sort_order?: number | null
+          tagline?: string | null
+          testimonials?: Json | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          benefits?: Json | null
+          created_at?: string
+          description?: string
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          price?: string
+          slug?: string
+          sort_order?: number | null
+          tagline?: string | null
+          testimonials?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -386,6 +687,89 @@ export type Database = {
           updated_at?: string
           user_id?: string
           username?: string
+        }
+        Relationships: []
+      }
+      purchases: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string | null
+          email: string
+          id: string
+          product_id: string
+          status: string | null
+          stripe_session_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string | null
+          email: string
+          id?: string
+          product_id: string
+          status?: string | null
+          stripe_session_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string | null
+          email?: string
+          id?: string
+          product_id?: string
+          status?: string | null
+          stripe_session_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchases_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_requests: {
+        Row: {
+          created_at: string
+          email: string
+          format: string | null
+          id: string
+          message: string | null
+          name: string
+          organization: string | null
+          participants: string | null
+          timeline: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          format?: string | null
+          id?: string
+          message?: string | null
+          name: string
+          organization?: string | null
+          participants?: string | null
+          timeline?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          format?: string | null
+          id?: string
+          message?: string | null
+          name?: string
+          organization?: string | null
+          participants?: string | null
+          timeline?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
