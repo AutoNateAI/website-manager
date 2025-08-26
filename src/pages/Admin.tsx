@@ -65,9 +65,9 @@ const Admin = () => {
         
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <header className="h-16 flex items-center justify-between px-6 border-b border-border/50 glass-card">
+          <header className="h-16 flex items-center justify-between px-6 border-b border-border/50 bg-card">
             <div className="flex items-center gap-4">
-              <SidebarTrigger />
+              <SidebarTrigger className="text-foreground hover:bg-accent" />
               <div>
                 <h1 className="text-xl font-bold gradient-text">Admin Portal</h1>
                 <p className="text-xs text-muted-foreground">

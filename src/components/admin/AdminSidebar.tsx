@@ -98,23 +98,21 @@ export const AdminSidebar = ({ activeTab, onTabChange }: AdminSidebarProps) => {
 
   const getNavClasses = (active: boolean) => {
     return active 
-      ? "bg-primary/20 text-primary font-medium glow-primary" 
-      : "hover:bg-muted/50 text-muted-foreground hover:text-foreground";
+      ? "bg-primary/20 text-primary font-medium border-primary/30" 
+      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
   };
 
   const isCollapsed = state === "collapsed";
 
   return (
     <Sidebar className={isCollapsed ? "w-14" : "w-64"} collapsible="icon">
-      <SidebarTrigger className="m-2 self-end" />
-      
-      <SidebarContent className="glass-card border-r border-border/50">
+      <SidebarContent className="bg-sidebar border-r border-sidebar-border">
         <SidebarGroup>
-          <SidebarGroupLabel className="gradient-text font-semibold">
+          <SidebarGroupLabel className="text-sidebar-foreground font-semibold px-4 py-2">
             {!isCollapsed && "Admin Portal"}
           </SidebarGroupLabel>
           
-          <SidebarGroupContent>
+          <SidebarGroupContent className="px-2">
             <SidebarMenu className="space-y-1">
               {menuItems.map((item) => {
                 const hasChildren = item.children && item.children.length > 0;
@@ -127,11 +125,11 @@ export const AdminSidebar = ({ activeTab, onTabChange }: AdminSidebarProps) => {
                       <Collapsible open={isExpanded} onOpenChange={() => toggleGroup(item.value)}>
                         <CollapsibleTrigger asChild>
                           <SidebarMenuButton 
-                            className={`w-full justify-between ${getNavClasses(groupActive)}`}
+                            className={`w-full justify-between rounded-md px-3 py-2 transition-colors ${getNavClasses(groupActive)}`}
                           >
                             <div className="flex items-center">
-                              <item.icon className="h-4 w-4 mr-2" />
-                              {!isCollapsed && <span>{item.title}</span>}
+                              <item.icon className="h-4 w-4 mr-3" />
+                              {!isCollapsed && <span className="text-sm">{item.title}</span>}
                             </div>
                             {!isCollapsed && (
                               isExpanded ? 
@@ -141,14 +139,14 @@ export const AdminSidebar = ({ activeTab, onTabChange }: AdminSidebarProps) => {
                           </SidebarMenuButton>
                         </CollapsibleTrigger>
                         <CollapsibleContent className={isCollapsed ? "hidden" : ""}>
-                          <div className="ml-6 mt-1 space-y-1">
+                          <div className="ml-7 mt-1 space-y-1">
                             {item.children.map((child) => (
                               <SidebarMenuButton
                                 key={child.value}
                                 onClick={() => onTabChange(child.value)}
-                                className={`w-full justify-start text-sm ${getNavClasses(isActive(child.value))}`}
+                                className={`w-full justify-start text-sm rounded-md px-3 py-2 transition-colors ${getNavClasses(isActive(child.value))}`}
                               >
-                                <child.icon className="h-3 w-3 mr-2" />
+                                <child.icon className="h-3 w-3 mr-3" />
                                 <span>{child.title}</span>
                               </SidebarMenuButton>
                             ))}
@@ -163,10 +161,10 @@ export const AdminSidebar = ({ activeTab, onTabChange }: AdminSidebarProps) => {
                   <SidebarMenuItem key={item.value}>
                     <SidebarMenuButton
                       onClick={() => onTabChange(item.value)}
-                      className={getNavClasses(isActive(item.value))}
+                      className={`w-full rounded-md px-3 py-2 transition-colors ${getNavClasses(isActive(item.value))}`}
                     >
-                      <item.icon className="h-4 w-4 mr-2" />
-                      {!isCollapsed && <span>{item.title}</span>}
+                      <item.icon className="h-4 w-4 mr-3" />
+                      {!isCollapsed && <span className="text-sm">{item.title}</span>}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
