@@ -8,7 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X, Sparkles, Save, Upload } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, X, Sparkles, Save, Upload, Users, Link2, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import ProductImageManager from './ProductImageManager';
@@ -25,6 +26,27 @@ interface Product {
   benefits: any[];
   testimonials: any[];
   sort_order: number;
+  company_id?: string;
+}
+
+interface Company {
+  id: string;
+  name: string;
+}
+
+interface Person {
+  id: string;
+  name: string;
+  company?: { name: string };
+}
+
+interface ProductPerson {
+  id: string;
+  product_id: string;
+  person_id: string;  
+  relationship_type: string;
+  notes?: string;
+  person: Person;
 }
 
 interface ProductEditorProps {
@@ -40,6 +62,12 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating, isViewMode = fals
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
   const [generatingContent, setGeneratingContent] = useState(false);
+  
+  // Data state for dropdowns and connections
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
+  const [productPeople, setProductPeople] = useState<ProductPerson[]>([]);
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -52,7 +80,15 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating, isViewMode = fals
     features: [] as string[],
     benefits: [] as string[],
     testimonials: [] as { name: string; content: string; rating: number }[],
-    sort_order: 0
+    sort_order: 0,
+    company_id: ''
+  });
+
+  // Connection form state
+  const [connectionFormData, setConnectionFormData] = useState({
+    person_id: '',
+    relationship_type: 'user',
+    notes: ''
   });
 
   // AI prompt state
@@ -70,7 +106,8 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating, isViewMode = fals
         features: Array.isArray(product.features) ? product.features : [],
         benefits: Array.isArray(product.benefits) ? product.benefits : [],
         testimonials: Array.isArray(product.testimonials) ? product.testimonials : [],
-        sort_order: product.sort_order
+        sort_order: product.sort_order,
+        company_id: product.company_id || ''
       });
     } else {
       setFormData({
@@ -83,10 +120,76 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating, isViewMode = fals
         features: [],
         benefits: [],
         testimonials: [],
-        sort_order: 0
+        sort_order: 0,
+        company_id: ''
       });
     }
   }, [product]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchCompanies();
+      fetchPeople();
+      if (product && !isCreating) {
+        fetchProductPeople();
+      }
+    }
+  }, [isOpen, product, isCreating]);
+
+  const fetchCompanies = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('id, name')
+        .order('name');
+
+      if (error) throw error;
+      setCompanies(data || []);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+    }
+  };
+
+  const fetchPeople = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('people')
+        .select(`
+          id, 
+          name,
+          company:companies(name)
+        `)
+        .order('name');
+
+      if (error) throw error;
+      setPeople(data || []);
+    } catch (error) {
+      console.error('Error fetching people:', error);
+    }
+  };
+
+  const fetchProductPeople = async () => {
+    if (!product) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('product_people')
+        .select(`
+          *,
+          person:people(
+            id,
+            name,
+            company:companies(name)
+          )
+        `)
+        .eq('product_id', product.id);
+
+      if (error) throw error;
+      setProductPeople(data || []);
+    } catch (error) {
+      console.error('Error fetching product people:', error);
+    }
+  };
 
   const generateSlug = (title: string) => {
     return title
@@ -213,7 +316,8 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating, isViewMode = fals
         features: formData.features,
         benefits: formData.benefits,
         testimonials: formData.testimonials,
-        sort_order: formData.sort_order
+        sort_order: formData.sort_order,
+        company_id: formData.company_id || null
       };
 
       if (isCreating) {
@@ -254,6 +358,66 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating, isViewMode = fals
     }
   };
 
+  const handleAddPersonConnection = async () => {
+    if (!connectionFormData.person_id || !product) return;
+    
+    try {
+      setConnectionsLoading(true);
+      const { error } = await supabase
+        .from('product_people')
+        .insert({
+          product_id: product.id,
+          person_id: connectionFormData.person_id,
+          relationship_type: connectionFormData.relationship_type,
+          notes: connectionFormData.notes || null
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Person connection added successfully"
+      });
+
+      setConnectionFormData({ person_id: '', relationship_type: 'user', notes: '' });
+      fetchProductPeople();
+    } catch (error) {
+      console.error('Error adding person connection:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add person connection",
+        variant: "destructive"
+      });
+    } finally {
+      setConnectionsLoading(false);
+    }
+  };
+
+  const handleRemovePersonConnection = async (connectionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('product_people')
+        .delete()
+        .eq('id', connectionId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Person connection removed successfully"
+      });
+
+      fetchProductPeople();
+    } catch (error) {
+      console.error('Error removing person connection:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove person connection",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto glass-card">
@@ -264,9 +428,10 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating, isViewMode = fals
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="content">Content</TabsTrigger>
+            <TabsTrigger value="connections">Connections</TabsTrigger>
             <TabsTrigger value="images">Images</TabsTrigger>
           </TabsList>
 
@@ -367,6 +532,27 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating, isViewMode = fals
                   />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="company">Company</Label>
+                <Select 
+                  value={formData.company_id} 
+                  onValueChange={(value) => handleInputChange('company_id', value)}
+                  disabled={isViewMode}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select company (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No company</SelectItem>
+                    {companies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex items-center space-x-2">
                   <Switch
                     id="is_active"
@@ -419,6 +605,146 @@ const ProductEditor = ({ product, isOpen, onClose, isCreating, isViewMode = fals
               onRemove={handleTestimonialRemove}
               disabled={isViewMode}
             />
+          </TabsContent>
+
+          <TabsContent value="connections" className="space-y-4">
+            {!isCreating && product ? (
+              <>
+                {/* Add Person Connection */}
+                {!isViewMode && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Link2 size={18} />
+                        Connect Person
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Person</Label>
+                          <Select 
+                            value={connectionFormData.person_id} 
+                            onValueChange={(value) => setConnectionFormData(prev => ({ ...prev, person_id: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select person" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {people.map((person) => (
+                                <SelectItem key={person.id} value={person.id}>
+                                  {person.name} {person.company?.name && `(${person.company.name})`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Relationship Type</Label>
+                          <Select 
+                            value={connectionFormData.relationship_type} 
+                            onValueChange={(value) => setConnectionFormData(prev => ({ ...prev, relationship_type: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="employee">Employee</SelectItem>
+                              <SelectItem value="user">User</SelectItem>
+                              <SelectItem value="decision_maker">Decision Maker</SelectItem>
+                              <SelectItem value="influencer">Influencer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Notes</Label>
+                        <Textarea
+                          value={connectionFormData.notes}
+                          onChange={(e) => setConnectionFormData(prev => ({ ...prev, notes: e.target.value }))}
+                          placeholder="Optional notes about this connection"
+                          rows={2}
+                        />
+                      </div>
+
+                      <Button 
+                        onClick={handleAddPersonConnection}
+                        disabled={!connectionFormData.person_id || connectionsLoading}
+                        className="w-full"
+                      >
+                        {connectionsLoading ? (
+                          <>
+                            <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></div>
+                            Adding...
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={16} className="mr-2" />
+                            Add Connection
+                          </>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Connected People */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users size={18} />
+                      Connected People ({productPeople.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {productPeople.length > 0 ? (
+                      <div className="space-y-3">
+                        {productPeople.map((connection) => (
+                          <div key={connection.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{connection.person.name}</span>
+                                <Badge variant="outline">{connection.relationship_type}</Badge>
+                                {connection.person.company?.name && (
+                                  <Badge variant="secondary">{connection.person.company.name}</Badge>
+                                )}
+                              </div>
+                              {connection.notes && (
+                                <p className="text-sm text-muted-foreground mt-1">{connection.notes}</p>
+                              )}
+                            </div>
+                            {!isViewMode && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemovePersonConnection(connection.id)}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center py-4">
+                        No people connected to this product yet.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <p className="text-muted-foreground">
+                    Save the product first to manage connections
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="images" className="space-y-4">
