@@ -8,117 +8,117 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Light theme colors (default) */
+    /* Light theme colors - white cyberpunk glassomorphic */
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
 
-    --card: 0 0% 100%;
+    --card: 0 0% 100% / 0.8;
     --card-foreground: 222.2 84% 4.9%;
 
-    --popover: 0 0% 100%;
+    --popover: 0 0% 100% / 0.95;
     --popover-foreground: 222.2 84% 4.9%;
 
     --primary: 270 80% 50%;
-    --primary-foreground: 210 40% 98%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96%;
+    --secondary: 210 40% 96% / 0.8;
     --secondary-foreground: 222.2 47.4% 11.2%;
 
-    --muted: 210 40% 96%;
+    --muted: 210 40% 98% / 0.6;
     --muted-foreground: 215.4 16.3% 46.9%;
 
     --accent: 300 70% 45%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 220 13% 91% / 0.3;
+    --input: 220 13% 91% / 0.5;
     --ring: 270 80% 50%;
 
     --radius: 0.75rem;
 
     /* Glassomorphic design tokens for light theme */
-    --glass-bg: 255 255 255 / 0.7;
-    --glass-border: 214.3 31.8% 91.4% / 0.5;
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    --glass-backdrop: blur(16px);
+    --glass-bg: 255 255 255 / 0.1;
+    --glass-border: 220 13% 91% / 0.2;
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    --glass-backdrop: blur(20px);
     
     /* Gradients for light theme */
-    --gradient-primary: linear-gradient(135deg, hsl(270 80% 50% / 0.8), hsl(300 70% 45% / 0.8));
-    --gradient-secondary: linear-gradient(135deg, hsl(210 40% 96% / 0.9), hsl(214.3 31.8% 91.4% / 0.9));
-    --gradient-accent: linear-gradient(45deg, hsl(300 70% 45% / 0.3), hsl(270 80% 50% / 0.3));
+    --gradient-primary: linear-gradient(135deg, hsl(270 80% 50% / 0.1), hsl(300 70% 45% / 0.1));
+    --gradient-secondary: linear-gradient(135deg, hsl(210 40% 98% / 0.8), hsl(220 13% 91% / 0.6));
+    --gradient-accent: linear-gradient(45deg, hsl(300 70% 45% / 0.1), hsl(270 80% 50% / 0.1));
     
     /* Glows for light theme */
-    --glow-primary: 0 0 20px hsl(270 80% 50% / 0.3);
-    --glow-accent: 0 0 15px hsl(300 70% 45% / 0.3);
+    --glow-primary: 0 0 20px hsl(270 80% 50% / 0.15);
+    --glow-accent: 0 0 15px hsl(300 70% 45% / 0.15);
 
     /* Sidebar colors for light theme */
-    --sidebar-background: 0 0% 98%;
+    --sidebar-background: 0 0% 100% / 0.8;
     --sidebar-foreground: 222.2 84% 4.9%;
     --sidebar-primary: 270 80% 50%;
-    --sidebar-primary-foreground: 210 40% 98%;
-    --sidebar-accent: 210 40% 96%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 98% / 0.6;
     --sidebar-accent-foreground: 222.2 47.4% 11.2%;
-    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-border: 220 13% 91% / 0.2;
     --sidebar-ring: 270 80% 50%;
   }
 
   .dark {
-    /* Dark theme colors */
-    --background: 220 30% 5%;
-    --foreground: 220 10% 95%;
+    /* Original beautiful dark theme colors */
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
 
-    --card: 220 25% 8%;
-    --card-foreground: 220 10% 95%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 220 25% 8%;
-    --popover-foreground: 220 10% 95%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 270 80% 60%;
-    --primary-foreground: 220 10% 95%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
 
-    --secondary: 220 20% 15%;
-    --secondary-foreground: 220 10% 85%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 220 20% 12%;
-    --muted-foreground: 220 10% 65%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 300 70% 55%;
-    --accent-foreground: 220 10% 95%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 75% 55%;
-    --destructive-foreground: 220 10% 95%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 220 25% 20%;
-    --input: 220 25% 15%;
-    --ring: 270 80% 60%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
 
     /* Glassomorphic design tokens for dark theme */
-    --glass-bg: 220 25% 8% / 0.4;
-    --glass-border: 220 25% 25% / 0.3;
+    --glass-bg: 222.2 84% 4.9% / 0.4;
+    --glass-border: 217.2 32.6% 17.5% / 0.3;
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     --glass-backdrop: blur(16px);
     
     /* Gradients for dark theme */
-    --gradient-primary: linear-gradient(135deg, hsl(270 80% 60% / 0.8), hsl(300 70% 55% / 0.8));
-    --gradient-secondary: linear-gradient(135deg, hsl(220 25% 15% / 0.9), hsl(220 20% 20% / 0.9));
-    --gradient-accent: linear-gradient(45deg, hsl(300 70% 55% / 0.3), hsl(270 80% 60% / 0.3));
+    --gradient-primary: linear-gradient(135deg, hsl(210 40% 98% / 0.1), hsl(212.7 26.8% 83.9% / 0.1));
+    --gradient-secondary: linear-gradient(135deg, hsl(217.2 32.6% 17.5% / 0.9), hsl(222.2 84% 4.9% / 0.9));
+    --gradient-accent: linear-gradient(45deg, hsl(217.2 32.6% 17.5% / 0.3), hsl(210 40% 98% / 0.1));
     
     /* Glows for dark theme */
-    --glow-primary: 0 0 20px hsl(270 80% 60% / 0.3);
-    --glow-accent: 0 0 15px hsl(300 70% 55% / 0.3);
+    --glow-primary: 0 0 20px hsl(210 40% 98% / 0.3);
+    --glow-accent: 0 0 15px hsl(212.7 26.8% 83.9% / 0.3);
 
     /* Sidebar colors for dark theme */
-    --sidebar-background: 220 25% 8%;
-    --sidebar-foreground: 220 10% 85%;
-    --sidebar-primary: 270 80% 60%;
-    --sidebar-primary-foreground: 220 10% 95%;
-    --sidebar-accent: 220 20% 15%;
-    --sidebar-accent-foreground: 220 10% 85%;
-    --sidebar-border: 220 25% 20%;
-    --sidebar-ring: 270 80% 60%;
+    --sidebar-background: 222.2 84% 4.9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 210 40% 98%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+    --sidebar-accent: 217.2 32.6% 17.5%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 212.7 26.8% 83.9%;
   }
 }
 
@@ -133,11 +133,11 @@ All colors MUST be HSL.
   }
 
   body.dark {
-    background: radial-gradient(ellipse at top, hsl(220 30% 8%), hsl(220 30% 5%));
+    background: radial-gradient(ellipse at top, hsl(222.2 84% 4.9%), hsl(217.2 32.6% 17.5%));
   }
 
   body:not(.dark) {
-    background: radial-gradient(ellipse at top, hsl(210 40% 98%), hsl(220 30% 95%));
+    background: radial-gradient(ellipse at top, hsl(0 0% 100%), hsl(210 40% 98%));
   }
 }
 
@@ -156,7 +156,7 @@ All colors MUST be HSL.
   
   .glass-button {
     @apply glass px-4 py-2 rounded-lg transition-all duration-300;
-    @apply hover:shadow-[0_0_20px_hsl(var(--primary)/0.3)] hover:border-primary/50;
+    @apply hover:shadow-[0_0_20px_hsl(var(--primary)/0.2)] hover:border-primary/30;
   }
   
   .gradient-text {
@@ -172,5 +172,14 @@ All colors MUST be HSL.
   
   .glow-accent {
     box-shadow: var(--glow-accent);
+  }
+  
+  /* Toned down warning/yellow colors */
+  .bg-yellow-400 {
+    @apply bg-yellow-300/20;
+  }
+  
+  .bg-yellow-500 {
+    @apply bg-yellow-400/30;
   }
 }
