@@ -14,6 +14,9 @@ import AdManager from '@/components/admin/AdManager';
 import ImageManager from '@/components/admin/ImageManager';
 import LiveBuildsManager from '@/components/admin/LiveBuildsManager';
 import SocialMediaManager from '@/components/admin/SocialMediaManager';
+import InPersonNetworkingManager from '@/components/admin/InPersonNetworkingManager';
+import VirtualNetworkingManager from '@/components/admin/VirtualNetworkingManager';
+import PersonNotesManager from '@/components/admin/PersonNotesManager';
 
 const Admin = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
@@ -37,6 +40,12 @@ const Admin = () => {
     switch (activeTab) {
       case 'leads':
         return <LeadManager />;
+      case 'in-person-networking':
+        return <InPersonNetworkingManager />;
+      case 'virtual-networking':
+        return <VirtualNetworkingManager />;
+      case 'person-notes':
+        return <PersonNotesManager />;
       case 'maps':
         return <MapViews />;
       case 'events':

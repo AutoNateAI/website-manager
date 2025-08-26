@@ -362,6 +362,57 @@ export type Database = {
         }
         Relationships: []
       }
+      event_connections: {
+        Row: {
+          connection_quality: string | null
+          created_at: string
+          discussion_topics: string | null
+          event_id: string
+          follow_up_needed: boolean | null
+          follow_up_notes: string | null
+          id: string
+          person_id: string
+          updated_at: string
+        }
+        Insert: {
+          connection_quality?: string | null
+          created_at?: string
+          discussion_topics?: string | null
+          event_id: string
+          follow_up_needed?: boolean | null
+          follow_up_notes?: string | null
+          id?: string
+          person_id: string
+          updated_at?: string
+        }
+        Update: {
+          connection_quality?: string | null
+          created_at?: string
+          discussion_topics?: string | null
+          event_id?: string
+          follow_up_needed?: boolean | null
+          follow_up_notes?: string | null
+          id?: string
+          person_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_connections_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "networking_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_connections_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           company_id: string | null
@@ -659,6 +710,42 @@ export type Database = {
         }
         Relationships: []
       }
+      networking_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_date: string
+          event_type: string | null
+          id: string
+          location: string | null
+          notes: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_date: string
+          event_type?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_date?: string
+          event_type?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       people: {
         Row: {
           chatgpt_links: Json | null
@@ -717,6 +804,44 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_notes: {
+        Row: {
+          created_at: string
+          id: string
+          note_category: string | null
+          note_text: string
+          person_id: string
+          priority: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note_category?: string | null
+          note_text: string
+          person_id: string
+          priority?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note_category?: string | null
+          note_text?: string
+          person_id?: string
+          priority?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_notes_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
             referencedColumns: ["id"]
           },
         ]
@@ -1062,6 +1187,70 @@ export type Database = {
           },
         ]
       }
+      social_interactions: {
+        Row: {
+          comment_text: string
+          commenter_name: string
+          commenter_profile_url: string | null
+          created_at: string
+          id: string
+          interaction_timestamp: string
+          interaction_type: string
+          parent_interaction_id: string | null
+          person_id: string | null
+          post_id: string
+          updated_at: string
+        }
+        Insert: {
+          comment_text: string
+          commenter_name: string
+          commenter_profile_url?: string | null
+          created_at?: string
+          id?: string
+          interaction_timestamp: string
+          interaction_type: string
+          parent_interaction_id?: string | null
+          person_id?: string | null
+          post_id: string
+          updated_at?: string
+        }
+        Update: {
+          comment_text?: string
+          commenter_name?: string
+          commenter_profile_url?: string | null
+          created_at?: string
+          id?: string
+          interaction_timestamp?: string
+          interaction_type?: string
+          parent_interaction_id?: string | null
+          person_id?: string | null
+          post_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_interactions_parent_interaction_id_fkey"
+            columns: ["parent_interaction_id"]
+            isOneToOne: false
+            referencedRelation: "social_interactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_interactions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_interactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_media_images: {
         Row: {
           alt_text: string | null
@@ -1157,6 +1346,51 @@ export type Database = {
           title?: string
           updated_at?: string
           voice?: string
+        }
+        Relationships: []
+      }
+      social_posts: {
+        Row: {
+          created_at: string
+          id: string
+          media_urls: Json | null
+          my_comment_text: string | null
+          my_engagement_type: string | null
+          platform: string
+          post_author_name: string | null
+          post_author_profile_url: string | null
+          post_content: string | null
+          post_timestamp: string | null
+          post_url: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          media_urls?: Json | null
+          my_comment_text?: string | null
+          my_engagement_type?: string | null
+          platform: string
+          post_author_name?: string | null
+          post_author_profile_url?: string | null
+          post_content?: string | null
+          post_timestamp?: string | null
+          post_url: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          media_urls?: Json | null
+          my_comment_text?: string | null
+          my_engagement_type?: string | null
+          platform?: string
+          post_author_name?: string | null
+          post_author_profile_url?: string | null
+          post_content?: string | null
+          post_timestamp?: string | null
+          post_url?: string
+          updated_at?: string
         }
         Relationships: []
       }

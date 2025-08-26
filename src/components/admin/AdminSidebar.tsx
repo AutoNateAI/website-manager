@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Users, Map, PenTool, Image, Megaphone, Video, Share2, 
-  Calendar, Package, ChevronDown, ChevronRight 
+  Calendar, Package, ChevronDown, ChevronRight, Building,
+  Users2, MessageSquare, StickyNote
 } from 'lucide-react';
 import {
   Sidebar,
@@ -32,6 +33,9 @@ const menuItems: MenuItem[] = [
     icon: Users,
     children: [
       { title: "Companies & People", value: "leads", icon: Users },
+      { title: "In-Person Networking", value: "in-person-networking", icon: Calendar },
+      { title: "Virtual Networking", value: "virtual-networking", icon: MessageSquare },
+      { title: "Person Notes", value: "person-notes", icon: StickyNote },
       { title: "Events", value: "events", icon: Calendar },
       { title: "Products & Services", value: "products", icon: Package },
     ]
