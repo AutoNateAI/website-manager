@@ -254,6 +254,54 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          chatgpt_links: Json | null
+          company_size: string | null
+          created_at: string
+          id: string
+          industry: string | null
+          linkedin_url: string | null
+          location: string | null
+          name: string
+          notebooklm_links: Json | null
+          tags: Json | null
+          targeting_notes: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          chatgpt_links?: Json | null
+          company_size?: string | null
+          created_at?: string
+          id?: string
+          industry?: string | null
+          linkedin_url?: string | null
+          location?: string | null
+          name: string
+          notebooklm_links?: Json | null
+          tags?: Json | null
+          targeting_notes?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          chatgpt_links?: Json | null
+          company_size?: string | null
+          created_at?: string
+          id?: string
+          industry?: string | null
+          linkedin_url?: string | null
+          location?: string | null
+          name?: string
+          notebooklm_links?: Json | null
+          tags?: Json | null
+          targeting_notes?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       contact_inquiries: {
         Row: {
           company: string | null
@@ -538,6 +586,68 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      people: {
+        Row: {
+          chatgpt_links: Json | null
+          company_id: string | null
+          created_at: string
+          email: string | null
+          id: string
+          lead_status: string | null
+          linkedin_url: string | null
+          location: string | null
+          name: string
+          notebooklm_links: Json | null
+          position: string | null
+          profile_image_url: string | null
+          tags: Json | null
+          targeting_notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          chatgpt_links?: Json | null
+          company_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_status?: string | null
+          linkedin_url?: string | null
+          location?: string | null
+          name: string
+          notebooklm_links?: Json | null
+          position?: string | null
+          profile_image_url?: string | null
+          tags?: Json | null
+          targeting_notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          chatgpt_links?: Json | null
+          company_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_status?: string | null
+          linkedin_url?: string | null
+          location?: string | null
+          name?: string
+          notebooklm_links?: Json | null
+          position?: string | null
+          profile_image_url?: string | null
+          tags?: Json | null
+          targeting_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "people_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_access: {
         Row: {
