@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Users, Building2, Calendar } from "lucide-react";
+import { MapPin, Users, Building2, Calendar, Map as MapIcon } from "lucide-react";
+import { NetworkMap } from "./NetworkMap";
 
 interface LocationData {
   location: string;
@@ -230,17 +231,25 @@ export const MapViews = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold">Map Views</h2>
-          <p className="text-muted-foreground">View leads by geographic location</p>
+          <p className="text-muted-foreground">Interactive network visualization of leads and connections</p>
         </div>
       </div>
 
-      <Tabs defaultValue="cities" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="network" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="network">
+            <MapIcon className="h-4 w-4 mr-2" />
+            Network Map
+          </TabsTrigger>
           <TabsTrigger value="cities">Cities ({cityData.length})</TabsTrigger>
           <TabsTrigger value="states">States ({stateData.length})</TabsTrigger>
           <TabsTrigger value="countries">Countries ({countryData.length})</TabsTrigger>
           <TabsTrigger value="continents">Continents ({continentData.length})</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="network" className="space-y-6">
+          <NetworkMap />
+        </TabsContent>
 
         <TabsContent value="cities" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

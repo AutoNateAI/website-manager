@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { LogOut, PenTool, Megaphone, Image, Video, Share2, Users, Map, Calendar, Package } from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { LeadManager } from '@/components/admin/LeadManager';
 import { MapViews } from '@/components/admin/MapViews';
 import { EventManager } from '@/components/admin/EventManager';
@@ -32,145 +33,68 @@ const Admin = () => {
     return <Navigate to="/login" replace />;
   }
 
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'leads':
+        return <LeadManager />;
+      case 'maps':
+        return <MapViews />;
+      case 'events':
+        return <EventManager />;
+      case 'products':
+        return <ProductServiceManager />;
+      case 'blogs':
+        return <BlogManager />;
+      case 'images':
+        return <ImageManager />;
+      case 'ads':
+        return <AdManager />;
+      case 'live-builds':
+        return <LiveBuildsManager />;
+      case 'social-media':
+        return <SocialMediaManager />;
+      default:
+        return <LeadManager />;
+    }
+  };
+
   return (
-    <div className="min-h-screen p-3 sm:p-6">
-      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
-        {/* Header */}
-        <div className="glass-card p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold gradient-text">Admin Portal</h1>
-              <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-                Manage your leads, blog content, images, and marketing campaigns
-              </p>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full">
+        <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <header className="h-16 flex items-center justify-between px-6 border-b border-border/50 glass-card">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger />
+              <div>
+                <h1 className="text-xl font-bold gradient-text">Admin Portal</h1>
+                <p className="text-xs text-muted-foreground">
+                  Manage your leads, content, and marketing campaigns
+                </p>
+              </div>
             </div>
             <Button 
               onClick={signOut}
               variant="outline"
-              className="glass-button w-full sm:w-auto"
+              className="glass-button"
               size="sm"
             >
               <LogOut size={16} className="mr-2" />
-              <span className="sm:inline">Sign Out</span>
+              Sign Out
             </Button>
-          </div>
+          </header>
+
+          {/* Main Content */}
+          <main className="flex-1 p-6 overflow-auto">
+            <div className="max-w-7xl mx-auto">
+              {renderTabContent()}
+            </div>
+          </main>
         </div>
-
-        {/* Main Content */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
-          <TabsList className="glass-card p-1 grid w-full grid-cols-9 gap-1">
-            <TabsTrigger 
-              value="leads" 
-              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
-            >
-              <Users size={14} className="mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Lead Management</span>
-              <span className="sm:hidden">Leads</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="maps" 
-              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
-            >
-              <Map size={14} className="mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Map Views</span>
-              <span className="sm:hidden">Maps</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="events" 
-              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
-            >
-              <Calendar size={14} className="mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Events</span>
-              <span className="sm:hidden">Events</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="products" 
-              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
-            >
-              <Package size={14} className="mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Products</span>
-              <span className="sm:hidden">Products</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="blogs" 
-              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
-            >
-              <PenTool size={14} className="mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Blog Management</span>
-              <span className="sm:hidden">Blogs</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="images"
-              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
-            >
-              <Image size={14} className="mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Image Library</span>
-              <span className="sm:hidden">Images</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="ads"
-              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
-            >
-              <Megaphone size={14} className="mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Ad Management</span>
-              <span className="sm:hidden">Ads</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="live-builds"
-              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
-            >
-              <Video size={14} className="mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Live Builds</span>
-              <span className="sm:hidden">Live</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="social-media"
-              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
-            >
-              <Share2 size={14} className="mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Social Media</span>
-              <span className="sm:hidden">Social</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="leads" className="space-y-4 sm:space-y-6">
-            <LeadManager />
-          </TabsContent>
-
-          <TabsContent value="maps" className="space-y-4 sm:space-y-6">
-            <MapViews />
-          </TabsContent>
-
-          <TabsContent value="events" className="space-y-4 sm:space-y-6">
-            <EventManager />
-          </TabsContent>
-
-          <TabsContent value="products" className="space-y-4 sm:space-y-6">
-            <ProductServiceManager />
-          </TabsContent>
-
-          <TabsContent value="blogs" className="space-y-4 sm:space-y-6">
-            <BlogManager />
-          </TabsContent>
-
-          <TabsContent value="images" className="space-y-4 sm:space-y-6">
-            <ImageManager />
-          </TabsContent>
-
-          <TabsContent value="ads" className="space-y-4 sm:space-y-6">
-            <AdManager />
-          </TabsContent>
-
-          <TabsContent value="live-builds" className="space-y-4 sm:space-y-6">
-            <LiveBuildsManager />
-          </TabsContent>
-
-          <TabsContent value="social-media" className="space-y-4 sm:space-y-6">
-            <SocialMediaManager />
-          </TabsContent>
-        </Tabs>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
