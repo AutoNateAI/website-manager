@@ -54,7 +54,7 @@ export const PersonForm = ({ person, companies, onSubmit, onCancel }: PersonForm
     linkedin_url: '',
     profile_image_url: '',
     position: '',
-    company_id: '',
+    company_id: 'none',
     location: '',
     targeting_notes: '',
     lead_status: 'prospect',
@@ -75,7 +75,7 @@ export const PersonForm = ({ person, companies, onSubmit, onCancel }: PersonForm
         linkedin_url: person.linkedin_url || '',
         profile_image_url: person.profile_image_url || '',
         position: person.position || '',
-        company_id: person.company_id || '',
+        company_id: person.company_id || 'none',
         location: person.location || '',
         targeting_notes: person.targeting_notes || '',
         lead_status: person.lead_status || 'prospect',
@@ -204,7 +204,7 @@ export const PersonForm = ({ person, companies, onSubmit, onCancel }: PersonForm
             <SelectValue placeholder="Select company" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">No company</SelectItem>
+            <SelectItem value="none">No company</SelectItem>
             {companies.map((company) => (
               <SelectItem key={company.id} value={company.id}>
                 {company.name}

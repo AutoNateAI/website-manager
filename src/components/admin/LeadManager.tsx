@@ -51,9 +51,9 @@ export const LeadManager = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [industryFilter, setIndustryFilter] = useState('');
-  const [locationFilter, setLocationFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [industryFilter, setIndustryFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [isCompanyFormOpen, setIsCompanyFormOpen] = useState(false);
   const [isPersonFormOpen, setIsPersonFormOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
@@ -74,10 +74,10 @@ export const LeadManager = () => {
       if (searchTerm) {
         query = query.or(`name.ilike.%${searchTerm}%,industry.ilike.%${searchTerm}%`);
       }
-      if (industryFilter) {
+      if (industryFilter && industryFilter !== 'all') {
         query = query.eq('industry', industryFilter);
       }
-      if (locationFilter) {
+      if (locationFilter && locationFilter !== 'all') {
         query = query.ilike('location', `%${locationFilter}%`);
       }
 
@@ -117,10 +117,10 @@ export const LeadManager = () => {
       if (searchTerm) {
         query = query.or(`name.ilike.%${searchTerm}%,position.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
       }
-      if (statusFilter) {
+      if (statusFilter && statusFilter !== 'all') {
         query = query.eq('lead_status', statusFilter);
       }
-      if (locationFilter) {
+      if (locationFilter && locationFilter !== 'all') {
         query = query.ilike('location', `%${locationFilter}%`);
       }
 
@@ -198,10 +198,16 @@ export const LeadManager = () => {
 
   const handlePersonSubmit = async (personData: Partial<Person>) => {
     try {
+      // Handle the "none" company selection
+      const submissionData = {
+        ...personData,
+        company_id: personData.company_id === 'none' ? null : personData.company_id
+      };
+
       if (editingPerson) {
         const { error } = await supabase
           .from('people')
-          .update(personData as any)
+          .update(submissionData as any)
           .eq('id', editingPerson.id);
 
         if (error) throw error;
@@ -212,7 +218,7 @@ export const LeadManager = () => {
       } else {
         const { error } = await supabase
           .from('people')
-          .insert(personData as any);
+          .insert(submissionData as any);
 
         if (error) throw error;
         toast({
@@ -272,7 +278,7 @@ export const LeadManager = () => {
             <SelectValue placeholder="Industry" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Industries</SelectItem>
+            <SelectItem value="all">All Industries</SelectItem>
             {getUniqueIndustries().map((industry) => (
               <SelectItem key={industry} value={industry}>{industry}</SelectItem>
             ))}
@@ -284,7 +290,7 @@ export const LeadManager = () => {
             <SelectValue placeholder="Location" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Locations</SelectItem>
+            <SelectItem value="all">All Locations</SelectItem>
             <SelectItem value="United States">United States</SelectItem>
             <SelectItem value="Canada">Canada</SelectItem>
             <SelectItem value="United Kingdom">United Kingdom</SelectItem>
@@ -298,7 +304,7 @@ export const LeadManager = () => {
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Statuses</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
             {getUniqueStatuses().map((status) => (
               <SelectItem key={status} value={status}>{status}</SelectItem>
             ))}
