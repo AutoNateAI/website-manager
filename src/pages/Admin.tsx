@@ -3,7 +3,8 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { LogOut, PenTool, Megaphone, Image, Video, Share2 } from 'lucide-react';
+import { LogOut, PenTool, Megaphone, Image, Video, Share2, Users } from 'lucide-react';
+import { LeadManager } from '@/components/admin/LeadManager';
 import BlogManager from '@/components/admin/BlogManager';
 import AdManager from '@/components/admin/AdManager';
 import ImageManager from '@/components/admin/ImageManager';
@@ -12,7 +13,7 @@ import SocialMediaManager from '@/components/admin/SocialMediaManager';
 
 const Admin = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState('blogs');
+  const [activeTab, setActiveTab] = useState('leads');
 
   if (loading) {
     return (
@@ -37,7 +38,7 @@ const Admin = () => {
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold gradient-text">Admin Portal</h1>
               <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-                Manage your blog content, products, and advertisements
+                Manage your leads, blog content, images, and marketing campaigns
               </p>
             </div>
             <Button 
@@ -54,7 +55,15 @@ const Admin = () => {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
-          <TabsList className="glass-card p-1 grid w-full grid-cols-5 gap-1">
+          <TabsList className="glass-card p-1 grid w-full grid-cols-6 gap-1">
+            <TabsTrigger 
+              value="leads" 
+              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
+            >
+              <Users size={14} className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Lead Management</span>
+              <span className="sm:hidden">Leads</span>
+            </TabsTrigger>
             <TabsTrigger 
               value="blogs" 
               className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
@@ -96,6 +105,10 @@ const Admin = () => {
               <span className="sm:hidden">Social</span>
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="leads" className="space-y-4 sm:space-y-6">
+            <LeadManager />
+          </TabsContent>
 
           <TabsContent value="blogs" className="space-y-4 sm:space-y-6">
             <BlogManager />
