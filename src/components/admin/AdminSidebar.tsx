@@ -18,7 +18,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface MenuItem {
   title: string;
@@ -177,13 +176,6 @@ export const AdminSidebar = ({ activeTab, onTabChange }: AdminSidebarProps) => {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        
-        <div className="mt-auto p-4 border-t border-sidebar-border">
-          <div className="flex items-center justify-between">
-            {!isCollapsed && <span className="text-xs text-muted-foreground">Theme</span>}
-            <ThemeToggle />
-          </div>
-        </div>
       </SidebarContent>
     </Sidebar>
   );
