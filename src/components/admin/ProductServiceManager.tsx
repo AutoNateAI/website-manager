@@ -27,6 +27,7 @@ interface Product {
   is_active: boolean;
   sort_order: number;
   created_at: string;
+  company_id?: string;
   company?: { name: string };
 }
 
@@ -100,7 +101,8 @@ export const ProductServiceManager = () => {
     slug: '',
     features: '',
     benefits: '',
-    is_active: true
+    is_active: true,
+    company_id: 'none'
   });
 
   const [serviceFormData, setServiceFormData] = useState({
@@ -265,7 +267,8 @@ export const ProductServiceManager = () => {
         slug: productFormData.slug,
         features: productFormData.features ? productFormData.features.split(',').map(f => f.trim()).filter(Boolean) : [],
         benefits: productFormData.benefits ? productFormData.benefits.split(',').map(b => b.trim()).filter(Boolean) : [],
-        is_active: productFormData.is_active
+        is_active: productFormData.is_active,
+        company_id: productFormData.company_id === 'none' ? null : productFormData.company_id
       };
 
       if (editingProduct) {
@@ -376,7 +379,8 @@ export const ProductServiceManager = () => {
       slug: '',
       features: '',
       benefits: '',
-      is_active: true
+      is_active: true,
+      company_id: 'none'
     });
     setEditingProduct(null);
     setIsProductFormOpen(false);
@@ -408,7 +412,8 @@ export const ProductServiceManager = () => {
       slug: product.slug,
       features: product.features.join(', '),
       benefits: product.benefits.join(', '),
-      is_active: product.is_active
+      is_active: product.is_active,
+      company_id: product.company_id || 'none'
     });
     setIsProductFormOpen(true);
   };
@@ -532,24 +537,41 @@ export const ProductServiceManager = () => {
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor="benefits">Benefits (comma-separated)</Label>
-                    <Textarea
-                      id="benefits"
-                      value={productFormData.benefits}
-                      onChange={(e) => setProductFormData({ ...productFormData, benefits: e.target.value })}
-                      placeholder="Benefit 1, Benefit 2, Benefit 3"
-                    />
-                  </div>
+                   <div>
+                     <Label htmlFor="benefits">Benefits (comma-separated)</Label>
+                     <Textarea
+                       id="benefits"
+                       value={productFormData.benefits}
+                       onChange={(e) => setProductFormData({ ...productFormData, benefits: e.target.value })}
+                       placeholder="Benefit 1, Benefit 2, Benefit 3"
+                     />
+                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="is_active"
-                      checked={productFormData.is_active}
-                      onCheckedChange={(checked) => setProductFormData({ ...productFormData, is_active: checked })}
-                    />
-                    <Label htmlFor="is_active">Active</Label>
-                  </div>
+                   <div>
+                     <Label htmlFor="company">Company</Label>
+                     <Select value={productFormData.company_id} onValueChange={(value) => setProductFormData({ ...productFormData, company_id: value })}>
+                       <SelectTrigger>
+                         <SelectValue placeholder="Select company" />
+                       </SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="none">No company</SelectItem>
+                         {companies.map((company) => (
+                           <SelectItem key={company.id} value={company.id}>
+                             {company.name}
+                           </SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
+
+                   <div className="flex items-center space-x-2">
+                     <Switch
+                       id="is_active"
+                       checked={productFormData.is_active}
+                       onCheckedChange={(checked) => setProductFormData({ ...productFormData, is_active: checked })}
+                     />
+                     <Label htmlFor="is_active">Active</Label>
+                   </div>
 
                   <div className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={resetProductForm}>Cancel</Button>
