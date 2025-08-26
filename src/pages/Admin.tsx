@@ -3,8 +3,11 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { LogOut, PenTool, Megaphone, Image, Video, Share2, Users } from 'lucide-react';
+import { LogOut, PenTool, Megaphone, Image, Video, Share2, Users, Map, Calendar, Package } from 'lucide-react';
 import { LeadManager } from '@/components/admin/LeadManager';
+import { MapViews } from '@/components/admin/MapViews';
+import { EventManager } from '@/components/admin/EventManager';
+import { ProductServiceManager } from '@/components/admin/ProductServiceManager';
 import BlogManager from '@/components/admin/BlogManager';
 import AdManager from '@/components/admin/AdManager';
 import ImageManager from '@/components/admin/ImageManager';
@@ -55,7 +58,7 @@ const Admin = () => {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
-          <TabsList className="glass-card p-1 grid w-full grid-cols-6 gap-1">
+          <TabsList className="glass-card p-1 grid w-full grid-cols-9 gap-1">
             <TabsTrigger 
               value="leads" 
               className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
@@ -63,6 +66,30 @@ const Admin = () => {
               <Users size={14} className="mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Lead Management</span>
               <span className="sm:hidden">Leads</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="maps" 
+              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
+            >
+              <Map size={14} className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Map Views</span>
+              <span className="sm:hidden">Maps</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="events" 
+              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
+            >
+              <Calendar size={14} className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Events</span>
+              <span className="sm:hidden">Events</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="products" 
+              className="data-[state=active]:bg-primary/20 data-[state=active]:glow-primary text-xs sm:text-sm"
+            >
+              <Package size={14} className="mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Products</span>
+              <span className="sm:hidden">Products</span>
             </TabsTrigger>
             <TabsTrigger 
               value="blogs" 
@@ -108,6 +135,18 @@ const Admin = () => {
 
           <TabsContent value="leads" className="space-y-4 sm:space-y-6">
             <LeadManager />
+          </TabsContent>
+
+          <TabsContent value="maps" className="space-y-4 sm:space-y-6">
+            <MapViews />
+          </TabsContent>
+
+          <TabsContent value="events" className="space-y-4 sm:space-y-6">
+            <EventManager />
+          </TabsContent>
+
+          <TabsContent value="products" className="space-y-4 sm:space-y-6">
+            <ProductServiceManager />
           </TabsContent>
 
           <TabsContent value="blogs" className="space-y-4 sm:space-y-6">

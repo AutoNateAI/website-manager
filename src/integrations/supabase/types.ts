@@ -362,6 +362,78 @@ export type Database = {
         }
         Relationships: []
       }
+      events: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          current_attendees: number | null
+          date_time: string | null
+          description: string | null
+          event_type: string
+          id: string
+          location: string | null
+          max_attendees: number | null
+          notes: string | null
+          organizer_person_id: string | null
+          status: string
+          tags: Json | null
+          title: string
+          updated_at: string
+          virtual_link: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          current_attendees?: number | null
+          date_time?: string | null
+          description?: string | null
+          event_type?: string
+          id?: string
+          location?: string | null
+          max_attendees?: number | null
+          notes?: string | null
+          organizer_person_id?: string | null
+          status?: string
+          tags?: Json | null
+          title: string
+          updated_at?: string
+          virtual_link?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          current_attendees?: number | null
+          date_time?: string | null
+          description?: string | null
+          event_type?: string
+          id?: string
+          location?: string | null
+          max_attendees?: number | null
+          notes?: string | null
+          organizer_person_id?: string | null
+          status?: string
+          tags?: Json | null
+          title?: string
+          updated_at?: string
+          virtual_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_organizer_person_id_fkey"
+            columns: ["organizer_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       form_submissions: {
         Row: {
           created_at: string
@@ -731,6 +803,48 @@ export type Database = {
           },
         ]
       }
+      product_people: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          person_id: string
+          product_id: string
+          relationship_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          person_id: string
+          product_id: string
+          relationship_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          person_id?: string
+          product_id?: string
+          relationship_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_people_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_people_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           benefits: Json | null
@@ -853,6 +967,101 @@ export type Database = {
           },
         ]
       }
+      service_people: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          person_id: string
+          relationship_type: string
+          service_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          person_id: string
+          relationship_type: string
+          service_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          person_id?: string
+          relationship_type?: string
+          service_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_people_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_people_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      services: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          notes: string | null
+          price_range: string | null
+          pricing_model: string | null
+          service_type: string | null
+          tags: Json | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          notes?: string | null
+          price_range?: string | null
+          pricing_model?: string | null
+          service_type?: string | null
+          tags?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          notes?: string | null
+          price_range?: string | null
+          pricing_model?: string | null
+          service_type?: string | null
+          tags?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_media_images: {
         Row: {
           alt_text: string | null
@@ -908,6 +1117,7 @@ export type Database = {
           image_seed_url: string | null
           is_published: boolean
           platform: string
+          platform_type: string | null
           source_items: Json
           style: string
           title: string
@@ -924,6 +1134,7 @@ export type Database = {
           image_seed_url?: string | null
           is_published?: boolean
           platform: string
+          platform_type?: string | null
           source_items?: Json
           style: string
           title: string
@@ -940,6 +1151,7 @@ export type Database = {
           image_seed_url?: string | null
           is_published?: boolean
           platform?: string
+          platform_type?: string | null
           source_items?: Json
           style?: string
           title?: string
