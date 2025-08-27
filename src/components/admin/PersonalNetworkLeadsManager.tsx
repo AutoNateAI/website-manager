@@ -1,20 +1,22 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Plus, Edit2, Search, Phone, Mail, Linkedin, Instagram, Facebook, Globe, Building2, User, Users } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Plus, Search, Users, Building, User, Phone, Mail, ExternalLink, Edit, DollarSign, Award } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Data structures for personal network leads
 interface PersonalNetworkLead {
-  id: string;
+  id?: string;
+  // Personal info
   name: string;
   email?: string;
   phone?: string;
@@ -23,19 +25,37 @@ interface PersonalNetworkLead {
   linkedin_url?: string;
   instagram_url?: string;
   facebook_url?: string;
+  
+  // Company info (if applicable)
+  company?: {
+    id?: string;
+    name?: string;
+    industry?: string;
+    size?: string;
+    location?: string;
+    website?: string;
+    linkedin_url?: string;
+    instagram_url?: string;
+    facebook_url?: string;
+  };
+  
+  // Lead source info
+  source_team_member: string; // Who brought this lead
+  relationship_type: string; // How they know this person
+  connection_strength: 'weak' | 'medium' | 'strong';
   notes?: string;
-  lead_source: string; // Who in the team contributed this lead
-  company_id?: string;
-  company_name?: string;
-  company_website?: string;
-  company_linkedin?: string;
-  company_instagram?: string;
-  company_facebook?: string;
-  company_industry?: string;
-  company_size?: string;
-  lead_status: 'prospect' | 'contacted' | 'qualified' | 'opportunity' | 'closed';
-  created_at: string;
-  updated_at: string;
+  lead_status: 'prospect' | 'contacted' | 'qualified' | 'meeting_scheduled' | 'proposal_sent' | 'closed_won' | 'closed_lost';
+  
+  // Financial fields
+  financial_projection?: number; // in cents
+  projection_justification?: string;
+  deal_closed_at?: Date;
+  deal_amount?: number; // in cents
+  deal_status: 'prospect' | 'qualified' | 'negotiating' | 'closed_won' | 'closed_lost';
+  
+  // Metadata
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 interface TeamMember {
@@ -46,33 +66,45 @@ interface TeamMember {
 export const PersonalNetworkLeadsManager = () => {
   const [leads, setLeads] = useState<PersonalNetworkLead[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<PersonalNetworkLead | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSource, setSelectedSource] = useState<string>('all');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [sourceFilter, setSourceFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    position: '',
-    location: '',
-    linkedin_url: '',
-    instagram_url: '',
-    facebook_url: '',
-    notes: '',
-    lead_source: '',
-    new_source_name: '',
-    company_name: '',
-    company_website: '',
-    company_linkedin: '',
-    company_instagram: '',
-    company_facebook: '',
-    company_industry: '',
-    company_size: '',
-    lead_status: 'prospect' as 'prospect' | 'contacted' | 'qualified' | 'opportunity' | 'closed',
+  // Form state
+  const [leadForm, setLeadForm] = useState({
+    personal: {
+      name: '',
+      email: '',
+      phone: '',
+      position: '',
+      location: '',
+      linkedin_url: '',
+      instagram_url: '',
+      facebook_url: '',
+      lead_status: 'prospect' as const,
+      financial_projection: 0,
+      projection_justification: '',
+      deal_status: 'prospect' as const
+    },
+    company: {
+      name: '',
+      industry: '',
+      size: '',
+      location: '',
+      website: '',
+      linkedin_url: '',
+      instagram_url: '',
+      facebook_url: ''
+    },
+    source: {
+      team_member: '',
+      relationship_type: '',
+      connection_strength: 'medium' as const,
+      notes: ''
+    }
   });
 
   useEffect(() => {
@@ -80,21 +112,63 @@ export const PersonalNetworkLeadsManager = () => {
     fetchTeamMembers();
   }, []);
 
+  // Fetch leads and team members
   const fetchLeads = async () => {
+    setLoading(true);
     try {
-      // For now, we'll simulate data since we need to create the table structure
-      setLeads([]);
-      setLoading(false);
+      const { data, error } = await supabase
+        .from('people')
+        .select(`
+          *,
+          company:companies(*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedLeads = data?.map(person => ({
+        id: person.id,
+        name: person.name,
+        email: person.email,
+        position: person.position,
+        location: person.location,
+        linkedin_url: person.linkedin_url,
+        // Note: Instagram and Facebook URLs would need to be added to the people table
+        company: person.company ? {
+          id: person.company.id,
+          name: person.company.name,
+          industry: person.company.industry,
+          size: person.company.company_size,
+          location: person.company.location,
+          website: person.company.website,
+          linkedin_url: person.company.linkedin_url,
+        } : undefined,
+        source_team_member: '', // This would need to be added as a field
+        relationship_type: '', // This would need to be added as a field
+        connection_strength: 'medium' as const, // This would need to be added as a field
+        lead_status: (person.lead_status || 'prospect') as PersonalNetworkLead['lead_status'],
+        notes: person.targeting_notes,
+        financial_projection: person.financial_projection,
+        projection_justification: person.projection_justification,
+        deal_closed_at: person.deal_closed_at ? new Date(person.deal_closed_at) : undefined,
+        deal_amount: person.deal_amount,
+        deal_status: (person.deal_status || 'prospect') as PersonalNetworkLead['deal_status'],
+        created_at: new Date(person.created_at),
+        updated_at: new Date(person.updated_at),
+      })) || [];
+      
+      setLeads(formattedLeads);
     } catch (error) {
       console.error('Error fetching leads:', error);
       toast.error('Failed to fetch leads');
+    } finally {
       setLoading(false);
     }
   };
 
   const fetchTeamMembers = async () => {
     try {
-      // Simulate team members - in real implementation, fetch from people table
+      // For now, use mock data - in real implementation, this could come from a team_members table
       setTeamMembers([
         { id: '1', name: 'John Smith' },
         { id: '2', name: 'Sarah Johnson' },
@@ -107,81 +181,189 @@ export const PersonalNetworkLeadsManager = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // For now, simulate the save since we need to create the database structure
-    toast.success('Personal network lead would be saved (database structure needed)');
-    setIsDialogOpen(false);
-    resetForm();
+    try {
+      // First, handle company if provided
+      let companyId = null;
+      if (leadForm.company.name.trim()) {
+        const { data: companyData, error: companyError } = await supabase
+          .from('companies')
+          .insert({
+            name: leadForm.company.name,
+            industry: leadForm.company.industry,
+            company_size: leadForm.company.size,
+            location: leadForm.company.location,
+            website: leadForm.company.website,
+            linkedin_url: leadForm.company.linkedin_url,
+          })
+          .select()
+          .single();
+
+        if (companyError) throw companyError;
+        companyId = companyData.id;
+      }
+
+      // Then save the person
+      const { data, error } = await supabase
+        .from('people')
+        .insert({
+          name: leadForm.personal.name,
+          email: leadForm.personal.email,
+          position: leadForm.personal.position,
+          location: leadForm.personal.location,
+          linkedin_url: leadForm.personal.linkedin_url,
+          company_id: companyId,
+          lead_status: leadForm.personal.lead_status,
+          targeting_notes: leadForm.source.notes,
+          financial_projection: leadForm.personal.financial_projection ? leadForm.personal.financial_projection * 100 : null, // Convert to cents
+          projection_justification: leadForm.personal.projection_justification,
+          deal_status: leadForm.personal.deal_status || 'prospect',
+        })
+        .select();
+
+      if (error) throw error;
+
+      toast.success('Lead saved successfully');
+      setDialogOpen(false);
+      resetForm();
+      fetchLeads(); // Refresh the list
+    } catch (error) {
+      console.error('Error saving lead:', error);
+      toast.error('Failed to save lead');
+    }
   };
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      position: '',
-      location: '',
-      linkedin_url: '',
-      instagram_url: '',
-      facebook_url: '',
-      notes: '',
-      lead_source: '',
-      new_source_name: '',
-      company_name: '',
-      company_website: '',
-      company_linkedin: '',
-      company_instagram: '',
-      company_facebook: '',
-      company_industry: '',
-      company_size: '',
-      lead_status: 'prospect' as 'prospect' | 'contacted' | 'qualified' | 'opportunity' | 'closed',
+    setLeadForm({
+      personal: {
+        name: '',
+        email: '',
+        phone: '',
+        position: '',
+        location: '',
+        linkedin_url: '',
+        instagram_url: '',
+        facebook_url: '',
+        lead_status: 'prospect' as PersonalNetworkLead['lead_status'],
+        financial_projection: 0,
+        projection_justification: '',
+        deal_status: 'prospect' as PersonalNetworkLead['deal_status']
+      },
+      company: {
+        name: '',
+        industry: '',
+        size: '',
+        location: '',
+        website: '',
+        linkedin_url: '',
+        instagram_url: '',
+        facebook_url: ''
+      },
+      source: {
+        team_member: '',
+        relationship_type: '',
+        connection_strength: 'medium' as PersonalNetworkLead['connection_strength'],
+        notes: ''
+      }
     });
     setEditingLead(null);
   };
 
-  const handleEdit = (lead: PersonalNetworkLead) => {
-    setEditingLead(lead);
-    setFormData({
-      name: lead.name,
-      email: lead.email || '',
-      phone: lead.phone || '',
-      position: lead.position || '',
-      location: lead.location || '',
-      linkedin_url: lead.linkedin_url || '',
-      instagram_url: lead.instagram_url || '',
-      facebook_url: lead.facebook_url || '',
-      notes: lead.notes || '',
-      lead_source: lead.lead_source,
-      new_source_name: '',
-      company_name: lead.company_name || '',
-      company_website: lead.company_website || '',
-      company_linkedin: lead.company_linkedin || '',
-      company_instagram: lead.company_instagram || '',
-      company_facebook: lead.company_facebook || '',
-      company_industry: lead.company_industry || '',
-      company_size: lead.company_size || '',
-      lead_status: lead.lead_status,
-    });
-    setIsDialogOpen(true);
-  };
-
+  // Helper functions
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'prospect': return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-      case 'contacted': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
-      case 'qualified': return 'bg-green-500/20 text-green-300 border-green-500/30';
-      case 'opportunity': return 'bg-purple-500/20 text-purple-300 border-purple-500/30';
-      case 'closed': return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
-      default: return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+      case 'prospect': return 'secondary';
+      case 'contacted': return 'default';
+      case 'qualified': return 'default';
+      case 'meeting_scheduled': return 'default';
+      case 'proposal_sent': return 'default';
+      case 'closed_won': return 'default';
+      case 'closed_lost': return 'destructive';
+      default: return 'secondary';
     }
+  };
+
+  // Format currency
+  const formatCurrency = (cents: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(cents / 100);
+  };
+
+  // Close a deal
+  const closeDeal = async (leadId: string, amount: number, won: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('people')
+        .update({
+          deal_closed_at: new Date().toISOString(),
+          deal_amount: amount * 100, // Convert to cents
+          deal_status: won ? 'closed_won' : 'closed_lost',
+        })
+        .eq('id', leadId);
+
+      if (error) throw error;
+
+      // Also create a deal history record
+      await supabase
+        .from('deal_history')
+        .insert({
+          person_id: leadId,
+          deal_amount: amount * 100,
+          notes: won ? 'Deal closed successfully' : 'Deal lost',
+        });
+
+      toast.success(won ? 'Deal marked as won!' : 'Deal marked as lost');
+      fetchLeads();
+    } catch (error) {
+      console.error('Error closing deal:', error);
+      toast.error('Failed to update deal status');
+    }
+  };
+
+  const handleEdit = (lead: PersonalNetworkLead) => {
+    setEditingLead(lead);
+    setLeadForm({
+      personal: {
+        name: lead.name,
+        email: lead.email || '',
+        phone: lead.phone || '',
+        position: lead.position || '',
+        location: lead.location || '',
+        linkedin_url: lead.linkedin_url || '',
+        instagram_url: lead.instagram_url || '',
+        facebook_url: lead.facebook_url || '',
+        lead_status: lead.lead_status,
+        financial_projection: lead.financial_projection ? lead.financial_projection / 100 : 0,
+        projection_justification: lead.projection_justification || '',
+        deal_status: lead.deal_status
+      },
+      company: {
+        name: lead.company?.name || '',
+        industry: lead.company?.industry || '',
+        size: lead.company?.size || '',
+        location: lead.company?.location || '',
+        website: lead.company?.website || '',
+        linkedin_url: lead.company?.linkedin_url || '',
+        instagram_url: lead.company?.instagram_url || '',
+        facebook_url: lead.company?.facebook_url || ''
+      },
+      source: {
+        team_member: lead.source_team_member,
+        relationship_type: lead.relationship_type,
+        connection_strength: lead.connection_strength,
+        notes: lead.notes || ''
+      }
+    });
+    setDialogOpen(true);
   };
 
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSource = selectedSource === 'all' || lead.lead_source === selectedSource;
-    const matchesStatus = selectedStatus === 'all' || lead.lead_status === selectedStatus;
+                         lead.company?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSource = sourceFilter === 'all' || lead.source_team_member === sourceFilter;
+    const matchesStatus = statusFilter === 'all' || lead.lead_status === statusFilter;
     return matchesSearch && matchesSource && matchesStatus;
   });
 
@@ -189,17 +371,17 @@ export const PersonalNetworkLeadsManager = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold gradient-text">Personal Network Leads</h2>
+          <h2 className="text-2xl font-bold">Personal Network Leads</h2>
           <p className="text-muted-foreground">Manage leads from your team's personal networks</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="glass-button" onClick={() => resetForm()}>
+            <Button onClick={() => resetForm()}>
               <Plus className="h-4 w-4 mr-2" />
               Add Network Lead
             </Button>
           </DialogTrigger>
-          <DialogContent className="glass-card max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingLead ? 'Edit' : 'Add'} Personal Network Lead</DialogTitle>
               <DialogDescription>
@@ -209,9 +391,10 @@ export const PersonalNetworkLeadsManager = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <Tabs defaultValue="personal" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="personal">Personal Info</TabsTrigger>
                   <TabsTrigger value="company">Company Info</TabsTrigger>
+                  <TabsTrigger value="financial">Financial</TabsTrigger>
                   <TabsTrigger value="source">Lead Source</TabsTrigger>
                 </TabsList>
 
@@ -221,8 +404,11 @@ export const PersonalNetworkLeadsManager = () => {
                       <Label htmlFor="name">Full Name *</Label>
                       <Input
                         id="name"
-                        value={formData.name}
-                        onChange={(e) => setFormData({...formData, name: e.target.value})}
+                        value={leadForm.personal.name}
+                        onChange={(e) => setLeadForm({
+                          ...leadForm,
+                          personal: {...leadForm.personal, name: e.target.value}
+                        })}
                         required
                       />
                     </div>
@@ -231,37 +417,55 @@ export const PersonalNetworkLeadsManager = () => {
                       <Input
                         id="email"
                         type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                        value={leadForm.personal.email}
+                        onChange={(e) => setLeadForm({
+                          ...leadForm,
+                          personal: {...leadForm.personal, email: e.target.value}
+                        })}
                       />
                     </div>
                     <div>
                       <Label htmlFor="phone">Phone</Label>
                       <Input
                         id="phone"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                        value={leadForm.personal.phone}
+                        onChange={(e) => setLeadForm({
+                          ...leadForm,
+                          personal: {...leadForm.personal, phone: e.target.value}
+                        })}
                       />
                     </div>
                     <div>
                       <Label htmlFor="position">Position</Label>
                       <Input
                         id="position"
-                        value={formData.position}
-                        onChange={(e) => setFormData({...formData, position: e.target.value})}
+                        value={leadForm.personal.position}
+                        onChange={(e) => setLeadForm({
+                          ...leadForm,
+                          personal: {...leadForm.personal, position: e.target.value}
+                        })}
                       />
                     </div>
                     <div>
                       <Label htmlFor="location">Location</Label>
                       <Input
                         id="location"
-                        value={formData.location}
-                        onChange={(e) => setFormData({...formData, location: e.target.value})}
+                        value={leadForm.personal.location}
+                        onChange={(e) => setLeadForm({
+                          ...leadForm,
+                          personal: {...leadForm.personal, location: e.target.value}
+                        })}
                       />
                     </div>
                     <div>
                       <Label htmlFor="lead_status">Lead Status</Label>
-                      <Select value={formData.lead_status} onValueChange={(value) => setFormData({...formData, lead_status: value as any})}>
+                      <Select 
+                        value={leadForm.personal.lead_status} 
+                        onValueChange={(value: any) => setLeadForm({
+                          ...leadForm,
+                          personal: {...leadForm.personal, lead_status: value}
+                        })}
+                      >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -269,54 +473,25 @@ export const PersonalNetworkLeadsManager = () => {
                           <SelectItem value="prospect">Prospect</SelectItem>
                           <SelectItem value="contacted">Contacted</SelectItem>
                           <SelectItem value="qualified">Qualified</SelectItem>
-                          <SelectItem value="opportunity">Opportunity</SelectItem>
-                          <SelectItem value="closed">Closed</SelectItem>
+                          <SelectItem value="meeting_scheduled">Meeting Scheduled</SelectItem>
+                          <SelectItem value="proposal_sent">Proposal Sent</SelectItem>
+                          <SelectItem value="closed_won">Closed Won</SelectItem>
+                          <SelectItem value="closed_lost">Closed Lost</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <Label>Personal Social Media</Label>
-                    <div className="grid grid-cols-1 gap-4">
-                      <div>
-                        <Label htmlFor="linkedin_url">LinkedIn URL</Label>
-                        <Input
-                          id="linkedin_url"
-                          value={formData.linkedin_url}
-                          onChange={(e) => setFormData({...formData, linkedin_url: e.target.value})}
-                          placeholder="https://linkedin.com/in/..."
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="instagram_url">Instagram URL</Label>
-                        <Input
-                          id="instagram_url"
-                          value={formData.instagram_url}
-                          onChange={(e) => setFormData({...formData, instagram_url: e.target.value})}
-                          placeholder="https://instagram.com/..."
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="facebook_url">Facebook URL</Label>
-                        <Input
-                          id="facebook_url"
-                          value={formData.facebook_url}
-                          onChange={(e) => setFormData({...formData, facebook_url: e.target.value})}
-                          placeholder="https://facebook.com/..."
-                        />
-                      </div>
-                    </div>
-                  </div>
-
                   <div>
-                    <Label htmlFor="notes">Notes</Label>
-                    <Textarea
-                      id="notes"
-                      value={formData.notes}
-                      onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                      rows={3}
-                      placeholder="Additional notes about this lead..."
+                    <Label htmlFor="linkedin_url">LinkedIn URL</Label>
+                    <Input
+                      id="linkedin_url"
+                      value={leadForm.personal.linkedin_url}
+                      onChange={(e) => setLeadForm({
+                        ...leadForm,
+                        personal: {...leadForm.personal, linkedin_url: e.target.value}
+                      })}
+                      placeholder="https://linkedin.com/in/..."
                     />
                   </div>
                 </TabsContent>
@@ -327,16 +502,22 @@ export const PersonalNetworkLeadsManager = () => {
                       <Label htmlFor="company_name">Company Name</Label>
                       <Input
                         id="company_name"
-                        value={formData.company_name}
-                        onChange={(e) => setFormData({...formData, company_name: e.target.value})}
+                        value={leadForm.company.name}
+                        onChange={(e) => setLeadForm({
+                          ...leadForm,
+                          company: {...leadForm.company, name: e.target.value}
+                        })}
                       />
                     </div>
                     <div>
                       <Label htmlFor="company_website">Company Website</Label>
                       <Input
                         id="company_website"
-                        value={formData.company_website}
-                        onChange={(e) => setFormData({...formData, company_website: e.target.value})}
+                        value={leadForm.company.website}
+                        onChange={(e) => setLeadForm({
+                          ...leadForm,
+                          company: {...leadForm.company, website: e.target.value}
+                        })}
                         placeholder="https://..."
                       />
                     </div>
@@ -344,13 +525,22 @@ export const PersonalNetworkLeadsManager = () => {
                       <Label htmlFor="company_industry">Industry</Label>
                       <Input
                         id="company_industry"
-                        value={formData.company_industry}
-                        onChange={(e) => setFormData({...formData, company_industry: e.target.value})}
+                        value={leadForm.company.industry}
+                        onChange={(e) => setLeadForm({
+                          ...leadForm,
+                          company: {...leadForm.company, industry: e.target.value}
+                        })}
                       />
                     </div>
                     <div>
                       <Label htmlFor="company_size">Company Size</Label>
-                      <Select value={formData.company_size} onValueChange={(value) => setFormData({...formData, company_size: value})}>
+                      <Select 
+                        value={leadForm.company.size} 
+                        onValueChange={(value) => setLeadForm({
+                          ...leadForm,
+                          company: {...leadForm.company, size: value}
+                        })}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select size" />
                         </SelectTrigger>
@@ -365,45 +555,72 @@ export const PersonalNetworkLeadsManager = () => {
                       </Select>
                     </div>
                   </div>
+                </TabsContent>
 
-                  <div className="space-y-4">
-                    <Label>Company Social Media</Label>
-                    <div className="grid grid-cols-1 gap-4">
-                      <div>
-                        <Label htmlFor="company_linkedin">Company LinkedIn</Label>
-                        <Input
-                          id="company_linkedin"
-                          value={formData.company_linkedin}
-                          onChange={(e) => setFormData({...formData, company_linkedin: e.target.value})}
-                          placeholder="https://linkedin.com/company/..."
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="company_instagram">Company Instagram</Label>
-                        <Input
-                          id="company_instagram"
-                          value={formData.company_instagram}
-                          onChange={(e) => setFormData({...formData, company_instagram: e.target.value})}
-                          placeholder="https://instagram.com/..."
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="company_facebook">Company Facebook</Label>
-                        <Input
-                          id="company_facebook"
-                          value={formData.company_facebook}
-                          onChange={(e) => setFormData({...formData, company_facebook: e.target.value})}
-                          placeholder="https://facebook.com/..."
-                        />
-                      </div>
+                <TabsContent value="financial" className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <Label htmlFor="financial_projection">Financial Projection ($)</Label>
+                      <Input
+                        id="financial_projection"
+                        type="number"
+                        value={leadForm.personal.financial_projection}
+                        onChange={(e) => setLeadForm({
+                          ...leadForm,
+                          personal: {...leadForm.personal, financial_projection: parseFloat(e.target.value) || 0}
+                        })}
+                        min="0"
+                        step="100"
+                        placeholder="Expected deal value..."
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="projection_justification">Projection Justification</Label>
+                      <Textarea
+                        id="projection_justification"
+                        value={leadForm.personal.projection_justification}
+                        onChange={(e) => setLeadForm({
+                          ...leadForm,
+                          personal: {...leadForm.personal, projection_justification: e.target.value}
+                        })}
+                        rows={3}
+                        placeholder="Why do you think this deal is worth this amount?..."
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="deal_status">Deal Status</Label>
+                      <Select 
+                        value={leadForm.personal.deal_status} 
+                        onValueChange={(value: any) => setLeadForm({
+                          ...leadForm,
+                          personal: {...leadForm.personal, deal_status: value}
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="prospect">Prospect</SelectItem>
+                          <SelectItem value="qualified">Qualified</SelectItem>
+                          <SelectItem value="negotiating">Negotiating</SelectItem>
+                          <SelectItem value="closed_won">Closed Won</SelectItem>
+                          <SelectItem value="closed_lost">Closed Lost</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="source" className="space-y-4">
                   <div>
-                    <Label htmlFor="lead_source">Who contributed this lead? *</Label>
-                    <Select value={formData.lead_source} onValueChange={(value) => setFormData({...formData, lead_source: value})}>
+                    <Label htmlFor="team_member">Who contributed this lead? *</Label>
+                    <Select 
+                      value={leadForm.source.team_member} 
+                      onValueChange={(value) => setLeadForm({
+                        ...leadForm,
+                        source: {...leadForm.source, team_member: value}
+                      })}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select team member" />
                       </SelectTrigger>
@@ -413,183 +630,206 @@ export const PersonalNetworkLeadsManager = () => {
                             {member.name}
                           </SelectItem>
                         ))}
-                        <SelectItem value="new">Add New Person</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {formData.lead_source === 'new' && (
-                    <div>
-                      <Label htmlFor="new_source_name">New Team Member Name</Label>
-                      <Input
-                        id="new_source_name"
-                        value={formData.new_source_name}
-                        onChange={(e) => setFormData({...formData, new_source_name: e.target.value})}
-                        placeholder="Enter name of the person who contributed this lead"
-                        required
-                      />
-                    </div>
-                  )}
+                  <div>
+                    <Label htmlFor="relationship_type">Relationship Type</Label>
+                    <Input
+                      id="relationship_type"
+                      value={leadForm.source.relationship_type}
+                      onChange={(e) => setLeadForm({
+                        ...leadForm,
+                        source: {...leadForm.source, relationship_type: e.target.value}
+                      })}
+                      placeholder="e.g., Former colleague, Friend, Family..."
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="connection_strength">Connection Strength</Label>
+                    <Select 
+                      value={leadForm.source.connection_strength} 
+                      onValueChange={(value: any) => setLeadForm({
+                        ...leadForm,
+                        source: {...leadForm.source, connection_strength: value}
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weak">Weak</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="strong">Strong</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      value={leadForm.source.notes}
+                      onChange={(e) => setLeadForm({
+                        ...leadForm,
+                        source: {...leadForm.source, notes: e.target.value}
+                      })}
+                      rows={4}
+                      placeholder="Additional notes about this lead and the relationship..."
+                    />
+                  </div>
                 </TabsContent>
               </Tabs>
 
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" className="glass-button">
-                  {editingLead ? 'Update' : 'Save'} Lead
-                </Button>
-              </div>
+                <Button type="submit">{editingLead ? 'Update' : 'Add'} Lead</Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Filters */}
-      <Card className="glass-card">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search leads..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <Select value={selectedSource} onValueChange={setSelectedSource}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by source" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sources</SelectItem>
-                {teamMembers.map((member) => (
-                  <SelectItem key={member.id} value={member.name}>{member.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="prospect">Prospect</SelectItem>
-                <SelectItem value="contacted">Contacted</SelectItem>
-                <SelectItem value="qualified">Qualified</SelectItem>
-                <SelectItem value="opportunity">Opportunity</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Search and Filter */}
+      <div className="flex gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search leads..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <Select value={sourceFilter} onValueChange={setSourceFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sources</SelectItem>
+            {teamMembers.map((member) => (
+              <SelectItem key={member.id} value={member.name}>
+                {member.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="prospect">Prospect</SelectItem>
+            <SelectItem value="contacted">Contacted</SelectItem>
+            <SelectItem value="qualified">Qualified</SelectItem>
+            <SelectItem value="meeting_scheduled">Meeting Scheduled</SelectItem>
+            <SelectItem value="proposal_sent">Proposal Sent</SelectItem>
+            <SelectItem value="closed_won">Closed Won</SelectItem>
+            <SelectItem value="closed_lost">Closed Lost</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      {/* Results */}
+      {/* Leads List */}
       {loading ? (
-        <div className="text-center py-8">Loading leads...</div>
+        <div className="text-center py-8">
+          <p>Loading leads...</p>
+        </div>
       ) : filteredLeads.length === 0 ? (
-        <Card className="glass-card">
-          <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No personal network leads yet</h3>
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">
+              <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No leads found</h3>
               <p className="text-muted-foreground mb-4">
-                Start by adding leads from your team's personal networks
+                {searchTerm || sourceFilter !== 'all' || statusFilter !== 'all' 
+                  ? "Try adjusting your search or filters"
+                  : "Add your first personal network lead to get started"}
               </p>
-              <Button onClick={() => setIsDialogOpen(true)} className="glass-button">
+              <Button onClick={() => setDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Your First Lead
+                Add Lead
               </Button>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredLeads.map((lead) => (
-            <Card key={lead.id} className="glass-card">
-              <CardContent className="pt-6">
+            <Card key={lead.id} className="hover:shadow-md transition-shadow">
+              <CardHeader>
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback>
-                        {lead.name.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-semibold text-lg">{lead.name}</h3>
-                      {lead.position && (
-                        <p className="text-sm text-muted-foreground">{lead.position}</p>
-                      )}
-                      {lead.company_name && (
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Building2 className="h-3 w-3" />
-                          {lead.company_name}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                        <User className="h-3 w-3" />
-                        Contributed by: {lead.lead_source}
-                      </p>
-                    </div>
+                  <div>
+                    <CardTitle className="text-lg">{lead.name}</CardTitle>
+                    <CardDescription>
+                      {lead.position && lead.company?.name 
+                        ? `${lead.position} at ${lead.company.name}`
+                        : lead.position || lead.company?.name || 'No company info'
+                      }
+                    </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={getStatusColor(lead.lead_status)}>
-                      {lead.lead_status}
-                    </Badge>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(lead)}
-                      className="glass-button"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
+                  <div className="flex gap-2">
+                    <Badge variant={getStatusColor(lead.lead_status)}>{lead.lead_status}</Badge>
                   </div>
                 </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
                   {lead.email && (
-                    <div className="flex items-center gap-1 text-xs bg-muted/20 px-2 py-1 rounded">
-                      <Mail className="h-3 w-3" />
-                      {lead.email}
+                    <div className="flex items-center text-sm">
+                      <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <span className="truncate">{lead.email}</span>
                     </div>
                   )}
                   {lead.phone && (
-                    <div className="flex items-center gap-1 text-xs bg-muted/20 px-2 py-1 rounded">
-                      <Phone className="h-3 w-3" />
-                      {lead.phone}
+                    <div className="flex items-center text-sm">
+                      <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <span>{lead.phone}</span>
                     </div>
                   )}
-                  {lead.linkedin_url && (
-                    <div className="flex items-center gap-1 text-xs bg-blue-500/20 px-2 py-1 rounded">
-                      <Linkedin className="h-3 w-3" />
-                      LinkedIn
+                  {lead.financial_projection && (
+                    <div className="flex items-center text-sm">
+                      <DollarSign className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <span>{formatCurrency(lead.financial_projection)} projected</span>
                     </div>
                   )}
-                  {lead.instagram_url && (
-                    <div className="flex items-center gap-1 text-xs bg-pink-500/20 px-2 py-1 rounded">
-                      <Instagram className="h-3 w-3" />
-                      Instagram
-                    </div>
-                  )}
-                  {lead.facebook_url && (
-                    <div className="flex items-center gap-1 text-xs bg-blue-600/20 px-2 py-1 rounded">
-                      <Facebook className="h-3 w-3" />
-                      Facebook
+                  {lead.deal_amount && (
+                    <div className="flex items-center text-sm">
+                      <Award className="h-4 w-4 mr-2 text-green-500" />
+                      <span className="text-green-600">{formatCurrency(lead.deal_amount)} closed</span>
                     </div>
                   )}
                 </div>
-
-                {lead.notes && (
-                  <div className="mt-3 p-3 bg-muted/10 rounded-md">
-                    <p className="text-sm">{lead.notes}</p>
+                
+                <Separator className="my-3" />
+                
+                <div className="flex justify-between items-center">
+                  <div className="flex gap-2">
+                    {lead.linkedin_url && (
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={lead.linkedin_url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    )}
+                    {lead.company?.website && (
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={lead.company.website} target="_blank" rel="noopener noreferrer">
+                          <Building className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    )}
                   </div>
-                )}
+                  <Button size="sm" variant="outline" onClick={() => handleEdit(lead)}>
+                    <Edit className="h-4 w-4 mr-1" />
+                    Edit
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

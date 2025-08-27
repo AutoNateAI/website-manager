@@ -215,6 +215,51 @@ export type Database = {
         }
         Relationships: []
       }
+      campaigns: {
+        Row: {
+          actual_revenue: number | null
+          created_at: string
+          description: string | null
+          end_date: string
+          financial_target: number | null
+          id: string
+          name: string
+          projected_revenue: number | null
+          start_date: string
+          status: string
+          target_entities: Json | null
+          updated_at: string
+        }
+        Insert: {
+          actual_revenue?: number | null
+          created_at?: string
+          description?: string | null
+          end_date: string
+          financial_target?: number | null
+          id?: string
+          name: string
+          projected_revenue?: number | null
+          start_date: string
+          status?: string
+          target_entities?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          actual_revenue?: number | null
+          created_at?: string
+          description?: string | null
+          end_date?: string
+          financial_target?: number | null
+          id?: string
+          name?: string
+          projected_revenue?: number | null
+          start_date?: string
+          status?: string
+          target_entities?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       coaching_requests: {
         Row: {
           created_at: string
@@ -334,6 +379,51 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      deal_history: {
+        Row: {
+          campaign_id: string | null
+          closed_at: string
+          created_at: string
+          deal_amount: number
+          id: string
+          notes: string | null
+          person_id: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          closed_at?: string
+          created_at?: string
+          deal_amount: number
+          id?: string
+          notes?: string | null
+          person_id: string
+        }
+        Update: {
+          campaign_id?: string | null
+          closed_at?: string
+          created_at?: string
+          deal_amount?: number
+          id?: string
+          notes?: string | null
+          person_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_history_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_history_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       demo_requests: {
         Row: {
@@ -590,6 +680,53 @@ export type Database = {
         }
         Relationships: []
       }
+      goals: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string | null
+          status: string | null
+          target_metrics: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          status?: string | null
+          target_metrics?: Json | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          status?: string | null
+          target_metrics?: Json | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       images: {
         Row: {
           alt_text: string | null
@@ -799,7 +936,11 @@ export type Database = {
           chatgpt_links: Json | null
           company_id: string | null
           created_at: string
+          deal_amount: number | null
+          deal_closed_at: string | null
+          deal_status: string | null
           email: string | null
+          financial_projection: number | null
           id: string
           lead_status: string | null
           linkedin_url: string | null
@@ -808,6 +949,7 @@ export type Database = {
           notebooklm_links: Json | null
           position: string | null
           profile_image_url: string | null
+          projection_justification: string | null
           tags: Json | null
           targeting_notes: string | null
           updated_at: string
@@ -816,7 +958,11 @@ export type Database = {
           chatgpt_links?: Json | null
           company_id?: string | null
           created_at?: string
+          deal_amount?: number | null
+          deal_closed_at?: string | null
+          deal_status?: string | null
           email?: string | null
+          financial_projection?: number | null
           id?: string
           lead_status?: string | null
           linkedin_url?: string | null
@@ -825,6 +971,7 @@ export type Database = {
           notebooklm_links?: Json | null
           position?: string | null
           profile_image_url?: string | null
+          projection_justification?: string | null
           tags?: Json | null
           targeting_notes?: string | null
           updated_at?: string
@@ -833,7 +980,11 @@ export type Database = {
           chatgpt_links?: Json | null
           company_id?: string | null
           created_at?: string
+          deal_amount?: number | null
+          deal_closed_at?: string | null
+          deal_status?: string | null
           email?: string | null
+          financial_projection?: number | null
           id?: string
           lead_status?: string | null
           linkedin_url?: string | null
@@ -842,6 +993,7 @@ export type Database = {
           notebooklm_links?: Json | null
           position?: string | null
           profile_image_url?: string | null
+          projection_justification?: string | null
           tags?: Json | null
           targeting_notes?: string | null
           updated_at?: string
@@ -1235,6 +1387,54 @@ export type Database = {
           },
         ]
       }
+      sessions: {
+        Row: {
+          activities_completed: Json | null
+          campaign_id: string
+          created_at: string
+          duration_hours: number | null
+          goal_id: string | null
+          id: string
+          notes: string | null
+          session_date: string
+        }
+        Insert: {
+          activities_completed?: Json | null
+          campaign_id: string
+          created_at?: string
+          duration_hours?: number | null
+          goal_id?: string | null
+          id?: string
+          notes?: string | null
+          session_date?: string
+        }
+        Update: {
+          activities_completed?: Json | null
+          campaign_id?: string
+          created_at?: string
+          duration_hours?: number | null
+          goal_id?: string | null
+          id?: string
+          notes?: string | null
+          session_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_interactions: {
         Row: {
           comment_text: string
@@ -1441,6 +1641,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      tasks: {
+        Row: {
+          assignee: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          goal_id: string
+          id: string
+          status: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assignee?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          goal_id: string
+          id?: string
+          status?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assignee?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          goal_id?: string
+          id?: string
+          status?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workshop_requests: {
         Row: {

@@ -1,656 +1,632 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { 
-  Plus, Edit2, Search, Target, Calendar, Clock, Users, MessageSquare, 
-  Mail, Send, CheckCircle, AlertCircle, TrendingUp, BarChart3,
-  PlayCircle, PauseCircle, Eye, Settings
-} from 'lucide-react';
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon, Plus, Search, Target, Users, CheckCircle, Clock, DollarSign, TrendingUp, Award } from 'lucide-react';
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Data structures matching the new database schema
 interface Campaign {
-  id: string;
+  id?: string;
   name: string;
   description: string;
-  start_date: string;
-  end_date: string;
-  status: 'planning' | 'active' | 'paused' | 'completed';
-  target_entities: string[]; // IDs of companies/people being targeted
-  goals: Goal[];
-  created_at: string;
-  updated_at: string;
+  start_date: Date;
+  end_date: Date;
+  status: 'active' | 'paused' | 'completed' | 'cancelled';
+  target_entities: any[];
+  financial_target?: number; // in cents
+  projected_revenue?: number; // in cents
+  actual_revenue?: number; // in cents
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 interface Goal {
   id: string;
   campaign_id: string;
-  name: string;
+  title: string;
   description: string;
-  type: 'outreach' | 'response' | 'conversion';
-  target_value: number;
-  current_value: number;
-  unit: string; // 'messages', 'emails', 'comments', 'replies', 'calls'
-  session_duration: number; // in minutes (usually 240 for 4 hours)
-  sessions_per_day: number;
+  target_metrics: any;
   priority: 'low' | 'medium' | 'high';
-  status: 'active' | 'completed' | 'paused';
-  tasks: Task[];
-  created_at: string;
-  due_date?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  due_date?: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface Task {
   id: string;
   goal_id: string;
-  name: string;
+  title: string;
   description: string;
-  status: 'todo' | 'in_progress' | 'completed';
-  assigned_session?: string;
-  estimated_time: number; // in minutes
-  actual_time?: number;
-  notes?: string;
-  created_at: string;
-  completed_at?: string;
+  assignee: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  due_date?: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface Session {
   id: string;
   campaign_id: string;
-  date: string;
-  session_number: number;
-  duration: number;
-  status: 'scheduled' | 'active' | 'completed';
-  goals_worked_on: string[];
-  activities_completed: number;
+  goal_id?: string;
+  session_date: Date;
+  duration_hours: number;
+  activities_completed: any[];
   notes?: string;
+  created_at: Date;
 }
 
 export const CampaignManager = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
 
-  const [formData, setFormData] = useState({
+  // Form data for new/edit campaign
+  const [campaignForm, setCampaignForm] = useState({
     name: '',
     description: '',
-    start_date: '',
-    end_date: '',
-    status: 'planning' as const,
+    start_date: new Date(),
+    end_date: new Date(),
+    status: 'active' as const,
+    target_entities: [] as any[],
+    financial_target: 0
   });
 
   useEffect(() => {
     fetchCampaigns();
   }, []);
 
-  const fetchCampaigns = async () => {
+  // Fetch campaigns from database
+  const fetchCampaigns = useCallback(async () => {
+    setLoading(true);
     try {
-      // For now, simulate data since we need to create the database structure
-      const mockCampaigns: Campaign[] = [
-        {
-          id: '1',
-          name: 'Q1 SaaS Outreach Campaign',
-          description: 'Target SaaS companies for our AI solutions',
-          start_date: '2024-01-01',
-          end_date: '2024-01-14',
-          status: 'active',
-          target_entities: ['comp1', 'comp2', 'comp3'],
-          goals: [
-            {
-              id: 'g1',
-              campaign_id: '1',
-              name: 'LinkedIn Outreach',
-              description: 'Send personalized LinkedIn messages',
-              type: 'outreach',
-              target_value: 50,
-              current_value: 23,
-              unit: 'messages',
-              session_duration: 240,
-              sessions_per_day: 2,
-              priority: 'high',
-              status: 'active',
-              tasks: [
-                {
-                  id: 't1',
-                  goal_id: 'g1',
-                  name: 'Research target companies',
-                  description: 'Find key decision makers',
-                  status: 'completed',
-                  estimated_time: 60,
-                  actual_time: 55,
-                  created_at: '2024-01-01T10:00:00Z',
-                  completed_at: '2024-01-01T11:00:00Z'
-                }
-              ],
-              created_at: '2024-01-01T10:00:00Z',
-              due_date: '2024-01-07'
-            }
-          ],
-          created_at: '2024-01-01T10:00:00Z',
-          updated_at: '2024-01-01T10:00:00Z'
-        }
-      ];
-      setCampaigns(mockCampaigns);
-      setLoading(false);
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedCampaigns = data?.map(campaign => ({
+        ...campaign,
+        start_date: new Date(campaign.start_date),
+        end_date: new Date(campaign.end_date),
+        status: campaign.status as 'active' | 'paused' | 'completed' | 'cancelled',
+        created_at: campaign.created_at ? new Date(campaign.created_at) : undefined,
+        updated_at: campaign.updated_at ? new Date(campaign.updated_at) : undefined,
+      })) || [];
+      
+      setCampaigns(formattedCampaigns);
     } catch (error) {
       console.error('Error fetching campaigns:', error);
       toast.error('Failed to fetch campaigns');
+    } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // For now, simulate the save since we need to create the database structure
-    toast.success('Campaign would be saved (database structure needed)');
-    setIsDialogOpen(false);
-    resetForm();
+    try {
+      const campaignData = {
+        name: campaignForm.name,
+        description: campaignForm.description,
+        start_date: campaignForm.start_date.toISOString(),
+        end_date: campaignForm.end_date.toISOString(),
+        status: campaignForm.status,
+        target_entities: campaignForm.target_entities,
+        financial_target: campaignForm.financial_target * 100, // Convert to cents
+      };
+
+      const { data, error } = await supabase
+        .from('campaigns')
+        .insert(campaignData)
+        .select();
+
+      if (error) throw error;
+
+      toast.success('Campaign created successfully');
+      setDialogOpen(false);
+      resetForm();
+      fetchCampaigns(); // Refresh the list
+    } catch (error) {
+      console.error('Error saving campaign:', error);
+      toast.error('Failed to save campaign');
+    }
   };
 
   const resetForm = () => {
-    setFormData({
+    setCampaignForm({
       name: '',
       description: '',
-      start_date: '',
-      end_date: '',
-      status: 'planning',
+      start_date: new Date(),
+      end_date: new Date(),
+      status: 'active',
+      target_entities: [],
+      financial_target: 0
     });
-    setEditingCampaign(null);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'planning': return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-      case 'active': return 'bg-green-500/20 text-green-300 border-green-500/30';
-      case 'paused': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
-      case 'completed': return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
-      default: return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+      case 'active': return 'default';
+      case 'paused': return 'secondary';
+      case 'completed': return 'default';
+      case 'cancelled': return 'destructive';
+      default: return 'secondary';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-500/20 text-red-300 border-red-500/30';
-      case 'medium': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
-      case 'low': return 'bg-green-500/20 text-green-300 border-green-500/30';
-      default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+      case 'high': return 'destructive';
+      case 'medium': return 'secondary';
+      case 'low': return 'default';
+      default: return 'secondary';
     }
   };
 
-  const calculateProgress = (goals: Goal[]) => {
-    if (goals.length === 0) return 0;
-    const totalProgress = goals.reduce((sum, goal) => {
-      return sum + (goal.current_value / goal.target_value) * 100;
-    }, 0);
-    return Math.round(totalProgress / goals.length);
+  // Calculate overall progress of a campaign
+  const calculateProgress = (campaign: Campaign) => {
+    // For now, just return a mock progress based on dates
+    const now = new Date();
+    const totalTime = campaign.end_date.getTime() - campaign.start_date.getTime();
+    const elapsed = now.getTime() - campaign.start_date.getTime();
+    return Math.min(Math.max((elapsed / totalTime) * 100, 0), 100);
   };
 
-  const renderCampaignOverview = (campaign: Campaign) => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Goals</CardTitle>
+  // Format currency
+  const formatCurrency = (cents: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(cents / 100);
+  };
+
+  // Render campaign overview section
+  const renderCampaignOverview = (campaign: Campaign) => {
+    const progress = calculateProgress(campaign);
+    
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Goals</CardTitle>
+              <Target className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">0</div>
+              <p className="text-xs text-muted-foreground">Goals created</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Progress</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{Math.round(progress)}%</div>
+              <Progress value={progress} className="mt-2" />
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Target Entities</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{campaign.target_entities.length}</div>
+              <p className="text-xs text-muted-foreground">Companies & People</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Financial Target</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {campaign.financial_target ? formatCurrency(campaign.financial_target) : '$0'}
+              </div>
+              <p className="text-xs text-muted-foreground">Revenue goal</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Status</CardTitle>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <Badge variant={getStatusColor(campaign.status)}>{campaign.status}</Badge>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Financial Performance Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Award className="h-5 w-5" />
+              Financial Performance
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{campaign.goals.length}</div>
-            <p className="text-xs text-muted-foreground">
-              {campaign.goals.filter(g => g.status === 'active').length} active
-            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Target Revenue</p>
+                <p className="text-2xl font-bold">
+                  {campaign.financial_target ? formatCurrency(campaign.financial_target) : '$0'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Projected Revenue</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {campaign.projected_revenue ? formatCurrency(campaign.projected_revenue) : '$0'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Actual Revenue</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {campaign.actual_revenue ? formatCurrency(campaign.actual_revenue) : '$0'}
+                </p>
+              </div>
+            </div>
+            {campaign.financial_target && (
+              <div className="mt-4">
+                <div className="flex justify-between text-sm mb-2">
+                  <span>Revenue Progress</span>
+                  <span>{campaign.actual_revenue && campaign.financial_target ? 
+                    Math.round((campaign.actual_revenue / campaign.financial_target) * 100) : 0}%</span>
+                </div>
+                <Progress 
+                  value={campaign.actual_revenue && campaign.financial_target ? 
+                    (campaign.actual_revenue / campaign.financial_target) * 100 : 0} 
+                  className="h-2" 
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
-
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Overall Progress</CardTitle>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Campaign Details</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{calculateProgress(campaign.goals)}%</div>
-            <Progress value={calculateProgress(campaign.goals)} className="mt-2" />
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Target Entities</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{campaign.target_entities.length}</div>
-            <p className="text-xs text-muted-foreground">companies/people</p>
+            <div className="space-y-2">
+              <p><strong>Description:</strong> {campaign.description}</p>
+              <p><strong>Start Date:</strong> {format(campaign.start_date, 'PPP')}</p>
+              <p><strong>End Date:</strong> {format(campaign.end_date, 'PPP')}</p>
+              <p><strong>Duration:</strong> {Math.ceil((campaign.end_date.getTime() - campaign.start_date.getTime()) / (1000 * 60 * 60 * 24))} days</p>
+            </div>
           </CardContent>
         </Card>
       </div>
+    );
+  };
 
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle>Goals Progress</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {campaign.goals.map((goal) => (
-            <div key={goal.id} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-medium">{goal.name}</h4>
-                  <Badge className={getPriorityColor(goal.priority)}>
-                    {goal.priority}
-                  </Badge>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {goal.current_value}/{goal.target_value} {goal.unit}
-                </div>
-              </div>
-              <Progress value={(goal.current_value / goal.target_value) * 100} />
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {goal.session_duration / 60}h sessions
-                </span>
-                <span>{goal.sessions_per_day}x/day</span>
-                <span>{goal.tasks.length} tasks</span>
-              </div>
-            </div>
-          ))}
+  // Render goals manager section
+  const renderGoalsManager = (campaign: Campaign) => (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Campaign Goals</h3>
+        <Button size="sm">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Goal
+        </Button>
+      </div>
+      
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-muted-foreground text-center">No goals created yet. Add your first goal to get started!</p>
         </CardContent>
       </Card>
     </div>
   );
 
-  const renderGoalsManager = (campaign: Campaign) => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Campaign Goals</h3>
-        <Button className="glass-button" size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Goal
-        </Button>
-      </div>
-
-      {campaign.goals.map((goal) => (
-        <Card key={goal.id} className="glass-card">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">{goal.name}</CardTitle>
-                <CardDescription>{goal.description}</CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge className={getPriorityColor(goal.priority)}>
-                  {goal.priority}
-                </Badge>
-                <Badge className={getStatusColor(goal.status)}>
-                  {goal.status}
-                </Badge>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <Label className="text-xs text-muted-foreground">Target</Label>
-                <div className="font-medium">{goal.target_value} {goal.unit}</div>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Progress</Label>
-                <div className="font-medium">{goal.current_value}/{goal.target_value}</div>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Session Length</Label>
-                <div className="font-medium">{goal.session_duration / 60}h</div>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Per Day</Label>
-                <div className="font-medium">{goal.sessions_per_day} sessions</div>
-              </div>
-            </div>
-
-            <Progress value={(goal.current_value / goal.target_value) * 100} />
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h5 className="font-medium text-sm">Tasks ({goal.tasks.length})</h5>
-                <Button variant="outline" size="sm">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Task
-                </Button>
-              </div>
-              {goal.tasks.map((task) => (
-                <div key={task.id} className="flex items-center gap-2 p-2 bg-muted/10 rounded">
-                  <CheckCircle className={`h-4 w-4 ${task.status === 'completed' ? 'text-green-400' : 'text-muted-foreground'}`} />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">{task.name}</div>
-                    <div className="text-xs text-muted-foreground">{task.description}</div>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {task.estimated_time}min
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-
+  // Render session tracker section
   const renderSessionTracker = (campaign: Campaign) => (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Session Tracker</h3>
-        <Button className="glass-button" size="sm">
-          <PlayCircle className="h-4 w-4 mr-2" />
+        <Button size="sm">
+          <Plus className="h-4 w-4 mr-2" />
           Start Session
         </Button>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="text-base">Today's Sessions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-green-500/10 border border-green-500/20 rounded">
-                <div>
-                  <div className="font-medium">Session 1</div>
-                  <div className="text-sm text-muted-foreground">9:00 AM - 1:00 PM</div>
-                </div>
-                <Badge className="bg-green-500/20 text-green-300">Completed</Badge>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/20 rounded">
-                <div>
-                  <div className="font-medium">Session 2</div>
-                  <div className="text-sm text-muted-foreground">2:00 PM - 6:00 PM</div>
-                </div>
-                <Badge className="bg-blue-500/20 text-blue-300">Scheduled</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="text-base">Weekly Overview</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Sessions Completed</span>
-                <span>8/14</span>
-              </div>
-              <Progress value={57} />
-              <div className="flex justify-between text-sm">
-                <span>Hours Logged</span>
-                <span>32/56</span>
-              </div>
-              <Progress value={57} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-muted-foreground text-center">No sessions tracked yet. Start your first session!</p>
+        </CardContent>
+      </Card>
     </div>
   );
 
   const filteredCampaigns = campaigns.filter(campaign => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          campaign.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = selectedStatus === 'all' || campaign.status === selectedStatus;
+    const matchesStatus = statusFilter === 'all' || campaign.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  if (selectedCampaign) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Button variant="ghost" onClick={() => setSelectedCampaign(null)} className="mb-2">
+              ← Back to Campaigns
+            </Button>
+            <h2 className="text-2xl font-bold">{selectedCampaign.name}</h2>
+            <p className="text-muted-foreground">{selectedCampaign.description}</p>
+          </div>
+          <Badge variant={getStatusColor(selectedCampaign.status)}>{selectedCampaign.status}</Badge>
+        </div>
+
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="goals">Goals & Tasks</TabsTrigger>
+            <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
+            {renderCampaignOverview(selectedCampaign)}
+          </TabsContent>
+
+          <TabsContent value="goals">
+            {renderGoalsManager(selectedCampaign)}
+          </TabsContent>
+
+          <TabsContent value="sessions">
+            {renderSessionTracker(selectedCampaign)}
+          </TabsContent>
+        </Tabs>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold gradient-text">Goals & Campaigns</h2>
+          <h2 className="text-2xl font-bold">Goals & Campaigns</h2>
           <p className="text-muted-foreground">Manage your outreach campaigns and track progress</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="glass-button" onClick={() => resetForm()}>
+            <Button onClick={() => resetForm()}>
               <Plus className="h-4 w-4 mr-2" />
               New Campaign
             </Button>
           </DialogTrigger>
-          <DialogContent className="glass-card max-w-2xl">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{editingCampaign ? 'Edit' : 'Create'} Campaign</DialogTitle>
+              <DialogTitle>Create New Campaign</DialogTitle>
               <DialogDescription>
-                Set up a new campaign with goals and outreach strategies
+                Set up a new campaign with financial targets and outreach goals
               </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="name">Campaign Name *</Label>
                 <Input
                   id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  placeholder="Enter campaign name..."
+                  value={campaignForm.name}
+                  onChange={(e) => setCampaignForm({...campaignForm, name: e.target.value})}
                   required
                 />
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  placeholder="Describe your campaign goals..."
+                  value={campaignForm.description}
+                  onChange={(e) => setCampaignForm({...campaignForm, description: e.target.value})}
                   rows={3}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="start_date">Start Date</Label>
-                  <Input
-                    id="start_date"
-                    type="date"
-                    value={formData.start_date}
-                    onChange={(e) => setFormData({...formData, start_date: e.target.value})}
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !campaignForm.start_date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {campaignForm.start_date ? format(campaignForm.start_date, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={campaignForm.start_date}
+                        onSelect={(date) => date && setCampaignForm({...campaignForm, start_date: date})}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
-                <div>
+
+                <div className="space-y-2">
                   <Label htmlFor="end_date">End Date</Label>
-                  <Input
-                    id="end_date"
-                    type="date"
-                    value={formData.end_date}
-                    onChange={(e) => setFormData({...formData, end_date: e.target.value})}
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !campaignForm.end_date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {campaignForm.end_date ? format(campaignForm.end_date, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={campaignForm.end_date}
+                        onSelect={(date) => date && setCampaignForm({...campaignForm, end_date: date})}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
 
-              <div>
+              <div className="space-y-2">
+                <Label htmlFor="financial_target">Financial Target ($)</Label>
+                <Input
+                  id="financial_target"
+                  type="number"
+                  placeholder="Enter revenue target..."
+                  value={campaignForm.financial_target}
+                  onChange={(e) => setCampaignForm({...campaignForm, financial_target: parseFloat(e.target.value) || 0})}
+                  min="0"
+                  step="100"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
-                <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value as any})}>
+                <Select value={campaignForm.status} onValueChange={(value: any) => setCampaignForm({...campaignForm, status: value})}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="planning">Planning</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="paused">Paused</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" className="glass-button">
-                  {editingCampaign ? 'Update' : 'Create'} Campaign
-                </Button>
-              </div>
+                <Button type="submit">Create Campaign</Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Filters */}
-      <Card className="glass-card">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search campaigns..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="planning">Planning</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="paused">Paused</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Campaign List or Detail View */}
-      {selectedCampaign ? (
-        <div className="space-y-6">
-          <Card className="glass-card">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => setSelectedCampaign(null)}
-                      className="p-1 h-auto"
-                    >
-                      ←
-                    </Button>
-                    {selectedCampaign.name}
-                  </CardTitle>
-                  <CardDescription>{selectedCampaign.description}</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge className={getStatusColor(selectedCampaign.status)}>
-                    {selectedCampaign.status}
-                  </Badge>
-                  <Button variant="outline" size="sm" className="glass-button">
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="goals">Goals & Tasks</TabsTrigger>
-              <TabsTrigger value="sessions">Sessions</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="overview">
-              {renderCampaignOverview(selectedCampaign)}
-            </TabsContent>
-
-            <TabsContent value="goals">
-              {renderGoalsManager(selectedCampaign)}
-            </TabsContent>
-
-            <TabsContent value="sessions">
-              {renderSessionTracker(selectedCampaign)}
-            </TabsContent>
-          </Tabs>
+      {/* Search and Filter */}
+      <div className="flex gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search campaigns..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
         </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="paused">Paused</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Campaign List */}
+      {loading ? (
+        <div className="text-center py-8">
+          <p>Loading campaigns...</p>
+        </div>
+      ) : filteredCampaigns.length === 0 ? (
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">
+              <Target className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No campaigns found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchTerm || statusFilter !== 'all' 
+                  ? "Try adjusting your search or filters"
+                  : "Create your first campaign to start tracking your outreach goals"}
+              </p>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Campaign
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
-        <>
-          {loading ? (
-            <div className="text-center py-8">Loading campaigns...</div>
-          ) : filteredCampaigns.length === 0 ? (
-            <Card className="glass-card">
-              <CardContent className="pt-6">
-                <div className="text-center py-8">
-                  <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No campaigns yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Create your first campaign to start tracking goals and outreach
-                  </p>
-                  <Button onClick={() => setIsDialogOpen(true)} className="glass-button">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Your First Campaign
-                  </Button>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredCampaigns.map((campaign) => (
+            <Card key={campaign.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedCampaign(campaign)}>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="text-lg">{campaign.name}</CardTitle>
+                    <CardDescription>{campaign.description}</CardDescription>
+                  </div>
+                  <Badge variant={getStatusColor(campaign.status)}>{campaign.status}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Duration:</span>
+                    <span>{Math.ceil((campaign.end_date.getTime() - campaign.start_date.getTime()) / (1000 * 60 * 60 * 24))} days</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Target Revenue:</span>
+                    <span>{campaign.financial_target ? formatCurrency(campaign.financial_target) : '$0'}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Progress:</span>
+                    <span>{Math.round(calculateProgress(campaign))}%</span>
+                  </div>
+                  <Progress value={calculateProgress(campaign)} className="h-2" />
                 </div>
               </CardContent>
             </Card>
-          ) : (
-            <div className="grid gap-4">
-              {filteredCampaigns.map((campaign) => (
-                <Card key={campaign.id} className="glass-card cursor-pointer hover:border-primary/30 transition-colors"
-                      onClick={() => setSelectedCampaign(campaign)}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-lg bg-primary/20">
-                          <Target className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-lg">{campaign.name}</h3>
-                          <p className="text-sm text-muted-foreground">{campaign.description}</p>
-                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {new Date(campaign.start_date).toLocaleDateString()} - {new Date(campaign.end_date).toLocaleDateString()}
-                            </span>
-                            <span>{campaign.goals.length} goals</span>
-                            <span>{campaign.target_entities.length} targets</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-right">
-                          <div className="text-sm font-medium">{calculateProgress(campaign.goals)}%</div>
-                          <div className="text-xs text-muted-foreground">complete</div>
-                        </div>
-                        <Badge className={getStatusColor(campaign.status)}>
-                          {campaign.status}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <div className="mt-4">
-                      <Progress value={calculateProgress(campaign.goals)} />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
     </div>
   );
