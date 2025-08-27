@@ -108,6 +108,11 @@ export const CampaignManager = () => {
         start_date: new Date(campaign.start_date),
         end_date: new Date(campaign.end_date),
         status: campaign.status as 'active' | 'paused' | 'completed' | 'cancelled',
+        target_entities: Array.isArray(campaign.target_entities) ? campaign.target_entities : [],
+        description: campaign.description || '',
+        financial_target: campaign.financial_target || 0,
+        projected_revenue: campaign.projected_revenue || 0,
+        actual_revenue: campaign.actual_revenue || 0,
         created_at: campaign.created_at ? new Date(campaign.created_at) : undefined,
         updated_at: campaign.updated_at ? new Date(campaign.updated_at) : undefined,
       })) || [];
