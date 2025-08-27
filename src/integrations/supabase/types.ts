@@ -335,6 +335,54 @@ export type Database = {
         }
         Relationships: []
       }
+      demo_requests: {
+        Row: {
+          ai_features: Json | null
+          audience_type: string
+          budget_range: string | null
+          company: string | null
+          created_at: string
+          custom_feature_request: string | null
+          email: string
+          id: string
+          name: string
+          project_description: string
+          selected_features: Json | null
+          timeline: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_features?: Json | null
+          audience_type: string
+          budget_range?: string | null
+          company?: string | null
+          created_at?: string
+          custom_feature_request?: string | null
+          email: string
+          id?: string
+          name: string
+          project_description: string
+          selected_features?: Json | null
+          timeline?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_features?: Json | null
+          audience_type?: string
+          budget_range?: string | null
+          company?: string | null
+          created_at?: string
+          custom_feature_request?: string | null
+          email?: string
+          id?: string
+          name?: string
+          project_description?: string
+          selected_features?: Json | null
+          timeline?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_popup_tracking: {
         Row: {
           browser_fingerprint: string
