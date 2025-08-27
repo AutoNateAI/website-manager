@@ -63,6 +63,40 @@ interface TeamMember {
   name: string;
 }
 
+// Form state type
+interface LeadFormState {
+  personal: {
+    name: string;
+    email: string;
+    phone: string;
+    position: string;
+    location: string;
+    linkedin_url: string;
+    instagram_url: string;
+    facebook_url: string;
+    lead_status: PersonalNetworkLead['lead_status'];
+    financial_projection: number;
+    projection_justification: string;
+    deal_status: PersonalNetworkLead['deal_status'];
+  };
+  company: {
+    name: string;
+    industry: string;
+    size: string;
+    location: string;
+    website: string;
+    linkedin_url: string;
+    instagram_url: string;
+    facebook_url: string;
+  };
+  source: {
+    team_member: string;
+    relationship_type: string;
+    connection_strength: PersonalNetworkLead['connection_strength'];
+    notes: string;
+  };
+}
+
 export const PersonalNetworkLeadsManager = () => {
   const [leads, setLeads] = useState<PersonalNetworkLead[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -73,8 +107,8 @@ export const PersonalNetworkLeadsManager = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
 
-  // Form state
-  const [leadForm, setLeadForm] = useState({
+  // Form state with proper typing
+  const [leadForm, setLeadForm] = useState<LeadFormState>({
     personal: {
       name: '',
       email: '',
@@ -84,10 +118,10 @@ export const PersonalNetworkLeadsManager = () => {
       linkedin_url: '',
       instagram_url: '',
       facebook_url: '',
-      lead_status: 'prospect' as const,
+      lead_status: 'prospect',
       financial_projection: 0,
       projection_justification: '',
-      deal_status: 'prospect' as const
+      deal_status: 'prospect'
     },
     company: {
       name: '',
@@ -102,7 +136,7 @@ export const PersonalNetworkLeadsManager = () => {
     source: {
       team_member: '',
       relationship_type: '',
-      connection_strength: 'medium' as const,
+      connection_strength: 'medium',
       notes: ''
     }
   });
@@ -128,31 +162,30 @@ export const PersonalNetworkLeadsManager = () => {
 
       const formattedLeads = data?.map(person => ({
         id: person.id,
-        name: person.name,
-        email: person.email,
-        position: person.position,
-        location: person.location,
-        linkedin_url: person.linkedin_url,
-        // Note: Instagram and Facebook URLs would need to be added to the people table
+        name: person.name || '',
+        email: person.email || undefined,
+        position: person.position || undefined,
+        location: person.location || undefined,
+        linkedin_url: person.linkedin_url || undefined,
         company: person.company ? {
           id: person.company.id,
-          name: person.company.name,
-          industry: person.company.industry,
-          size: person.company.company_size,
-          location: person.company.location,
-          website: person.company.website,
-          linkedin_url: person.company.linkedin_url,
+          name: person.company.name || '',
+          industry: person.company.industry || undefined,
+          size: person.company.company_size || undefined,
+          location: person.company.location || undefined,
+          website: person.company.website || undefined,
+          linkedin_url: person.company.linkedin_url || undefined,
         } : undefined,
-        source_team_member: '', // This would need to be added as a field
-        relationship_type: '', // This would need to be added as a field
-        connection_strength: 'medium' as const, // This would need to be added as a field
-        lead_status: (person.lead_status || 'prospect') as PersonalNetworkLead['lead_status'],
-        notes: person.targeting_notes,
-        financial_projection: person.financial_projection,
-        projection_justification: person.projection_justification,
+        source_team_member: '',
+        relationship_type: '',
+        connection_strength: 'medium' as const,
+        lead_status: (person.lead_status as PersonalNetworkLead['lead_status']) || 'prospect',
+        notes: person.targeting_notes || undefined,
+        financial_projection: person.financial_projection || undefined,
+        projection_justification: person.projection_justification || undefined,
         deal_closed_at: person.deal_closed_at ? new Date(person.deal_closed_at) : undefined,
-        deal_amount: person.deal_amount,
-        deal_status: (person.deal_status || 'prospect') as PersonalNetworkLead['deal_status'],
+        deal_amount: person.deal_amount || undefined,
+        deal_status: (person.deal_status as PersonalNetworkLead['deal_status']) || 'prospect',
         created_at: new Date(person.created_at),
         updated_at: new Date(person.updated_at),
       })) || [];
@@ -168,7 +201,6 @@ export const PersonalNetworkLeadsManager = () => {
 
   const fetchTeamMembers = async () => {
     try {
-      // For now, use mock data - in real implementation, this could come from a team_members table
       setTeamMembers([
         { id: '1', name: 'John Smith' },
         { id: '2', name: 'Sarah Johnson' },
@@ -182,18 +214,17 @@ export const PersonalNetworkLeadsManager = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // First, handle company if provided
       let companyId = null;
       if (leadForm.company.name.trim()) {
         const { data: companyData, error: companyError } = await supabase
           .from('companies')
           .insert({
             name: leadForm.company.name,
-            industry: leadForm.company.industry,
-            company_size: leadForm.company.size,
-            location: leadForm.company.location,
-            website: leadForm.company.website,
-            linkedin_url: leadForm.company.linkedin_url,
+            industry: leadForm.company.industry || null,
+            company_size: leadForm.company.size || null,
+            location: leadForm.company.location || null,
+            website: leadForm.company.website || null,
+            linkedin_url: leadForm.company.linkedin_url || null,
           })
           .select()
           .single();
@@ -202,21 +233,20 @@ export const PersonalNetworkLeadsManager = () => {
         companyId = companyData.id;
       }
 
-      // Then save the person
       const { data, error } = await supabase
         .from('people')
         .insert({
           name: leadForm.personal.name,
-          email: leadForm.personal.email,
-          position: leadForm.personal.position,
-          location: leadForm.personal.location,
-          linkedin_url: leadForm.personal.linkedin_url,
+          email: leadForm.personal.email || null,
+          position: leadForm.personal.position || null,
+          location: leadForm.personal.location || null,
+          linkedin_url: leadForm.personal.linkedin_url || null,
           company_id: companyId,
           lead_status: leadForm.personal.lead_status,
-          targeting_notes: leadForm.source.notes,
-          financial_projection: leadForm.personal.financial_projection ? leadForm.personal.financial_projection * 100 : null, // Convert to cents
-          projection_justification: leadForm.personal.projection_justification,
-          deal_status: leadForm.personal.deal_status || 'prospect',
+          targeting_notes: leadForm.source.notes || null,
+          financial_projection: leadForm.personal.financial_projection ? leadForm.personal.financial_projection * 100 : null,
+          projection_justification: leadForm.personal.projection_justification || null,
+          deal_status: leadForm.personal.deal_status,
         })
         .select();
 
@@ -225,7 +255,7 @@ export const PersonalNetworkLeadsManager = () => {
       toast.success('Lead saved successfully');
       setDialogOpen(false);
       resetForm();
-      fetchLeads(); // Refresh the list
+      fetchLeads();
     } catch (error) {
       console.error('Error saving lead:', error);
       toast.error('Failed to save lead');
@@ -243,10 +273,10 @@ export const PersonalNetworkLeadsManager = () => {
         linkedin_url: '',
         instagram_url: '',
         facebook_url: '',
-        lead_status: 'prospect' as PersonalNetworkLead['lead_status'],
+        lead_status: 'prospect',
         financial_projection: 0,
         projection_justification: '',
-        deal_status: 'prospect' as PersonalNetworkLead['deal_status']
+        deal_status: 'prospect'
       },
       company: {
         name: '',
@@ -261,14 +291,13 @@ export const PersonalNetworkLeadsManager = () => {
       source: {
         team_member: '',
         relationship_type: '',
-        connection_strength: 'medium' as PersonalNetworkLead['connection_strength'],
+        connection_strength: 'medium',
         notes: ''
       }
     });
     setEditingLead(null);
   };
 
-  // Helper functions
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'prospect': return 'secondary';
@@ -282,43 +311,11 @@ export const PersonalNetworkLeadsManager = () => {
     }
   };
 
-  // Format currency
   const formatCurrency = (cents: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(cents / 100);
-  };
-
-  // Close a deal
-  const closeDeal = async (leadId: string, amount: number, won: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('people')
-        .update({
-          deal_closed_at: new Date().toISOString(),
-          deal_amount: amount * 100, // Convert to cents
-          deal_status: won ? 'closed_won' : 'closed_lost',
-        })
-        .eq('id', leadId);
-
-      if (error) throw error;
-
-      // Also create a deal history record
-      await supabase
-        .from('deal_history')
-        .insert({
-          person_id: leadId,
-          deal_amount: amount * 100,
-          notes: won ? 'Deal closed successfully' : 'Deal lost',
-        });
-
-      toast.success(won ? 'Deal marked as won!' : 'Deal marked as lost');
-      fetchLeads();
-    } catch (error) {
-      console.error('Error closing deal:', error);
-      toast.error('Failed to update deal status');
-    }
   };
 
   const handleEdit = (lead: PersonalNetworkLead) => {
@@ -461,7 +458,7 @@ export const PersonalNetworkLeadsManager = () => {
                       <Label htmlFor="lead_status">Lead Status</Label>
                       <Select 
                         value={leadForm.personal.lead_status} 
-                        onValueChange={(value: any) => setLeadForm({
+                        onValueChange={(value: PersonalNetworkLead['lead_status']) => setLeadForm({
                           ...leadForm,
                           personal: {...leadForm.personal, lead_status: value}
                         })}
@@ -591,7 +588,7 @@ export const PersonalNetworkLeadsManager = () => {
                       <Label htmlFor="deal_status">Deal Status</Label>
                       <Select 
                         value={leadForm.personal.deal_status} 
-                        onValueChange={(value: any) => setLeadForm({
+                        onValueChange={(value: PersonalNetworkLead['deal_status']) => setLeadForm({
                           ...leadForm,
                           personal: {...leadForm.personal, deal_status: value}
                         })}
@@ -651,7 +648,7 @@ export const PersonalNetworkLeadsManager = () => {
                     <Label htmlFor="connection_strength">Connection Strength</Label>
                     <Select 
                       value={leadForm.source.connection_strength} 
-                      onValueChange={(value: any) => setLeadForm({
+                      onValueChange={(value: PersonalNetworkLead['connection_strength']) => setLeadForm({
                         ...leadForm,
                         source: {...leadForm.source, connection_strength: value}
                       })}
