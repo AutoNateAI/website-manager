@@ -36,8 +36,8 @@ if (fs.existsSync(source404)) {
     // string into just a query string, and then redirects the browser
     // to the new URL with only a query string and hash fragment
 
-    // Set pathSegmentsToKeep to 1 for GitHub Pages project sites
-    var pathSegmentsToKeep = 1;
+    // Set pathSegmentsToKeep to 0 for custom domains
+    var pathSegmentsToKeep = 0;
 
     var l = window.location;
     l.replace(
@@ -61,8 +61,8 @@ if (fs.existsSync(source404)) {
 const indexPath = path.join(distDir, 'index.html');
 if (fs.existsSync(indexPath)) {
   let indexContent = fs.readFileSync(indexPath, 'utf8');
-  // Replace %BASE_URL% with the actual base path for GitHub Pages
-  indexContent = indexContent.replace(/%BASE_URL%/g, '/website-manager/');
+  // Replace %BASE_URL% with root path for custom domain
+  indexContent = indexContent.replace(/%BASE_URL%/g, '/');
   fs.writeFileSync(indexPath, indexContent);
   console.log('Processed index.html with correct base URLs');
 }
