@@ -42,6 +42,11 @@ const menuItems: MenuItem[] = [
     ]
   },
   {
+    title: "Goals & Campaigns",
+    value: "campaigns",
+    icon: Target,
+  },
+  {
     title: "Map Views",
     value: "maps",
     icon: Map,
@@ -70,11 +75,6 @@ const menuItems: MenuItem[] = [
     title: "Social Media",
     value: "social-media",
     icon: Share2,
-  },
-  {
-    title: "Goals & Campaigns",
-    value: "campaigns",
-    icon: Target,
   },
 ];
 
