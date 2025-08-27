@@ -23,22 +23,49 @@ if (fs.existsSync(source404)) {
   console.log('Copied 404.html to dist directory');
 } else {
   console.warn('Warning: Could not find 404.html in public directory');
-  // Create a basic 404.html file if not found
-  const basic404Content = `<!DOCTYPE html>
+  // Create a more advanced 404.html file for SPA routing
+  const spa404Content = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <title>Page not found</title>
   <script>
-    window.location.href = window.location.origin + '/website-manager';
+    // Single Page Apps for GitHub Pages
+    // MIT License - https://github.com/rafgraph/spa-github-pages
+    // This script takes the current URL and converts the path and query
+    // string into just a query string, and then redirects the browser
+    // to the new URL with only a query string and hash fragment
+
+    // Set pathSegmentsToKeep to 1 for GitHub Pages project sites
+    var pathSegmentsToKeep = 1;
+
+    var l = window.location;
+    l.replace(
+      l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+      l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+      l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+      (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+      l.hash
+    );
   </script>
 </head>
 <body>
-  Redirecting to homepage...
+  <h2>Redirecting...</h2>
 </body>
 </html>`;
-  fs.writeFileSync(dest404, basic404Content);
-  console.log('Created basic 404.html in dist directory');
+  fs.writeFileSync(dest404, spa404Content);
+  console.log('Created SPA-ready 404.html in dist directory');
+}
+
+// Process index.html to replace %BASE_URL% placeholders
+const indexPath = path.join(distDir, 'index.html');
+if (fs.existsSync(indexPath)) {
+  let indexContent = fs.readFileSync(indexPath, 'utf8');
+  // Replace %BASE_URL% with the actual base path for GitHub Pages
+  indexContent = indexContent.replace(/%BASE_URL%/g, '/website-manager/');
+  fs.writeFileSync(indexPath, indexContent);
+  console.log('Processed index.html with correct base URLs');
 }
 
 console.log('GitHub Pages deployment preparation complete!');
+
