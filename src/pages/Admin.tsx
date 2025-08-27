@@ -16,6 +16,8 @@ import LiveBuildsManager from '@/components/admin/LiveBuildsManager';
 import SocialMediaManager from '@/components/admin/SocialMediaManager';
 import InPersonNetworkingManager from '@/components/admin/InPersonNetworkingManager';
 import VirtualNetworkingManager from '@/components/admin/VirtualNetworkingManager';
+import { PersonalNetworkLeadsManager } from '@/components/admin/PersonalNetworkLeadsManager';
+import { CampaignManager } from '@/components/admin/CampaignManager';
 import PersonNotesManager from '@/components/admin/PersonNotesManager';
 
 const Admin = () => {
@@ -40,6 +42,8 @@ const Admin = () => {
     switch (activeTab) {
       case 'leads':
         return <LeadManager />;
+      case 'personal-network-leads':
+        return <PersonalNetworkLeadsManager />;
       case 'in-person-networking':
         return <InPersonNetworkingManager />;
       case 'virtual-networking':
@@ -62,6 +66,8 @@ const Admin = () => {
         return <LiveBuildsManager />;
       case 'social-media':
         return <SocialMediaManager />;
+      case 'campaigns':
+        return <CampaignManager />;
       default:
         return <LeadManager />;
     }

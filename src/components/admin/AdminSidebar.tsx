@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Users, Map, PenTool, Image, Megaphone, Video, Share2, 
   Calendar, Package, ChevronDown, ChevronRight, Building,
-  Users2, MessageSquare, StickyNote
+  Users2, MessageSquare, StickyNote, Target
 } from 'lucide-react';
 import {
   Sidebar,
@@ -33,6 +33,7 @@ const menuItems: MenuItem[] = [
     icon: Users,
     children: [
       { title: "Companies & People", value: "leads", icon: Users },
+      { title: "Personal Network Leads", value: "personal-network-leads", icon: Users2 },
       { title: "In-Person Networking", value: "in-person-networking", icon: Calendar },
       { title: "Virtual Networking", value: "virtual-networking", icon: MessageSquare },
       { title: "Person Notes", value: "person-notes", icon: StickyNote },
@@ -69,6 +70,11 @@ const menuItems: MenuItem[] = [
     title: "Social Media",
     value: "social-media",
     icon: Share2,
+  },
+  {
+    title: "Goals & Campaigns",
+    value: "campaigns",
+    icon: Target,
   },
 ];
 
