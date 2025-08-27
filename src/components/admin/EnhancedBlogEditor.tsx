@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Wand2, Image, Save, Loader2, Plus, Trash2, ImageIcon, Eye } from 'lucide-react';
 import BlogContentImages from './BlogContentImages';
@@ -87,8 +88,11 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
     read_time: '5 min read',
   });
 
-  // Company profile research functionality
+  // Content generation functionality
+  const [activeTab, setActiveTab] = useState('company');
   const [companyBrief, setCompanyBrief] = useState('');
+  const [evergreenTopic, setEvergreenTopic] = useState('');
+  const [researchBrief, setResearchBrief] = useState('');
   const [notebookUrl, setNotebookUrl] = useState('');
   const [chatgptUrl, setChatgptUrl] = useState('');
   const [savedBriefing, setSavedBriefing] = useState('');
@@ -258,6 +262,100 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
       toast({
         title: "Error",
         description: "Failed to generate blogs: " + error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingBlogs(false);
+    }
+  };
+
+  // Generate 3 evergreen blogs
+  const generateEvergreenBlogs = async () => {
+    if (!evergreenTopic.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide an evergreen topic",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGeneratingBlogs(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-evergreen-blogs', {
+        body: {
+          topic: evergreenTopic,
+          category: aiCategory || 'Business Strategy',
+          targetLength: parseInt(targetLength),
+          notebookUrl,
+          chatgptUrl
+        }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      setGeneratedBlogs(data.blogs);
+      setSavedBriefing(evergreenTopic);
+      
+      // Initialize thumbnail generation states
+      setGeneratingThumbnails(new Array(data.blogs.length).fill(false));
+
+      toast({
+        title: "Success",
+        description: "Generated 3 unique evergreen blog posts successfully!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to generate evergreen blogs: " + error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingBlogs(false);
+    }
+  };
+
+  // Generate 3 research-based blogs
+  const generateResearchBlogs = async () => {
+    if (!researchBrief.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide your research brief or case study material",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGeneratingBlogs(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-research-blogs', {
+        body: {
+          researchBrief,
+          category: aiCategory || 'Business Strategy',
+          targetLength: parseInt(targetLength),
+          notebookUrl,
+          chatgptUrl
+        }
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      setGeneratedBlogs(data.blogs);
+      setSavedBriefing(researchBrief);
+      
+      // Initialize thumbnail generation states
+      setGeneratingThumbnails(new Array(data.blogs.length).fill(false));
+
+      toast({
+        title: "Success",
+        description: "Generated 3 unique research-based blog posts successfully!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to generate research blogs: " + error.message,
         variant: "destructive",
       });
     } finally {
@@ -606,100 +704,158 @@ const EnhancedBlogEditor = ({ blog, onClose }: BlogEditorProps) => {
           </div>
         </div>
 
-        {/* Company Profile Research Brief Section (only for new blogs) */}
+        {/* Multi-Content Generation Section (only for new blogs) */}
         {!blog && (
           <div className="glass-card p-4 sm:p-6">
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold mb-4">Generate From Company Profile Research Brief</h3>
-                <div className="grid gap-4">
+                <h3 className="text-lg font-semibold mb-4">Generate Blog Content</h3>
+                
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="company">Company Profile</TabsTrigger>
+                    <TabsTrigger value="evergreen">Evergreen Content</TabsTrigger>
+                    <TabsTrigger value="research">Research & Case Studies</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="company" className="space-y-4 mt-6">
+                    <div>
+                      <Label htmlFor="companyBrief">Company Profile Research Brief</Label>
+                      <Textarea
+                        id="companyBrief"
+                        placeholder="Enter the detailed company research brief from your NotebookLM and ChatGPT analysis..."
+                        value={companyBrief}
+                        onChange={(e) => setCompanyBrief(e.target.value)}
+                        className="glass bg-transparent min-h-[120px]"
+                      />
+                    </div>
+                    <Button
+                      onClick={generateBlogsWithCompanyBrief}
+                      disabled={generatingBlogs || !companyBrief.trim()}
+                      className="glass-button glow-primary w-full"
+                    >
+                      {generatingBlogs ? (
+                        <Loader2 size={16} className="mr-2 animate-spin" />
+                      ) : (
+                        <Wand2 size={16} className="mr-2" />
+                      )}
+                      Generate 3 Targeted Strategic Blogs
+                    </Button>
+                  </TabsContent>
+
+                  <TabsContent value="evergreen" className="space-y-4 mt-6">
+                    <div>
+                      <Label htmlFor="evergreenTopic">Evergreen Topic</Label>
+                      <Textarea
+                        id="evergreenTopic"
+                        placeholder="Enter a timeless topic for evergreen content (e.g., 'Leadership principles', 'Productivity strategies', 'Team management best practices')..."
+                        value={evergreenTopic}
+                        onChange={(e) => setEvergreenTopic(e.target.value)}
+                        className="glass bg-transparent min-h-[120px]"
+                      />
+                    </div>
+                    <Button
+                      onClick={generateEvergreenBlogs}
+                      disabled={generatingBlogs || !evergreenTopic.trim()}
+                      className="glass-button glow-primary w-full"
+                    >
+                      {generatingBlogs ? (
+                        <Loader2 size={16} className="mr-2 animate-spin" />
+                      ) : (
+                        <Wand2 size={16} className="mr-2" />
+                      )}
+                      Generate 3 Evergreen Blog Posts
+                    </Button>
+                  </TabsContent>
+
+                  <TabsContent value="research" className="space-y-4 mt-6">
+                    <div>
+                      <Label htmlFor="researchBrief">Research Brief / Case Study Material</Label>
+                      <Textarea
+                        id="researchBrief"
+                        placeholder="Enter your research findings, case study data, or analytical material to create research-backed blog content..."
+                        value={researchBrief}
+                        onChange={(e) => setResearchBrief(e.target.value)}
+                        className="glass bg-transparent min-h-[120px]"
+                      />
+                    </div>
+                    <Button
+                      onClick={generateResearchBlogs}
+                      disabled={generatingBlogs || !researchBrief.trim()}
+                      className="glass-button glow-primary w-full"
+                    >
+                      {generatingBlogs ? (
+                        <Loader2 size={16} className="mr-2 animate-spin" />
+                      ) : (
+                        <Wand2 size={16} className="mr-2" />
+                      )}
+                      Generate 3 Research-Based Blogs
+                    </Button>
+                  </TabsContent>
+                </Tabs>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
                   <div>
-                    <Label htmlFor="companyBrief">Company Profile Research Brief</Label>
-                    <Textarea
-                      id="companyBrief"
-                      placeholder="Enter the detailed company research brief from your NotebookLM and ChatGPT analysis..."
-                      value={companyBrief}
-                      onChange={(e) => setCompanyBrief(e.target.value)}
-                      className="glass bg-transparent min-h-[120px]"
+                    <Label htmlFor="notebookUrl">NotebookLM URL (Optional)</Label>
+                    <Input
+                      id="notebookUrl"
+                      placeholder="https://notebooklm.google.com/..."
+                      value={notebookUrl}
+                      onChange={(e) => setNotebookUrl(e.target.value)}
+                      className="glass bg-transparent"
                     />
                   </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="notebookUrl">NotebookLM URL (Optional)</Label>
-                      <Input
-                        id="notebookUrl"
-                        placeholder="https://notebooklm.google.com/..."
-                        value={notebookUrl}
-                        onChange={(e) => setNotebookUrl(e.target.value)}
-                        className="glass bg-transparent"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="chatgptUrl">ChatGPT Conversation URL (Optional)</Label>
-                      <Input
-                        id="chatgptUrl"
-                        placeholder="https://chat.openai.com/..."
-                        value={chatgptUrl}
-                        onChange={(e) => setChatgptUrl(e.target.value)}
-                        className="glass bg-transparent"
-                      />
-                    </div>
+                  <div>
+                    <Label htmlFor="chatgptUrl">ChatGPT Conversation URL (Optional)</Label>
+                    <Input
+                      id="chatgptUrl"
+                      placeholder="https://chat.openai.com/..."
+                      value={chatgptUrl}
+                      onChange={(e) => setChatgptUrl(e.target.value)}
+                      className="glass bg-transparent"
+                    />
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="aiCategory">Category</Label>
-                      <Select value={aiCategory} onValueChange={setAiCategory}>
-                        <SelectTrigger className="glass bg-transparent">
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Business Strategy">Business Strategy</SelectItem>
-                          <SelectItem value="AI & Technology">AI & Technology</SelectItem>
-                          <SelectItem value="Workflow Automation">Workflow Automation</SelectItem>
-                          <SelectItem value="Leadership">Leadership</SelectItem>
-                          <SelectItem value="Digital Transformation">Digital Transformation</SelectItem>
-                          <SelectItem value="Operational Efficiency">Operational Efficiency</SelectItem>
-                          <SelectItem value="Innovation">Innovation</SelectItem>
-                          <SelectItem value="Data Intelligence">Data Intelligence</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="targetLength">Target Length (words)</Label>
-                      <Select value={targetLength} onValueChange={setTargetLength}>
-                        <SelectTrigger className="glass bg-transparent">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="800">800 words</SelectItem>
-                          <SelectItem value="1200">1200 words</SelectItem>
-                          <SelectItem value="1500">1500 words</SelectItem>
-                          <SelectItem value="2000">2000 words</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="aiCategory">Category</Label>
+                    <Select value={aiCategory} onValueChange={setAiCategory}>
+                      <SelectTrigger className="glass bg-transparent">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Business Strategy">Business Strategy</SelectItem>
+                        <SelectItem value="AI & Technology">AI & Technology</SelectItem>
+                        <SelectItem value="Workflow Automation">Workflow Automation</SelectItem>
+                        <SelectItem value="Leadership">Leadership</SelectItem>
+                        <SelectItem value="Digital Transformation">Digital Transformation</SelectItem>
+                        <SelectItem value="Operational Efficiency">Operational Efficiency</SelectItem>
+                        <SelectItem value="Innovation">Innovation</SelectItem>
+                        <SelectItem value="Data Intelligence">Data Intelligence</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  
-                  <Button
-                    onClick={generateBlogsWithCompanyBrief}
-                    disabled={generatingBlogs || !companyBrief.trim()}
-                    className="glass-button glow-primary w-full"
-                  >
-                    {generatingBlogs ? (
-                      <Loader2 size={16} className="mr-2 animate-spin" />
-                    ) : (
-                      <Wand2 size={16} className="mr-2" />
-                    )}
-                    Generate 3 Targeted Strategic Blogs
-                  </Button>
+                  <div>
+                    <Label htmlFor="targetLength">Target Length (words)</Label>
+                    <Select value={targetLength} onValueChange={setTargetLength}>
+                      <SelectTrigger className="glass bg-transparent">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="800">800 words</SelectItem>
+                        <SelectItem value="1200">1200 words</SelectItem>
+                        <SelectItem value="1500">1500 words</SelectItem>
+                        <SelectItem value="2000">2000 words</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 {savedBriefing && (
                   <div className="mt-4 p-3 bg-muted/10 rounded-lg">
                     <p className="text-sm text-muted-foreground">
-                      Last used briefing: {savedBriefing.substring(0, 100)}...
+                      Last used content: {savedBriefing.substring(0, 100)}...
                     </p>
                   </div>
                 )}
