@@ -74,7 +74,7 @@ export default function VirtualNetworkingManager() {
   const [interactionForm, setInteractionForm] = useState({
     post_id: '',
     parent_interaction_id: '',
-    person_id: '',
+    person_id: 'no-person',
     commenter_name: '',
     commenter_profile_url: '',
     comment_text: '',
@@ -174,7 +174,7 @@ export default function VirtualNetworkingManager() {
         .insert([{
           ...interactionForm,
           parent_interaction_id: interactionForm.parent_interaction_id || null,
-          person_id: interactionForm.person_id || null
+          person_id: interactionForm.person_id === 'no-person' ? null : interactionForm.person_id || null
         }]);
       
       if (error) throw error;
@@ -207,7 +207,7 @@ export default function VirtualNetworkingManager() {
     setInteractionForm({
       post_id: '',
       parent_interaction_id: '',
-      person_id: '',
+      person_id: 'no-person',
       commenter_name: '',
       commenter_profile_url: '',
       comment_text: '',
@@ -473,7 +473,7 @@ export default function VirtualNetworkingManager() {
                         <SelectValue placeholder="Select person" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No person</SelectItem>
+                        <SelectItem value="no-person">No person</SelectItem>
                         {people.map((person) => (
                           <SelectItem key={person.id} value={person.id}>
                             {person.name}
