@@ -73,9 +73,16 @@ export const CampaignManager = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [goalDialogOpen, setGoalDialogOpen] = useState(false);
+  const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
+  const [entityDialogOpen, setEntityDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [people, setPeople] = useState<any[]>([]);
 
   // Form data for new/edit campaign
   const [campaignForm, setCampaignForm] = useState({
@@ -88,9 +95,36 @@ export const CampaignManager = () => {
     financial_target: 0
   });
 
+  // Form data for new goal
+  const [goalForm, setGoalForm] = useState({
+    title: '',
+    description: '',
+    priority: 'medium' as 'low' | 'medium' | 'high',
+    due_date: undefined as Date | undefined,
+    target_metrics: {}
+  });
+
+  // Form data for new session
+  const [sessionForm, setSessionForm] = useState({
+    session_date: new Date(),
+    duration_hours: 4,
+    goal_id: undefined as string | undefined,
+    activities_completed: [] as string[],
+    notes: ''
+  });
+
   useEffect(() => {
     fetchCampaigns();
+    fetchCompanies();
+    fetchPeople();
   }, []);
+
+  useEffect(() => {
+    if (selectedCampaign) {
+      fetchGoals(selectedCampaign.id!);
+      fetchSessions(selectedCampaign.id!);
+    }
+  }, [selectedCampaign]);
 
   // Fetch campaigns from database
   const fetchCampaigns = useCallback(async () => {
@@ -123,6 +157,90 @@ export const CampaignManager = () => {
       toast.error('Failed to fetch campaigns');
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  // Fetch goals for a campaign
+  const fetchGoals = useCallback(async (campaignId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('goals')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      const formattedGoals = data?.map(goal => ({
+        ...goal,
+        priority: goal.priority as 'low' | 'medium' | 'high',
+        status: goal.status as 'pending' | 'in_progress' | 'completed' | 'cancelled',
+        created_at: new Date(goal.created_at),
+        updated_at: new Date(goal.updated_at),
+        due_date: goal.due_date ? new Date(goal.due_date) : undefined,
+      })) || [];
+      
+      setGoals(formattedGoals);
+    } catch (error) {
+      console.error('Error fetching goals:', error);
+      toast.error('Failed to fetch goals');
+    }
+  }, []);
+
+  // Fetch sessions for a campaign
+  const fetchSessions = useCallback(async (campaignId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .order('session_date', { ascending: false });
+
+      if (error) throw error;
+      
+      const formattedSessions = data?.map(session => ({
+        ...session,
+        session_date: new Date(session.session_date),
+        created_at: new Date(session.created_at),
+        activities_completed: Array.isArray(session.activities_completed) ? session.activities_completed : [],
+      })) || [];
+      
+      setSessions(formattedSessions);
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+      toast.error('Failed to fetch sessions');
+    }
+  }, []);
+
+  // Fetch companies
+  const fetchCompanies = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setCompanies(data || []);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+      toast.error('Failed to fetch companies');
+    }
+  }, []);
+
+  // Fetch people
+  const fetchPeople = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('people')
+        .select('*, companies(name)')
+        .order('name');
+
+      if (error) throw error;
+      setPeople(data || []);
+    } catch (error) {
+      console.error('Error fetching people:', error);
+      toast.error('Failed to fetch people');
     }
   }, []);
 
@@ -165,6 +283,119 @@ export const CampaignManager = () => {
       status: 'active',
       target_entities: [],
       financial_target: 0
+    });
+  };
+
+  // Handle goal submission
+  const handleGoalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCampaign) return;
+
+    try {
+      const goalData = {
+        campaign_id: selectedCampaign.id,
+        title: goalForm.title,
+        description: goalForm.description,
+        priority: goalForm.priority,
+        status: 'pending' as const,
+        due_date: goalForm.due_date?.toISOString(),
+        target_metrics: goalForm.target_metrics,
+      };
+
+      const { data, error } = await supabase
+        .from('goals')
+        .insert(goalData)
+        .select();
+
+      if (error) throw error;
+
+      toast.success('Goal created successfully');
+      setGoalDialogOpen(false);
+      resetGoalForm();
+      fetchGoals(selectedCampaign.id!);
+    } catch (error) {
+      console.error('Error saving goal:', error);
+      toast.error('Failed to save goal');
+    }
+  };
+
+  // Handle session submission
+  const handleSessionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCampaign) return;
+
+    try {
+      const sessionData = {
+        campaign_id: selectedCampaign.id,
+        goal_id: sessionForm.goal_id,
+        session_date: sessionForm.session_date.toISOString(),
+        duration_hours: sessionForm.duration_hours,
+        activities_completed: sessionForm.activities_completed,
+        notes: sessionForm.notes,
+      };
+
+      const { data, error } = await supabase
+        .from('sessions')
+        .insert(sessionData)
+        .select();
+
+      if (error) throw error;
+
+      toast.success('Session created successfully');
+      setSessionDialogOpen(false);
+      resetSessionForm();
+      fetchSessions(selectedCampaign.id!);
+    } catch (error) {
+      console.error('Error saving session:', error);
+      toast.error('Failed to save session');
+    }
+  };
+
+  // Handle adding entities to campaign
+  const handleAddEntitiesToCampaign = async (entities: any[]) => {
+    if (!selectedCampaign) return;
+
+    try {
+      const updatedEntities = [...selectedCampaign.target_entities, ...entities];
+      
+      const { error } = await supabase
+        .from('campaigns')
+        .update({ target_entities: updatedEntities })
+        .eq('id', selectedCampaign.id);
+
+      if (error) throw error;
+
+      setSelectedCampaign({
+        ...selectedCampaign,
+        target_entities: updatedEntities
+      });
+
+      toast.success(`Added ${entities.length} entities to campaign`);
+      setEntityDialogOpen(false);
+      fetchCampaigns();
+    } catch (error) {
+      console.error('Error adding entities:', error);
+      toast.error('Failed to add entities');
+    }
+  };
+
+  const resetGoalForm = () => {
+    setGoalForm({
+      title: '',
+      description: '',
+      priority: 'medium',
+      due_date: undefined,
+      target_metrics: {}
+    });
+  };
+
+  const resetSessionForm = () => {
+    setSessionForm({
+      session_date: new Date(),
+      duration_hours: 4,
+      goal_id: undefined,
+      activities_completed: [],
+      notes: ''
     });
   };
 
@@ -217,7 +448,7 @@ export const CampaignManager = () => {
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">{goals.length}</div>
               <p className="text-xs text-muted-foreground">Goals created</p>
             </CardContent>
           </Card>
@@ -336,17 +567,130 @@ export const CampaignManager = () => {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Campaign Goals</h3>
-        <Button size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Goal
-        </Button>
+        <Dialog open={goalDialogOpen} onOpenChange={setGoalDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" onClick={() => resetGoalForm()}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Goal
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Goal</DialogTitle>
+              <DialogDescription>
+                Add a new goal to track progress for this campaign
+              </DialogDescription>
+            </DialogHeader>
+            
+            <form onSubmit={handleGoalSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="goal-title">Goal Title *</Label>
+                <Input
+                  id="goal-title"
+                  placeholder="Enter goal title..."
+                  value={goalForm.title}
+                  onChange={(e) => setGoalForm({...goalForm, title: e.target.value})}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="goal-description">Description</Label>
+                <Textarea
+                  id="goal-description"
+                  placeholder="Describe this goal..."
+                  value={goalForm.description}
+                  onChange={(e) => setGoalForm({...goalForm, description: e.target.value})}
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="goal-priority">Priority</Label>
+                  <Select value={goalForm.priority} onValueChange={(value: any) => setGoalForm({...goalForm, priority: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="goal-due-date">Due Date (Optional)</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !goalForm.due_date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {goalForm.due_date ? format(goalForm.due_date, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={goalForm.due_date}
+                        onSelect={(date) => setGoalForm({...goalForm, due_date: date})}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setGoalDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Create Goal</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
       
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-muted-foreground text-center">No goals created yet. Add your first goal to get started!</p>
-        </CardContent>
-      </Card>
+      {goals.length === 0 ? (
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-muted-foreground text-center">No goals created yet. Add your first goal to get started!</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {goals.map((goal) => (
+            <Card key={goal.id}>
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-lg">{goal.title}</CardTitle>
+                  <Badge variant={getPriorityColor(goal.priority)}>{goal.priority}</Badge>
+                </div>
+                <CardDescription>{goal.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center">
+                  <div className="text-sm text-muted-foreground">
+                    Status: <Badge variant="secondary">{goal.status}</Badge>
+                  </div>
+                  {goal.due_date && (
+                    <div className="text-sm text-muted-foreground">
+                      Due: {format(new Date(goal.due_date), 'PPP')}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 
@@ -355,17 +699,233 @@ export const CampaignManager = () => {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Session Tracker</h3>
-        <Button size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Start Session
-        </Button>
+        <Dialog open={sessionDialogOpen} onOpenChange={setSessionDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" onClick={() => resetSessionForm()}>
+              <Plus className="h-4 w-4 mr-2" />
+              Start Session
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Start New Session</DialogTitle>
+              <DialogDescription>
+                Log work session for this campaign
+              </DialogDescription>
+            </DialogHeader>
+            
+            <form onSubmit={handleSessionSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="session-date">Session Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(sessionForm.session_date, "PPP")}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={sessionForm.session_date}
+                        onSelect={(date) => date && setSessionForm({...sessionForm, session_date: date})}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="session-duration">Duration (hours)</Label>
+                  <Input
+                    id="session-duration"
+                    type="number"
+                    min="0.5"
+                    step="0.5"
+                    value={sessionForm.duration_hours}
+                    onChange={(e) => setSessionForm({...sessionForm, duration_hours: parseFloat(e.target.value)})}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="session-goal">Related Goal (Optional)</Label>
+                <Select value={sessionForm.goal_id || ''} onValueChange={(value) => setSessionForm({...sessionForm, goal_id: value || undefined})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a goal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {goals.map((goal) => (
+                      <SelectItem key={goal.id} value={goal.id}>{goal.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="session-notes">Notes</Label>
+                <Textarea
+                  id="session-notes"
+                  placeholder="What did you accomplish in this session?"
+                  value={sessionForm.notes}
+                  onChange={(e) => setSessionForm({...sessionForm, notes: e.target.value})}
+                  rows={3}
+                />
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setSessionDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Log Session</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
       
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-muted-foreground text-center">No sessions tracked yet. Start your first session!</p>
-        </CardContent>
-      </Card>
+      {sessions.length === 0 ? (
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-muted-foreground text-center">No sessions tracked yet. Start your first session!</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {sessions.map((session) => (
+            <Card key={session.id}>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg">
+                    Session - {format(new Date(session.session_date), 'PPP')}
+                  </CardTitle>
+                  <Badge variant="secondary">{session.duration_hours}h</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {session.goal_id && (
+                    <p className="text-sm text-muted-foreground">
+                      Related Goal: {goals.find(g => g.id === session.goal_id)?.title || 'Unknown'}
+                    </p>
+                  )}
+                  {session.notes && (
+                    <p className="text-sm">{session.notes}</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  // Render entity targeting section
+  const renderEntityTargeting = (campaign: Campaign) => (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Target Entities</h3>
+        <Dialog open={entityDialogOpen} onOpenChange={setEntityDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Entities
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Add Target Entities</DialogTitle>
+              <DialogDescription>
+                Select companies and people from your Lead Management system
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Tabs defaultValue="companies" className="w-full">
+              <TabsList>
+                <TabsTrigger value="companies">Companies</TabsTrigger>
+                <TabsTrigger value="people">People</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="companies" className="space-y-4">
+                <div className="grid gap-2 max-h-96 overflow-y-auto">
+                  {companies.map((company) => (
+                    <Card key={company.id} className="cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleAddEntitiesToCampaign([{type: 'company', ...company}])}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h4 className="font-medium">{company.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {company.industry} • {company.location}
+                            </p>
+                          </div>
+                          <Badge variant="outline">Company</Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="people" className="space-y-4">
+                <div className="grid gap-2 max-h-96 overflow-y-auto">
+                  {people.map((person) => (
+                    <Card key={person.id} className="cursor-pointer hover:bg-muted/50" 
+                          onClick={() => handleAddEntitiesToCampaign([{type: 'person', ...person}])}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h4 className="font-medium">{person.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {person.position} • {person.companies?.name || 'No company'}
+                            </p>
+                          </div>
+                          <Badge variant="outline">Person</Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </DialogContent>
+        </Dialog>
+      </div>
+      
+      {campaign.target_entities.length === 0 ? (
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-muted-foreground text-center">No entities targeted yet. Add companies and people from your Lead Management system!</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-2">
+          {campaign.target_entities.map((entity, index) => (
+            <Card key={`${entity.type}-${entity.id}-${index}`}>
+              <CardContent className="p-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="font-medium">{entity.name}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {entity.type === 'company' ? `${entity.industry} • ${entity.location}` : 
+                       `${entity.position} • ${entity.companies?.name || 'No company'}`}
+                    </p>
+                  </div>
+                  <Badge variant="outline">{entity.type}</Badge>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 
@@ -395,6 +955,7 @@ export const CampaignManager = () => {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="goals">Goals & Tasks</TabsTrigger>
             <TabsTrigger value="sessions">Sessions</TabsTrigger>
+            <TabsTrigger value="entities">Target Entities</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -407,6 +968,10 @@ export const CampaignManager = () => {
 
           <TabsContent value="sessions">
             {renderSessionTracker(selectedCampaign)}
+          </TabsContent>
+
+          <TabsContent value="entities">
+            {renderEntityTargeting(selectedCampaign)}
           </TabsContent>
         </Tabs>
       </div>
