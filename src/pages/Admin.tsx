@@ -18,6 +18,7 @@ import InPersonNetworkingManager from '@/components/admin/InPersonNetworkingMana
 import VirtualNetworkingManager from '@/components/admin/VirtualNetworkingManager';
 import { PersonalNetworkLeadsManager } from '@/components/admin/PersonalNetworkLeadsManager';
 import { CampaignManager } from '@/components/admin/CampaignManager';
+import { SlideManager } from '@/components/admin/SlideManager';
 import PersonNotesManager from '@/components/admin/PersonNotesManager';
 
 const Admin = () => {
@@ -66,6 +67,8 @@ const Admin = () => {
         return <LiveBuildsManager />;
       case 'social-media':
         return <SocialMediaManager />;
+      case 'slides':
+        return <SlideManager />;
       case 'campaigns':
         return <CampaignManager />;
       default:

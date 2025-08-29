@@ -74,6 +74,98 @@ export type Database = {
         }
         Relationships: []
       }
+      assessment_responses: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          deck_id: string
+          id: string
+          is_correct: boolean | null
+          response_time_seconds: number | null
+          session_metadata: Json | null
+          user_response: string
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          deck_id: string
+          id?: string
+          is_correct?: boolean | null
+          response_time_seconds?: number | null
+          session_metadata?: Json | null
+          user_response: string
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          deck_id?: string
+          id?: string
+          is_correct?: boolean | null
+          response_time_seconds?: number | null
+          session_metadata?: Json | null
+          user_response?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_responses_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_responses_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "slide_decks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessments: {
+        Row: {
+          correct_answer: string | null
+          created_at: string
+          deck_id: string
+          difficulty_level: number | null
+          explanation: string | null
+          id: string
+          options: Json | null
+          question_text: string
+          question_type: string
+        }
+        Insert: {
+          correct_answer?: string | null
+          created_at?: string
+          deck_id: string
+          difficulty_level?: number | null
+          explanation?: string | null
+          id?: string
+          options?: Json | null
+          question_text: string
+          question_type: string
+        }
+        Update: {
+          correct_answer?: string | null
+          created_at?: string
+          deck_id?: string
+          difficulty_level?: number | null
+          explanation?: string | null
+          id?: string
+          options?: Json | null
+          question_text?: string
+          question_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "slide_decks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_ads: {
         Row: {
           advertisement_id: string
@@ -379,6 +471,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      core_concepts: {
+        Row: {
+          concept_description: string
+          concept_title: string
+          created_at: string
+          deck_id: string
+          id: string
+          importance_level: number | null
+          related_slide_numbers: number[] | null
+        }
+        Insert: {
+          concept_description: string
+          concept_title: string
+          created_at?: string
+          deck_id: string
+          id?: string
+          importance_level?: number | null
+          related_slide_numbers?: number[] | null
+        }
+        Update: {
+          concept_description?: string
+          concept_title?: string
+          created_at?: string
+          deck_id?: string
+          id?: string
+          importance_level?: number | null
+          related_slide_numbers?: number[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "core_concepts_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "slide_decks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       deal_history: {
         Row: {
@@ -1431,6 +1561,101 @@ export type Database = {
             columns: ["goal_id"]
             isOneToOne: false
             referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slide_decks: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          insights: string | null
+          metadata: Json | null
+          presentation_style: string | null
+          slide_count: number
+          status: string
+          target_audience: string | null
+          title: string
+          topic: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          insights?: string | null
+          metadata?: Json | null
+          presentation_style?: string | null
+          slide_count?: number
+          status?: string
+          target_audience?: string | null
+          title: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          insights?: string | null
+          metadata?: Json | null
+          presentation_style?: string | null
+          slide_count?: number
+          status?: string
+          target_audience?: string | null
+          title?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      slides: {
+        Row: {
+          content: string
+          created_at: string
+          deck_id: string
+          id: string
+          image_prompt: string | null
+          image_url: string | null
+          layout_type: string | null
+          slide_number: number
+          speaker_notes: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          deck_id: string
+          id?: string
+          image_prompt?: string | null
+          image_url?: string | null
+          layout_type?: string | null
+          slide_number: number
+          speaker_notes?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          deck_id?: string
+          id?: string
+          image_prompt?: string | null
+          image_url?: string | null
+          layout_type?: string | null
+          slide_number?: number
+          speaker_notes?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slides_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "slide_decks"
             referencedColumns: ["id"]
           },
         ]

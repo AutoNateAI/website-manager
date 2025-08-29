@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Users, Map, PenTool, Image, Megaphone, Video, Share2, 
   Calendar, Package, ChevronDown, ChevronRight, Building,
-  Users2, MessageSquare, StickyNote, Target
+  Users2, MessageSquare, StickyNote, Target, Presentation
 } from 'lucide-react';
 import {
   Sidebar,
@@ -45,6 +45,11 @@ const menuItems: MenuItem[] = [
     title: "Goals & Campaigns",
     value: "campaigns",
     icon: Target,
+  },
+  {
+    title: "Slide Presentations",
+    value: "slides",
+    icon: Presentation,
   },
   {
     title: "Map Views",
