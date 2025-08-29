@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { deck_id, outline, presentation_style } = await req.json();
+    const { deck_id, outline, presentation_style = 'professional', conversation_id } = await req.json();
 
     console.log('Generating full slides for deck:', deck_id);
 
@@ -130,10 +130,15 @@ Return as JSON:
       console.log(`Generated slide ${slideOutline.slide_number}/${outline.length}`);
     }
 
-    // Update deck status to generated
+    // Update deck status to generated and link to conversation
+    const updateData: any = { status: 'generated' };
+    if (conversation_id) {
+      updateData.conversation_id = conversation_id;
+    }
+
     await supabase
       .from('slide_decks')
-      .update({ status: 'generated' })
+      .update(updateData)
       .eq('id', deck_id);
 
     console.log('Full slide generation completed');

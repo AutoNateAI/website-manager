@@ -472,6 +472,36 @@ export type Database = {
         }
         Relationships: []
       }
+      conversations: {
+        Row: {
+          created_at: string
+          id: string
+          messages: Json
+          status: string
+          title: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          messages?: Json
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          messages?: Json
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       core_concepts: {
         Row: {
           concept_description: string
@@ -1567,6 +1597,7 @@ export type Database = {
       }
       slide_decks: {
         Row: {
+          conversation_id: string | null
           created_at: string
           description: string | null
           id: string
@@ -1581,6 +1612,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          conversation_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1595,6 +1627,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          conversation_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1608,7 +1641,15 @@ export type Database = {
           topic?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "slide_decks_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       slides: {
         Row: {

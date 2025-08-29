@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Search, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { SlideGenerator } from './slides/SlideGenerator';
+import SlideGenerator from './slides/SlideGenerator';
 import { SlideLibrary } from './slides/SlideLibrary';
 import { SlideViewer } from './slides/SlideViewer';
 import { FlashcardViewer } from './slides/FlashcardViewer';

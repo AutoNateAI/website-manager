@@ -1,375 +1,387 @@
-import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Loader2, ArrowLeft, Edit3, Save, Wand2, Image as ImageIcon, MessageSquare } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import ConversationInterface from './ConversationInterface';
+import SlideCanvas from './SlideCanvas';
+import { Label } from '@/components/ui/label';
 
 interface SlideGeneratorProps {
   onDeckCreated: (deck: any) => void;
   onCancel: () => void;
 }
 
-export const SlideGenerator = ({ onDeckCreated, onCancel }: SlideGeneratorProps) => {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    target_audience: '',
-    topic: '',
-    presentation_style: '',
-    slide_count: 10,
-    insights: ''
-  });
-  
-  const [step, setStep] = useState(1); // 1: Form, 2: Outline, 3: Generation
-  const [outline, setOutline] = useState([]);
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
+const SlideGenerator: React.FC<SlideGeneratorProps> = ({ onDeckCreated, onCancel }) => {
+  const [currentStep, setCurrentStep] = useState<'conversation' | 'outline' | 'canvas'>('conversation');
+  const [outline, setOutline] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [deckId, setDeckId] = useState(null);
+  const [isGeneratingFull, setIsGeneratingFull] = useState(false);
+  const [editingSlide, setEditingSlide] = useState<number | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationMessages, setConversationMessages] = useState<Message[]>([]);
+  const [activeDeck, setActiveDeck] = useState<any>(null);
+  const [canvasSlides, setCanvasSlides] = useState<any[]>([]);
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleGenerateOutline = async () => {
-    if (!formData.title || !formData.target_audience || !formData.presentation_style) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-
+  const handleGenerateOutline = async (convId: string, messages: Message[]) => {
+    setConversationId(convId);
+    setConversationMessages(messages);
     setLoading(true);
+
     try {
-      // Create deck in database first
-      const { data: newDeck, error: deckError } = await supabase
+      // Create presentation details from conversation context
+      const conversationText = messages.map(m => `${m.role}: ${m.content}`).join('\n\n');
+      
+      // First create the slide deck entry
+      const { data: deckData, error: deckError } = await supabase
         .from('slide_decks')
         .insert({
-          title: formData.title,
-          description: formData.description,
-          target_audience: formData.target_audience,
-          topic: formData.topic,
-          presentation_style: formData.presentation_style,
-          slide_count: formData.slide_count,
-          insights: formData.insights,
-          status: 'draft'
+          title: 'Presentation from Conversation',
+          description: 'Generated from AI conversation',
+          target_audience: 'Professional audience',
+          topic: 'AutoNateAI Presentation',
+          presentation_style: 'professional',
+          slide_count: 12,
+          insights: conversationText.slice(0, 1000),
+          status: 'draft',
+          conversation_id: convId
         })
         .select()
         .single();
 
       if (deckError) throw deckError;
-      setDeckId(newDeck.id);
+      setActiveDeck(deckData);
 
-      // Generate outline
+      // Generate outline using conversation context
       const { data, error } = await supabase.functions.invoke('generate-slide-outline', {
-        body: formData
+        body: {
+          title: 'AutoNateAI Presentation',
+          description: 'Presentation based on conversation context',
+          audience: 'Professional audience',
+          topic: 'AutoNateAI Services and Solutions',
+          style: 'professional',
+          slideCount: 12,
+          insights: conversationText
+        }
       });
 
       if (error) throw error;
-      
+
       setOutline(data.outline || []);
-      setStep(2);
-      toast.success('Slide outline generated successfully!');
+      setCurrentStep('outline');
+      toast.success('Outline generated successfully!');
+
     } catch (error) {
       console.error('Error generating outline:', error);
-      toast.error('Failed to generate slide outline');
+      toast.error('Failed to generate outline. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleGenerateFullDeck = async () => {
-    if (!deckId || !outline.length) return;
+    if (!activeDeck) {
+      toast.error('No active deck found');
+      return;
+    }
 
-    setLoading(true);
+    setIsGeneratingFull(true);
+    setCurrentStep('canvas');
+    
     try {
-      // Generate full slides
-      const { data: slidesData, error: slidesError } = await supabase.functions.invoke('generate-full-slides', {
+      // Generate full slide content
+      const { data: fullSlideData, error: fullSlideError } = await supabase.functions.invoke('generate-full-slides', {
         body: {
-          deck_id: deckId,
-          outline,
-          presentation_style: formData.presentation_style
+          deck_id: activeDeck.id,
+          outline: outline,
+          presentation_style: 'professional',
+          conversation_id: conversationId
         }
       });
 
-      if (slidesError) throw slidesError;
-
-      // Generate slide images
-      for (const slide of slidesData.slides) {
-        try {
-          const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-image', {
-            body: {
-              prompt: `${slide.image_prompt}. Professional, 16:9 aspect ratio, modern design, high quality`,
-              size: "1536x1024"
-            }
-          });
-
-          if (!imageError && imageData?.imageUrl) {
-            await supabase
-              .from('slides')
-              .update({ image_url: imageData.imageUrl })
-              .eq('id', slide.id);
-          }
-        } catch (imageError) {
-          console.error('Error generating image for slide:', slide.id, imageError);
-        }
+      if (fullSlideError) {
+        console.error('Error generating full slides:', fullSlideError);
+        throw new Error('Failed to generate slide content');
       }
 
-      // Generate core concepts in parallel
-      supabase.functions.invoke('generate-slide-concepts', {
-        body: { deck_id: deckId, slides: slidesData.slides }
-      });
+      // Listen for slides being created
+      const channel = supabase
+        .channel('slide-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'slides',
+            filter: `deck_id=eq.${activeDeck.id}`
+          },
+          (payload) => {
+            console.log('New slide created:', payload);
+            setCanvasSlides(prev => [...prev, payload.new].sort((a, b) => a.slide_number - b.slide_number));
+          }
+        )
+        .subscribe();
 
-      // Generate assessments in parallel
-      supabase.functions.invoke('generate-slide-assessments', {
-        body: { deck_id: deckId, slides: slidesData.slides }
-      });
+      // Generate images for each slide as they're created
+      setTimeout(async () => {
+        try {
+          const { data: slides } = await supabase
+            .from('slides')
+            .select('*')
+            .eq('deck_id', activeDeck.id)
+            .order('slide_number');
 
-      // Get the completed deck
-      const { data: completedDeck, error: fetchError } = await supabase
-        .from('slide_decks')
-        .select('*')
-        .eq('id', deckId)
-        .single();
+          if (slides) {
+            setCanvasSlides(slides);
+            
+            // Generate images for slides
+            const imagePromises = slides.map(async (slide) => {
+              try {
+                const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-image', {
+                  body: {
+                    prompt: slide.image_prompt || `Professional slide image for: ${slide.title}`,
+                    slide_id: slide.id
+                  }
+                });
 
-      if (fetchError) throw fetchError;
+                if (!imageError && imageData?.image_url) {
+                  await supabase
+                    .from('slides')
+                    .update({ image_url: imageData.image_url })
+                    .eq('id', slide.id);
+                  
+                  // Update canvas
+                  setCanvasSlides(prev => 
+                    prev.map(s => s.id === slide.id ? { ...s, image_url: imageData.image_url } : s)
+                  );
+                }
+              } catch (error) {
+                console.error(`Error generating image for slide ${slide.slide_number}:`, error);
+              }
+            });
 
-      onDeckCreated(completedDeck);
-      toast.success('Slide deck generated successfully!');
+            await Promise.allSettled(imagePromises);
+          }
+        } catch (error) {
+          console.error('Error processing slides:', error);
+        }
+      }, 2000);
+
+      // Generate concepts and assessments in parallel
+      const [conceptsResult, assessmentsResult] = await Promise.allSettled([
+        supabase.functions.invoke('generate-slide-concepts', {
+          body: {
+            deck_id: activeDeck.id,
+            outline: outline
+          }
+        }),
+        supabase.functions.invoke('generate-slide-assessments', {
+          body: {
+            deck_id: activeDeck.id,
+            outline: outline
+          }
+        })
+      ]);
+
+      if (conceptsResult.status === 'rejected') {
+        console.error('Error generating concepts:', conceptsResult.reason);
+      }
+
+      if (assessmentsResult.status === 'rejected') {
+        console.error('Error generating assessments:', assessmentsResult.reason);
+      }
+
+      // Cleanup and complete
+      setTimeout(() => {
+        supabase.removeChannel(channel);
+        onDeckCreated(activeDeck);
+        toast.success('Slide deck generated successfully!');
+        setIsGeneratingFull(false);
+      }, 10000); // Give time for all processes to complete
+
     } catch (error) {
       console.error('Error generating full deck:', error);
-      toast.error('Failed to generate full slide deck');
-    } finally {
-      setLoading(false);
+      toast.error('Failed to generate full slide deck. Please try again.');
+      setIsGeneratingFull(false);
     }
   };
 
-  const editOutlineSlide = (index, field, value) => {
+  const editOutlineSlide = (index: number, content: string[], notes: string) => {
     const updatedOutline = [...outline];
-    updatedOutline[index] = { ...updatedOutline[index], [field]: value };
+    updatedOutline[index] = {
+      ...updatedOutline[index],
+      content: content,
+      speakerNotes: notes
+    };
     setOutline(updatedOutline);
   };
 
-  if (step === 1) {
-    return (
-      <Card className="w-full max-w-4xl mx-auto bg-card/80 backdrop-blur-sm border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5" />
-            Generate New Slide Deck
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="title">Presentation Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => handleInputChange('title', e.target.value)}
-                  placeholder="e.g., Introduction to AI in Business"
-                  className="mt-1"
-                />
-              </div>
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          <MessageSquare className="w-6 h-6" />
+          AI Slide Generator
+        </h2>
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
 
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Brief description of the presentation content..."
-                  className="mt-1"
-                  rows={3}
-                />
-              </div>
+      <Tabs value={currentStep} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="conversation" disabled={currentStep !== 'conversation' && currentStep !== 'outline'}>
+            Conversation
+          </TabsTrigger>
+          <TabsTrigger value="outline" disabled={currentStep === 'conversation'}>
+            Outline
+          </TabsTrigger>
+          <TabsTrigger value="canvas" disabled={currentStep !== 'canvas'}>
+            Canvas
+          </TabsTrigger>
+        </TabsList>
 
-              <div>
-                <Label htmlFor="topic">Topic/Theme</Label>
-                <Input
-                  id="topic"
-                  value={formData.topic}
-                  onChange={(e) => handleInputChange('topic', e.target.value)}
-                  placeholder="e.g., Artificial Intelligence, Machine Learning"
-                  className="mt-1"
-                />
-              </div>
-            </div>
+        <TabsContent value="conversation" className="space-y-4">
+          <ConversationInterface onGenerateOutline={handleGenerateOutline} />
+        </TabsContent>
 
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="target_audience">Target Audience *</Label>
-                <Select value={formData.target_audience} onValueChange={(value) => handleInputChange('target_audience', value)}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select target audience" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="leads">Potential Leads/Clients</SelectItem>
-                    <SelectItem value="internal-team">Internal Team</SelectItem>
-                    <SelectItem value="technical-team">Technical Team</SelectItem>
-                    <SelectItem value="executive-team">Executive Team</SelectItem>
-                    <SelectItem value="mixed-audience">Mixed Audience</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="presentation_style">Presentation Style *</Label>
-                <Select value={formData.presentation_style} onValueChange={(value) => handleInputChange('presentation_style', value)}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select presentation style" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="professional">Professional</SelectItem>
-                    <SelectItem value="casual">Casual & Conversational</SelectItem>
-                    <SelectItem value="technical">Technical & Detailed</SelectItem>
-                    <SelectItem value="inspirational">Inspirational & Motivational</SelectItem>
-                    <SelectItem value="educational">Educational & Academic</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="slide_count">Number of Slides</Label>
-                <Select 
-                  value={formData.slide_count.toString()} 
-                  onValueChange={(value) => handleInputChange('slide_count', parseInt(value))}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5 slides</SelectItem>
-                    <SelectItem value="8">8 slides</SelectItem>
-                    <SelectItem value="10">10 slides</SelectItem>
-                    <SelectItem value="12">12 slides</SelectItem>
-                    <SelectItem value="15">15 slides</SelectItem>
-                    <SelectItem value="20">20 slides</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="insights">Additional Insights & Context</Label>
-            <Textarea
-              id="insights"
-              value={formData.insights}
-              onChange={(e) => handleInputChange('insights', e.target.value)}
-              placeholder="Any specific insights, data points, or context you want to include..."
-              className="mt-1"
-              rows={4}
-            />
-          </div>
-
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={onCancel}>
-              Cancel
+        <TabsContent value="outline" className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" onClick={() => setCurrentStep('conversation')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Conversation
             </Button>
-            <Button 
-              onClick={handleGenerateOutline} 
-              disabled={loading}
-              className="gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating Outline...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Generate Outline
-                </>
-              )}
-            </Button>
+            <h2 className="text-2xl font-bold">Review & Edit Outline</h2>
           </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
-  if (step === 2) {
-    return (
-      <Card className="w-full max-w-6xl mx-auto bg-card/80 backdrop-blur-sm border-border">
-        <CardHeader>
-          <CardTitle>Review & Edit Slide Outline</CardTitle>
-          <p className="text-muted-foreground">
-            Review the generated outline and make any adjustments before generating the full presentation.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-4 max-h-96 overflow-y-auto">
+          <div className="space-y-4">
             {outline.map((slide, index) => (
-              <div key={index} className="border border-border rounded-lg p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <span className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
-                    Slide {slide.slide_number}
-                  </span>
-                  <Input
-                    value={slide.title}
-                    onChange={(e) => editOutlineSlide(index, 'title', e.target.value)}
-                    className="font-medium"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-sm text-muted-foreground">Content Points:</Label>
-                  {slide.content_points?.map((point, pointIndex) => (
-                    <Input
-                      key={pointIndex}
-                      value={point}
-                      onChange={(e) => {
-                        const updatedPoints = [...slide.content_points];
-                        updatedPoints[pointIndex] = e.target.value;
-                        editOutlineSlide(index, 'content_points', updatedPoints);
+              <Card key={index} className="relative">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <span className="bg-primary text-primary-foreground px-2 py-1 rounded text-sm">
+                        Slide {slide.slideNumber}
+                      </span>
+                      {slide.title}
+                    </h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditingSlide(index);
+                        setEditContent(Array.isArray(slide.content) ? slide.content.join('\n') : slide.content);
+                        setEditNotes(slide.speakerNotes || '');
                       }}
-                      className="text-sm"
-                      placeholder="Content point..."
-                    />
-                  ))}
-                </div>
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </Button>
+                  </div>
 
-                <Textarea
-                  value={slide.speaker_notes}
-                  onChange={(e) => editOutlineSlide(index, 'speaker_notes', e.target.value)}
-                  placeholder="Speaker notes..."
-                  rows={2}
-                  className="text-sm"
-                />
-              </div>
+                  {editingSlide === index ? (
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Content Points</Label>
+                        <Textarea
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          rows={6}
+                          placeholder="Enter slide content points, one per line"
+                        />
+                      </div>
+                      <div>
+                        <Label>Speaker Notes</Label>
+                        <Textarea
+                          value={editNotes}
+                          onChange={(e) => setEditNotes(e.target.value)}
+                          rows={4}
+                          placeholder="Enter speaker notes for this slide"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            editOutlineSlide(index, editContent.split('\n').filter(line => line.trim()), editNotes);
+                            setEditingSlide(null);
+                          }}
+                        >
+                          <Save className="w-4 h-4 mr-2" />
+                          Save
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingSlide(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-medium mb-2">Content:</h4>
+                        <div className="bg-muted/30 p-3 rounded">
+                          <div className="text-sm text-muted-foreground whitespace-pre-line">
+                            {Array.isArray(slide.content) ? slide.content.join('\n') : slide.content}
+                          </div>
+                        </div>
+                      </div>
+                      {slide.speakerNotes && (
+                        <div>
+                          <h4 className="font-medium mb-2">Speaker Notes:</h4>
+                          <div className="bg-muted/30 p-3 rounded">
+                            <p className="text-sm text-muted-foreground">{slide.speakerNotes}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             ))}
           </div>
 
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setStep(1)}>
-              Back to Form
-            </Button>
-            <Button 
-              onClick={handleGenerateFullDeck} 
-              disabled={loading}
-              className="gap-2"
-            >
-              {loading ? (
+          <div className="flex justify-end">
+            <Button onClick={handleGenerateFullDeck} disabled={isGeneratingFull}>
+              {isGeneratingFull ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Generating Full Deck...
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-4 w-4" />
+                  <ImageIcon className="w-4 h-4 mr-2" />
                   Generate Full Slide Deck
                 </>
               )}
             </Button>
           </div>
-        </CardContent>
-      </Card>
-    );
-  }
+        </TabsContent>
 
-  return null;
+        <TabsContent value="canvas" className="space-y-4">
+          <SlideCanvas
+            deckId={activeDeck?.id || ''}
+            slides={canvasSlides}
+            totalSlides={outline.length}
+            isGenerating={isGeneratingFull}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
 };
+
+export default SlideGenerator;
