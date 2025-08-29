@@ -85,7 +85,7 @@ export const SlideLibrary = ({ decks, loading, onDeckSelect, onDeckUpdate }: Sli
     }
     groups[key].decks.push(deck);
     return groups;
-  }, {});
+  }, {} as Record<string, {label: string, decks: any[]}>);
 
   if (loading) {
     return (
@@ -124,7 +124,7 @@ export const SlideLibrary = ({ decks, loading, onDeckSelect, onDeckUpdate }: Sli
 
   return (
     <div className="space-y-8">
-      {Object.entries(groupedDecks).map(([key, group]) => (
+      {Object.entries(groupedDecks).map(([key, group]: [string, {label: string, decks: any[]}]) => (
         <div key={key} className="space-y-4">
           <h3 className="text-lg font-semibold text-foreground border-l-4 border-primary pl-3">
             {group.label}
