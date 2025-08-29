@@ -7,7 +7,8 @@ import { Loader2, ArrowLeft, Edit3, Save, Wand2, Image as ImageIcon, MessageSqua
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import ConversationInterface from './ConversationInterface';
-import SlideCanvas from './SlideCanvas';
+import SlideCanvasWithImageGen from './SlideCanvasWithImageGen';
+import ConversationHistory from './ConversationHistory';
 import { Label } from '@/components/ui/label';
 
 interface SlideGeneratorProps {
@@ -22,7 +23,7 @@ interface Message {
 }
 
 const SlideGenerator: React.FC<SlideGeneratorProps> = ({ onDeckCreated, onCancel }) => {
-  const [currentStep, setCurrentStep] = useState<'conversation' | 'outline' | 'canvas'>('conversation');
+  const [currentStep, setCurrentStep] = useState<'history' | 'conversation' | 'outline' | 'canvas'>('history');
   const [outline, setOutline] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isGeneratingFull, setIsGeneratingFull] = useState(false);
@@ -100,7 +101,7 @@ const SlideGenerator: React.FC<SlideGeneratorProps> = ({ onDeckCreated, onCancel
     setCurrentStep('canvas');
     
     try {
-      // Generate full slide content
+      // Generate only text content for slides first
       const { data: fullSlideData, error: fullSlideError } = await supabase.functions.invoke('generate-full-slides', {
         body: {
           deck_id: activeDeck.id,
@@ -133,7 +134,7 @@ const SlideGenerator: React.FC<SlideGeneratorProps> = ({ onDeckCreated, onCancel
         )
         .subscribe();
 
-      // Generate images for each slide as they're created
+      // Load existing slides after generation
       setTimeout(async () => {
         try {
           const { data: slides } = await supabase
@@ -144,37 +145,9 @@ const SlideGenerator: React.FC<SlideGeneratorProps> = ({ onDeckCreated, onCancel
 
           if (slides) {
             setCanvasSlides(slides);
-            
-            // Generate images for slides
-            const imagePromises = slides.map(async (slide) => {
-              try {
-                const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-image', {
-                  body: {
-                    prompt: slide.image_prompt || `Professional slide image for: ${slide.title}`,
-                    slide_id: slide.id
-                  }
-                });
-
-                if (!imageError && imageData?.image_url) {
-                  await supabase
-                    .from('slides')
-                    .update({ image_url: imageData.image_url })
-                    .eq('id', slide.id);
-                  
-                  // Update canvas
-                  setCanvasSlides(prev => 
-                    prev.map(s => s.id === slide.id ? { ...s, image_url: imageData.image_url } : s)
-                  );
-                }
-              } catch (error) {
-                console.error(`Error generating image for slide ${slide.slide_number}:`, error);
-              }
-            });
-
-            await Promise.allSettled(imagePromises);
           }
         } catch (error) {
-          console.error('Error processing slides:', error);
+          console.error('Error loading slides:', error);
         }
       }, 2000);
 
@@ -206,9 +179,9 @@ const SlideGenerator: React.FC<SlideGeneratorProps> = ({ onDeckCreated, onCancel
       setTimeout(() => {
         supabase.removeChannel(channel);
         onDeckCreated(activeDeck);
-        toast.success('Slide deck generated successfully!');
+        toast.success('Slide deck generated successfully! Generate images individually for each slide.');
         setIsGeneratingFull(false);
-      }, 10000); // Give time for all processes to complete
+      }, 5000);
 
     } catch (error) {
       console.error('Error generating full deck:', error);
@@ -240,11 +213,14 @@ const SlideGenerator: React.FC<SlideGeneratorProps> = ({ onDeckCreated, onCancel
       </div>
 
       <Tabs value={currentStep} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="conversation" disabled={currentStep !== 'conversation' && currentStep !== 'outline'}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="history">
+            History
+          </TabsTrigger>
+          <TabsTrigger value="conversation" disabled={currentStep === 'outline' || currentStep === 'canvas'}>
             Conversation
           </TabsTrigger>
-          <TabsTrigger value="outline" disabled={currentStep === 'conversation'}>
+          <TabsTrigger value="outline" disabled={currentStep === 'history' || currentStep === 'conversation'}>
             Outline
           </TabsTrigger>
           <TabsTrigger value="canvas" disabled={currentStep !== 'canvas'}>
@@ -252,8 +228,23 @@ const SlideGenerator: React.FC<SlideGeneratorProps> = ({ onDeckCreated, onCancel
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="history" className="space-y-4">
+          <ConversationHistory 
+            onSelectConversation={(conversation) => {
+              setConversationId(conversation.id);
+              setConversationMessages(Array.isArray(conversation.messages) ? conversation.messages : []);
+              setCurrentStep('conversation');
+            }}
+            onStartNew={() => setCurrentStep('conversation')}
+          />
+        </TabsContent>
+
         <TabsContent value="conversation" className="space-y-4">
-          <ConversationInterface onGenerateOutline={handleGenerateOutline} />
+          <ConversationInterface 
+            onGenerateOutline={handleGenerateOutline}
+            existingConversationId={conversationId}
+            existingMessages={conversationMessages}
+          />
         </TabsContent>
 
         <TabsContent value="outline" className="space-y-4">
@@ -270,19 +261,24 @@ const SlideGenerator: React.FC<SlideGeneratorProps> = ({ onDeckCreated, onCancel
               <Card key={index} className="relative">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-lg font-semibold flex items-center gap-2">
-                      <span className="bg-primary text-primary-foreground px-2 py-1 rounded text-sm">
-                        Slide {slide.slideNumber}
+                    <div className="flex items-center gap-3">
+                      <span className="bg-primary text-primary-foreground px-2 py-1 rounded text-sm font-medium whitespace-nowrap">
+                        Slide {slide.slide_number || slide.slideNumber}
                       </span>
-                      {slide.title}
-                    </h3>
+                      <h3 className="text-lg font-semibold">{slide.title}</h3>
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => {
                         setEditingSlide(index);
-                        setEditContent(Array.isArray(slide.content) ? slide.content.join('\n') : slide.content);
-                        setEditNotes(slide.speakerNotes || '');
+                        const contentText = Array.isArray(slide.content_points) 
+                          ? slide.content_points.join('\n') 
+                          : Array.isArray(slide.content) 
+                            ? slide.content.join('\n') 
+                            : slide.content || '';
+                        setEditContent(contentText);
+                        setEditNotes(slide.speaker_notes || '');
                       }}
                     >
                       <Edit3 className="w-4 h-4" />
@@ -334,19 +330,20 @@ const SlideGenerator: React.FC<SlideGeneratorProps> = ({ onDeckCreated, onCancel
                       <div>
                         <h4 className="font-medium mb-2">Content:</h4>
                         <div className="bg-muted/30 p-3 rounded">
-                          <div className="text-sm text-muted-foreground whitespace-pre-line">
-                            {Array.isArray(slide.content) ? slide.content.join('\n') : slide.content}
-                          </div>
+                           <div className="text-sm text-muted-foreground whitespace-pre-line">
+                             {Array.isArray(slide.content_points) ? slide.content_points.join('\n') : 
+                              Array.isArray(slide.content) ? slide.content.join('\n') : slide.content}
+                           </div>
                         </div>
                       </div>
-                      {slide.speakerNotes && (
-                        <div>
-                          <h4 className="font-medium mb-2">Speaker Notes:</h4>
-                          <div className="bg-muted/30 p-3 rounded">
-                            <p className="text-sm text-muted-foreground">{slide.speakerNotes}</p>
-                          </div>
-                        </div>
-                      )}
+                       {(slide.speakerNotes || slide.speaker_notes) && (
+                         <div>
+                           <h4 className="font-medium mb-2">Speaker Notes:</h4>
+                           <div className="bg-muted/30 p-3 rounded">
+                             <p className="text-sm text-muted-foreground">{slide.speakerNotes || slide.speaker_notes}</p>
+                           </div>
+                         </div>
+                       )}
                     </div>
                   )}
                 </CardContent>
@@ -372,7 +369,7 @@ const SlideGenerator: React.FC<SlideGeneratorProps> = ({ onDeckCreated, onCancel
         </TabsContent>
 
         <TabsContent value="canvas" className="space-y-4">
-          <SlideCanvas
+          <SlideCanvasWithImageGen
             deckId={activeDeck?.id || ''}
             slides={canvasSlides}
             totalSlides={outline.length}

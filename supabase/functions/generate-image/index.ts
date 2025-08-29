@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, size = "1536x1024", quality = "high", referenceImage } = await req.json();
+    const { prompt, size = "1536x864", quality = "high", referenceImage } = await req.json();
 
     console.log('Generating image for prompt:', prompt);
 

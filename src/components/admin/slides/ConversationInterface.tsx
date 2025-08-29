@@ -15,13 +15,19 @@ interface Message {
 
 interface ConversationInterfaceProps {
   onGenerateOutline: (conversationId: string, messages: Message[]) => void;
+  existingConversationId?: string | null;
+  existingMessages?: Message[];
 }
 
-const ConversationInterface: React.FC<ConversationInterfaceProps> = ({ onGenerateOutline }) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+const ConversationInterface: React.FC<ConversationInterfaceProps> = ({ 
+  onGenerateOutline, 
+  existingConversationId, 
+  existingMessages 
+}) => {
+  const [messages, setMessages] = useState<Message[]>(existingMessages || []);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(existingConversationId || null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
