@@ -396,14 +396,21 @@ export type Database = {
           chatgpt_links: Json | null
           company_size: string | null
           created_at: string
+          endowment_balance: number | null
+          form_990_years: Json | null
           id: string
-          industry: string | null
+          leadership_compensation: Json | null
           linkedin_url: string | null
           location: string | null
           name: string
           notebooklm_links: Json | null
+          program_expenses: number | null
+          propublic_link: string | null
           tags: Json | null
+          target_type: string | null
           targeting_notes: string | null
+          top_vendors: string | null
+          total_grants_paid: number | null
           updated_at: string
           website: string | null
         }
@@ -411,14 +418,21 @@ export type Database = {
           chatgpt_links?: Json | null
           company_size?: string | null
           created_at?: string
+          endowment_balance?: number | null
+          form_990_years?: Json | null
           id?: string
-          industry?: string | null
+          leadership_compensation?: Json | null
           linkedin_url?: string | null
           location?: string | null
           name: string
           notebooklm_links?: Json | null
+          program_expenses?: number | null
+          propublic_link?: string | null
           tags?: Json | null
+          target_type?: string | null
           targeting_notes?: string | null
+          top_vendors?: string | null
+          total_grants_paid?: number | null
           updated_at?: string
           website?: string | null
         }
@@ -426,14 +440,21 @@ export type Database = {
           chatgpt_links?: Json | null
           company_size?: string | null
           created_at?: string
+          endowment_balance?: number | null
+          form_990_years?: Json | null
           id?: string
-          industry?: string | null
+          leadership_compensation?: Json | null
           linkedin_url?: string | null
           location?: string | null
           name?: string
           notebooklm_links?: Json | null
+          program_expenses?: number | null
+          propublic_link?: string | null
           tags?: Json | null
+          target_type?: string | null
           targeting_notes?: string | null
+          top_vendors?: string | null
+          total_grants_paid?: number | null
           updated_at?: string
           website?: string | null
         }

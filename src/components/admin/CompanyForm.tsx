@@ -8,18 +8,25 @@ import { Badge } from "@/components/ui/badge";
 import { X, Plus, ExternalLink } from "lucide-react";
 
 interface CompanyData {
-  id: string;
+  id?: string;
   name: string;
   website?: string;
   linkedin_url?: string;
-  industry?: string;
+  target_type?: string;
   location?: string;
   company_size?: string;
   targeting_notes?: string;
   chatgpt_links: string[];
   notebooklm_links: string[];
   tags: string[];
-  created_at: string;
+  propublic_link?: string;
+  endowment_balance?: number;
+  total_grants_paid?: number;
+  program_expenses?: number;
+  top_vendors?: string;
+  leadership_compensation?: any[];
+  form_990_years?: any[];
+  created_at?: string;
 }
 
 interface CompanyFormProps {
@@ -28,15 +35,27 @@ interface CompanyFormProps {
   onCancel: () => void;
 }
 
+const TARGET_TYPES = [
+  'Foundations',
+  'Grant Recipients',
+  'Venture Capital',
+  'Startups'
+];
+
 export const CompanyForm = ({ company, onSubmit, onCancel }: CompanyFormProps) => {
   const [formData, setFormData] = useState({
     name: '',
     website: '',
     linkedin_url: '',
-    industry: '',
+    target_type: '',
     location: '',
     company_size: '',
     targeting_notes: '',
+    propublic_link: '',
+    endowment_balance: '',
+    total_grants_paid: '',
+    program_expenses: '',
+    top_vendors: '',
     chatgpt_links: [] as string[],
     notebooklm_links: [] as string[],
     tags: [] as string[],
@@ -52,10 +71,15 @@ export const CompanyForm = ({ company, onSubmit, onCancel }: CompanyFormProps) =
         name: company.name || '',
         website: company.website || '',
         linkedin_url: company.linkedin_url || '',
-        industry: company.industry || '',
+        target_type: company.target_type || '',
         location: company.location || '',
         company_size: company.company_size || '',
         targeting_notes: company.targeting_notes || '',
+        propublic_link: company.propublic_link || '',
+        endowment_balance: company.endowment_balance?.toString() || '',
+        total_grants_paid: company.total_grants_paid?.toString() || '',
+        program_expenses: company.program_expenses?.toString() || '',
+        top_vendors: company.top_vendors || '',
         chatgpt_links: Array.isArray(company.chatgpt_links) ? company.chatgpt_links : [],
         notebooklm_links: Array.isArray(company.notebooklm_links) ? company.notebooklm_links : [],
         tags: Array.isArray(company.tags) ? company.tags : [],
@@ -65,7 +89,26 @@ export const CompanyForm = ({ company, onSubmit, onCancel }: CompanyFormProps) =
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    
+    const submitData: Partial<CompanyData> = {
+      name: formData.name,
+      website: formData.website || undefined,
+      linkedin_url: formData.linkedin_url || undefined,
+      target_type: formData.target_type || undefined,
+      location: formData.location || undefined,
+      company_size: formData.company_size || undefined,
+      targeting_notes: formData.targeting_notes || undefined,
+      chatgpt_links: formData.chatgpt_links,
+      notebooklm_links: formData.notebooklm_links,
+      tags: formData.tags,
+      propublic_link: formData.propublic_link || undefined,
+      endowment_balance: formData.endowment_balance ? parseInt(formData.endowment_balance) : undefined,
+      total_grants_paid: formData.total_grants_paid ? parseInt(formData.total_grants_paid) : undefined,
+      program_expenses: formData.program_expenses ? parseInt(formData.program_expenses) : undefined,
+      top_vendors: formData.top_vendors || undefined,
+    };
+    
+    onSubmit(submitData);
   };
 
   const addChatgptLink = () => {
@@ -119,6 +162,8 @@ export const CompanyForm = ({ company, onSubmit, onCancel }: CompanyFormProps) =
     }));
   };
 
+  const isFoundation = formData.target_type === 'Foundations';
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
@@ -158,20 +203,15 @@ export const CompanyForm = ({ company, onSubmit, onCancel }: CompanyFormProps) =
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="industry">Industry</Label>
-          <Select value={formData.industry} onValueChange={(value) => setFormData(prev => ({ ...prev, industry: value }))}>
+          <Label htmlFor="target_type">Target Type</Label>
+          <Select value={formData.target_type} onValueChange={(value) => setFormData(prev => ({ ...prev, target_type: value }))}>
             <SelectTrigger>
-              <SelectValue placeholder="Select industry" />
+              <SelectValue placeholder="Select target type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Technology">Technology</SelectItem>
-              <SelectItem value="Healthcare">Healthcare</SelectItem>
-              <SelectItem value="Finance">Finance</SelectItem>
-              <SelectItem value="Education">Education</SelectItem>
-              <SelectItem value="Manufacturing">Manufacturing</SelectItem>
-              <SelectItem value="Retail">Retail</SelectItem>
-              <SelectItem value="Consulting">Consulting</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
+              {TARGET_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>{type}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -203,6 +243,70 @@ export const CompanyForm = ({ company, onSubmit, onCancel }: CompanyFormProps) =
           placeholder="City, Country"
         />
       </div>
+
+      {/* Foundation-specific fields */}
+      {isFoundation && (
+        <div className="space-y-4 p-4 border rounded-lg bg-muted/10">
+          <h3 className="text-lg font-semibold">Foundation Information</h3>
+          
+          <div className="space-y-2">
+            <Label htmlFor="propublic_link">ProPublica Link</Label>
+            <Input
+              id="propublic_link"
+              type="url"
+              value={formData.propublic_link}
+              onChange={(e) => setFormData(prev => ({ ...prev, propublic_link: e.target.value }))}
+              placeholder="https://projects.propublica.org/nonprofits/..."
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="endowment_balance">Endowment Balance ($)</Label>
+              <Input
+                id="endowment_balance"
+                type="number"
+                value={formData.endowment_balance}
+                onChange={(e) => setFormData(prev => ({ ...prev, endowment_balance: e.target.value }))}
+                placeholder="5000000"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="total_grants_paid">Total Grants Paid ($)</Label>
+              <Input
+                id="total_grants_paid"
+                type="number"
+                value={formData.total_grants_paid}
+                onChange={(e) => setFormData(prev => ({ ...prev, total_grants_paid: e.target.value }))}
+                placeholder="250000"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="program_expenses">Program Expenses ($)</Label>
+              <Input
+                id="program_expenses"
+                type="number"
+                value={formData.program_expenses}
+                onChange={(e) => setFormData(prev => ({ ...prev, program_expenses: e.target.value }))}
+                placeholder="300000"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="top_vendors">Top Vendors</Label>
+            <Textarea
+              id="top_vendors"
+              value={formData.top_vendors}
+              onChange={(e) => setFormData(prev => ({ ...prev, top_vendors: e.target.value }))}
+              placeholder="List of key vendors and contractors..."
+              rows={2}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="targeting_notes">Targeting Notes</Label>

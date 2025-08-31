@@ -10,6 +10,7 @@ import { CompanyForm } from "./CompanyForm";
 import { PersonForm } from "./PersonForm";
 import { CompanyCard } from "./CompanyCard";
 import { PersonCard } from "./PersonCard";
+import { ContactDetailView } from "./ContactDetailView";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -18,13 +19,20 @@ interface Company {
   name: string;
   website?: string;
   linkedin_url?: string;
-  industry?: string;
+  target_type?: string;
   location?: string;
   company_size?: string;
   targeting_notes?: string;
   chatgpt_links: string[];
   notebooklm_links: string[];
   tags: string[];
+  propublic_link?: string;
+  endowment_balance?: number;
+  total_grants_paid?: number;
+  program_expenses?: number;
+  top_vendors?: string;
+  leadership_compensation?: any[];
+  form_990_years?: any[];
   created_at: string;
 }
 
@@ -58,6 +66,9 @@ export const LeadManager = () => {
   const [isPersonFormOpen, setIsPersonFormOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+  const [selectedContact, setSelectedContact] = useState<Company | Person | null>(null);
+  const [contactType, setContactType] = useState<'company' | 'person'>('company');
+  const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
 
   useEffect(() => {
     fetchCompanies();
@@ -72,10 +83,10 @@ export const LeadManager = () => {
         .order('created_at', { ascending: false });
 
       if (searchTerm) {
-        query = query.or(`name.ilike.%${searchTerm}%,industry.ilike.%${searchTerm}%`);
+        query = query.or(`name.ilike.%${searchTerm}%,target_type.ilike.%${searchTerm}%`);
       }
       if (industryFilter && industryFilter !== 'all') {
-        query = query.eq('industry', industryFilter);
+        query = query.eq('target_type', industryFilter);
       }
       if (locationFilter && locationFilter !== 'all') {
         query = query.ilike('location', `%${locationFilter}%`);
@@ -86,11 +97,13 @@ export const LeadManager = () => {
       if (error) throw error;
       
       // Transform the data to match our interface
-      const transformedData: Company[] = (data || []).map(company => ({
+      const transformedData = (data || []).map(company => ({
         ...company,
         chatgpt_links: Array.isArray(company.chatgpt_links) ? company.chatgpt_links.filter(link => typeof link === 'string') as string[] : [],
         notebooklm_links: Array.isArray(company.notebooklm_links) ? company.notebooklm_links.filter(link => typeof link === 'string') as string[] : [],
         tags: Array.isArray(company.tags) ? company.tags.filter(tag => typeof tag === 'string') as string[] : [],
+        leadership_compensation: Array.isArray(company.leadership_compensation) ? company.leadership_compensation : [],
+        form_990_years: Array.isArray(company.form_990_years) ? company.form_990_years : [],
       }));
       
       setCompanies(transformedData);
@@ -129,7 +142,7 @@ export const LeadManager = () => {
       if (error) throw error;
       
       // Transform the data to match our interface
-      const transformedData: Person[] = (data || []).map(person => ({
+      const transformedData = (data || []).map(person => ({
         ...person,
         chatgpt_links: Array.isArray(person.chatgpt_links) ? person.chatgpt_links.filter(link => typeof link === 'string') as string[] : [],
         notebooklm_links: Array.isArray(person.notebooklm_links) ? person.notebooklm_links.filter(link => typeof link === 'string') as string[] : [],
@@ -139,6 +152,8 @@ export const LeadManager = () => {
           chatgpt_links: Array.isArray(person.company.chatgpt_links) ? person.company.chatgpt_links.filter(link => typeof link === 'string') as string[] : [],
           notebooklm_links: Array.isArray(person.company.notebooklm_links) ? person.company.notebooklm_links.filter(link => typeof link === 'string') as string[] : [],
           tags: Array.isArray(person.company.tags) ? person.company.tags.filter(tag => typeof tag === 'string') as string[] : [],
+          leadership_compensation: Array.isArray(person.company.leadership_compensation) ? person.company.leadership_compensation : [],
+          form_990_years: Array.isArray(person.company.form_990_years) ? person.company.form_990_years : [],
         } : undefined,
       }));
       
@@ -265,7 +280,7 @@ export const LeadManager = () => {
   };
 
   const getUniqueIndustries = () => {
-    const industries = companies.map(c => c.industry).filter(Boolean);
+    const industries = companies.map(c => c.target_type).filter(Boolean);
     return [...new Set(industries)] as string[];
   };
 
@@ -383,6 +398,11 @@ export const LeadManager = () => {
                   setIsCompanyFormOpen(true);
                 }}
                 onDelete={() => handleCompanyDelete(company.id)}
+                onShowDetails={() => {
+                  setSelectedContact(company);
+                  setContactType('company');
+                  setIsDetailViewOpen(true);
+                }}
               />
             ))}
           </div>
@@ -430,11 +450,43 @@ export const LeadManager = () => {
                   setIsPersonFormOpen(true);
                 }}
                 onDelete={() => handlePersonDelete(person.id)}
+                onShowDetails={() => {
+                  setSelectedContact(person);
+                  setContactType('person');
+                  setIsDetailViewOpen(true);
+                }}
               />
             ))}
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Contact Detail View */}
+      {selectedContact && (
+        <ContactDetailView
+          contact={selectedContact}
+          type={contactType}
+          open={isDetailViewOpen}
+          onOpenChange={setIsDetailViewOpen}
+          onEdit={() => {
+            if (contactType === 'company') {
+              setEditingCompany(selectedContact as Company);
+              setIsCompanyFormOpen(true);
+            } else {
+              setEditingPerson(selectedContact as Person);
+              setIsPersonFormOpen(true);
+            }
+            setIsDetailViewOpen(false);
+          }}
+          onUpdate={() => {
+            if (contactType === 'company') {
+              fetchCompanies();
+            } else {
+              fetchPeople();
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

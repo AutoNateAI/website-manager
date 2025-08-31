@@ -10,13 +10,20 @@ interface Company {
   name: string;
   website?: string;
   linkedin_url?: string;
-  industry?: string;
+  target_type?: string;
   location?: string;
   company_size?: string;
   targeting_notes?: string;
   chatgpt_links: string[];
   notebooklm_links: string[];
   tags: string[];
+  propublic_link?: string;
+  endowment_balance?: number;
+  total_grants_paid?: number;
+  program_expenses?: number;
+  top_vendors?: string;
+  leadership_compensation?: any[];
+  form_990_years?: any[];
   created_at: string;
 }
 
@@ -24,9 +31,10 @@ interface CompanyCardProps {
   company: Company;
   onEdit: () => void;
   onDelete: () => void;
+  onShowDetails: () => void;
 }
 
-export const CompanyCard = ({ company, onEdit, onDelete }: CompanyCardProps) => {
+export const CompanyCard = ({ company, onEdit, onDelete, onShowDetails }: CompanyCardProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   const openLink = (url: string) => {
@@ -42,7 +50,7 @@ export const CompanyCard = ({ company, onEdit, onDelete }: CompanyCardProps) => 
 
   return (
     <>
-      <Card className="hover:shadow-lg transition-shadow">
+      <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={onShowDetails}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -51,12 +59,12 @@ export const CompanyCard = ({ company, onEdit, onDelete }: CompanyCardProps) => 
             </div>
             <div className="flex-1 min-w-0">
               <CardTitle className="text-lg truncate">{company.name}</CardTitle>
-              {company.industry && (
-                <p className="text-sm text-muted-foreground">{company.industry}</p>
+              {company.target_type && (
+                <p className="text-sm text-muted-foreground">{company.target_type}</p>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             <Button variant="ghost" size="sm" onClick={onEdit} aria-label="Edit company">
               <Edit className="w-4 h-4" />
             </Button>

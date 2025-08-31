@@ -173,7 +173,7 @@ export const PersonalNetworkLeadsManager = () => {
         company: person.company ? {
           id: person.company.id,
           name: person.company.name || '',
-          industry: person.company.industry || undefined,
+          target_type: person.company.target_type || undefined,
           size: person.company.company_size || undefined,
           location: person.company.location || undefined,
           website: person.company.website || undefined,
