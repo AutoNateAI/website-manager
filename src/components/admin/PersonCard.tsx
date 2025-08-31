@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ExternalLink, Edit, Building, MapPin, Mail, User, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useState } from "react";
 
 interface Company {
   id: string;
@@ -63,6 +65,8 @@ const getStatusColor = (status: string) => {
 };
 
 export const PersonCard = ({ person, onEdit, onDelete }: PersonCardProps) => {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
   const openLink = (url: string) => {
     if (url) {
       window.open(url, '_blank');
@@ -77,8 +81,14 @@ export const PersonCard = ({ person, onEdit, onDelete }: PersonCardProps) => {
       .slice(0, 2);
   };
 
+  const handleDelete = () => {
+    setShowDeleteDialog(false);
+    onDelete();
+  };
+
   return (
-    <Card className="hover:shadow-lg transition-shadow">
+    <>
+      <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
@@ -105,11 +115,7 @@ export const PersonCard = ({ person, onEdit, onDelete }: PersonCardProps) => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                if (window.confirm('Delete this person? This cannot be undone.')) {
-                  onDelete();
-                }
-              }}
+              onClick={() => setShowDeleteDialog(true)}
               aria-label="Delete person"
             >
               <Trash2 className="w-4 h-4" />
@@ -231,5 +237,17 @@ export const PersonCard = ({ person, onEdit, onDelete }: PersonCardProps) => {
         </div>
       </CardContent>
     </Card>
-  );
+
+    <ConfirmDialog
+      open={showDeleteDialog}
+      onOpenChange={setShowDeleteDialog}
+      title="Delete Person"
+      description="Are you sure you want to delete this person? This action cannot be undone."
+      confirmText="Delete"
+      cancelText="Cancel"
+      onConfirm={handleDelete}
+      variant="destructive"
+    />
+  </>
+);
 };

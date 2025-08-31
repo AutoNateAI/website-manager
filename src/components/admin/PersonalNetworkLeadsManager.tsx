@@ -9,9 +9,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Search, Users, Building, User, Phone, Mail, ExternalLink, Edit, DollarSign, Award } from 'lucide-react';
+import { Plus, Search, Users, Building, User, Phone, Mail, ExternalLink, Edit, DollarSign, Award, Trash2 } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Data structures for personal network leads
 interface PersonalNetworkLead {
@@ -106,6 +107,8 @@ export const PersonalNetworkLeadsManager = () => {
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
 
   // Form state with proper typing
   const [leadForm, setLeadForm] = useState<LeadFormState>({
@@ -355,6 +358,18 @@ export const PersonalNetworkLeadsManager = () => {
     setDialogOpen(true);
   };
 
+  const handleDeleteLead = async (leadId: string) => {
+    try {
+      const { error } = await supabase.from('people').delete().eq('id', leadId);
+      if (error) throw error;
+      toast.success('Lead deleted successfully');
+      setLeads((prev) => prev.filter((l) => l.id !== leadId));
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+      toast.error('Failed to delete lead');
+    }
+  };
+
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -365,7 +380,8 @@ export const PersonalNetworkLeadsManager = () => {
   });
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Personal Network Leads</h2>
@@ -822,10 +838,22 @@ export const PersonalNetworkLeadsManager = () => {
                       </Button>
                     )}
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => handleEdit(lead)}>
-                    <Edit className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => handleEdit(lead)}>
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        setLeadToDelete(lead.id!);
+                        setShowDeleteDialog(true);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -833,5 +861,22 @@ export const PersonalNetworkLeadsManager = () => {
         </div>
       )}
     </div>
-  );
+
+    <ConfirmDialog
+      open={showDeleteDialog}
+      onOpenChange={setShowDeleteDialog}
+      title="Delete Lead"
+      description="Are you sure you want to delete this lead? This action cannot be undone."
+      confirmText="Delete"
+      cancelText="Cancel"
+      onConfirm={() => {
+        if (leadToDelete) {
+          handleDeleteLead(leadToDelete);
+          setLeadToDelete(null);
+        }
+      }}
+      variant="destructive"
+    />
+  </>
+);
 };

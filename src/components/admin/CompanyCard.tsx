@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Edit, Building, MapPin, Users, Globe, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useState } from "react";
 
 interface Company {
   id: string;
@@ -25,14 +27,22 @@ interface CompanyCardProps {
 }
 
 export const CompanyCard = ({ company, onEdit, onDelete }: CompanyCardProps) => {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
   const openLink = (url: string) => {
     if (url) {
       window.open(url, '_blank');
     }
   };
 
+  const handleDelete = () => {
+    setShowDeleteDialog(false);
+    onDelete();
+  };
+
   return (
-    <Card className="hover:shadow-lg transition-shadow">
+    <>
+      <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
@@ -53,11 +63,7 @@ export const CompanyCard = ({ company, onEdit, onDelete }: CompanyCardProps) => 
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                if (window.confirm('Delete this company? This cannot be undone.')) {
-                  onDelete();
-                }
-              }}
+              onClick={() => setShowDeleteDialog(true)}
               aria-label="Delete company"
             >
               <Trash2 className="w-4 h-4" />
@@ -172,5 +178,17 @@ export const CompanyCard = ({ company, onEdit, onDelete }: CompanyCardProps) => 
         </div>
       </CardContent>
     </Card>
-  );
+
+    <ConfirmDialog
+      open={showDeleteDialog}
+      onOpenChange={setShowDeleteDialog}
+      title="Delete Company"
+      description="Are you sure you want to delete this company? This action cannot be undone."
+      confirmText="Delete"
+      cancelText="Cancel"
+      onConfirm={handleDelete}
+      variant="destructive"
+    />
+  </>
+);
 };
