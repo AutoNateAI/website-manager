@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Edit, Building, MapPin, Users, Globe } from "lucide-react";
+import { ExternalLink, Edit, Building, MapPin, Users, Globe, Trash2 } from "lucide-react";
 
 interface Company {
   id: string;
@@ -21,9 +21,10 @@ interface Company {
 interface CompanyCardProps {
   company: Company;
   onEdit: () => void;
+  onDelete: () => void;
 }
 
-export const CompanyCard = ({ company, onEdit }: CompanyCardProps) => {
+export const CompanyCard = ({ company, onEdit, onDelete }: CompanyCardProps) => {
   const openLink = (url: string) => {
     if (url) {
       window.open(url, '_blank');
@@ -45,9 +46,23 @@ export const CompanyCard = ({ company, onEdit }: CompanyCardProps) => {
               )}
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={onEdit}>
-            <Edit className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={onEdit} aria-label="Edit company">
+              <Edit className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (window.confirm('Delete this company? This cannot be undone.')) {
+                  onDelete();
+                }
+              }}
+              aria-label="Delete company"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
 

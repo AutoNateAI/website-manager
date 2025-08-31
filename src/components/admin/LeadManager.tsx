@@ -239,6 +239,30 @@ export const LeadManager = () => {
       });
     }
   };
+  
+  const handleCompanyDelete = async (companyId: string) => {
+    try {
+      const { error } = await supabase.from('companies').delete().eq('id', companyId);
+      if (error) throw error;
+      toast({ title: 'Deleted', description: 'Company removed successfully.' });
+      setCompanies((prev) => prev.filter((c) => c.id !== companyId));
+    } catch (error) {
+      console.error('Error deleting company:', error);
+      toast({ title: 'Error', description: 'Failed to delete company', variant: 'destructive' });
+    }
+  };
+
+  const handlePersonDelete = async (personId: string) => {
+    try {
+      const { error } = await supabase.from('people').delete().eq('id', personId);
+      if (error) throw error;
+      toast({ title: 'Deleted', description: 'Person removed successfully.' });
+      setPeople((prev) => prev.filter((p) => p.id !== personId));
+    } catch (error) {
+      console.error('Error deleting person:', error);
+      toast({ title: 'Error', description: 'Failed to delete person', variant: 'destructive' });
+    }
+  };
 
   const getUniqueIndustries = () => {
     const industries = companies.map(c => c.industry).filter(Boolean);
@@ -358,6 +382,7 @@ export const LeadManager = () => {
                   setEditingCompany(company);
                   setIsCompanyFormOpen(true);
                 }}
+                onDelete={() => handleCompanyDelete(company.id)}
               />
             ))}
           </div>
@@ -404,6 +429,7 @@ export const LeadManager = () => {
                   setEditingPerson(person);
                   setIsPersonFormOpen(true);
                 }}
+                onDelete={() => handlePersonDelete(person.id)}
               />
             ))}
           </div>

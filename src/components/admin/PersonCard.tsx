@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ExternalLink, Edit, Building, MapPin, Mail, User } from "lucide-react";
+import { ExternalLink, Edit, Building, MapPin, Mail, User, Trash2 } from "lucide-react";
 
 interface Company {
   id: string;
@@ -40,6 +40,7 @@ interface Person {
 interface PersonCardProps {
   person: Person;
   onEdit: () => void;
+  onDelete: () => void;
 }
 
 const getStatusColor = (status: string) => {
@@ -61,7 +62,7 @@ const getStatusColor = (status: string) => {
   }
 };
 
-export const PersonCard = ({ person, onEdit }: PersonCardProps) => {
+export const PersonCard = ({ person, onEdit, onDelete }: PersonCardProps) => {
   const openLink = (url: string) => {
     if (url) {
       window.open(url, '_blank');
@@ -97,9 +98,23 @@ export const PersonCard = ({ person, onEdit }: PersonCardProps) => {
               </Badge>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={onEdit}>
-            <Edit className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={onEdit} aria-label="Edit person">
+              <Edit className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (window.confirm('Delete this person? This cannot be undone.')) {
+                  onDelete();
+                }
+              }}
+              aria-label="Delete person"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
 
