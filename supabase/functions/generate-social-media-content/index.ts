@@ -23,6 +23,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== generate-social-media-content function started ===');
+    
     const { 
       title,
       platform,
@@ -36,11 +38,17 @@ serve(async (req) => {
       postConcepts
     } = await req.json();
 
-  console.log('Starting social media content generation for 3 separate posts with refined concepts');
-  console.log('Received data:', { title, platform, style, voice, mediaType });
+    console.log('Starting social media content generation for 3 separate posts with refined concepts');
+    console.log('Received data:', { title, platform, style, voice, mediaType });
 
     if (!openAIApiKey) {
+      console.error('OpenAI API key not configured');
       throw new Error('OpenAI API key not configured');
+    }
+
+    if (!postConcepts || postConcepts.length !== 3) {
+      console.error('Invalid postConcepts:', postConcepts);
+      throw new Error('Expected exactly 3 post concepts');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -52,12 +60,15 @@ serve(async (req) => {
     const sourceContent = await fetchSourceContent(supabase, normalizedSourceItems);
     
     // Generate all captions in parallel
+    console.log('=== Generating captions for 3 posts ===');
     const captionPromises = postConcepts.map((concept, index) =>
       generateCaptionAndHashtags(sourceContent, platform, style, voice, concept, mediaType || 'evergreen', contextDirection)
     );
     const captionResults = await Promise.all(captionPromises);
+    console.log('Captions generated successfully');
 
     // Create all 3 posts in parallel
+    console.log('=== Creating 3 posts in database ===');
     const postPromises = postConcepts.map(async (concept, index) => {
       const { caption, hashtags } = captionResults[index];
       
@@ -79,22 +90,36 @@ serve(async (req) => {
         .select()
         .single();
 
-      if (postError) throw postError;
+      if (postError) {
+        console.error('Post creation error:', postError);
+        throw postError;
+      }
+      console.log('Created post:', postData.id);
       return postData;
     });
 
     const createdPosts = await Promise.all(postPromises);
+    console.log('All posts created successfully');
 
-    // Generate all image prompts for all posts in parallel
+    // Generate simplified image prompts and create images
+    console.log('=== Starting image generation for all posts ===');
     const allImagePromises = [];
     
     for (let postIndex = 0; postIndex < createdPosts.length; postIndex++) {
       const postData = createdPosts[postIndex];
       const concept = postConcepts[postIndex];
       
-      const imagePrompts = await generateImagePrompts(
-        sourceContent, platform, style, voice, imageSeedUrl, imageSeedInstructions, concept, mediaType || 'evergreen', postIndex + 1
-      );
+      // Create 9 simple image prompts for this post
+      const imagePrompts = Array.from({ length: 9 }, (_, imageIndex) => {
+        const actualImageIndex = imageIndex + 1;
+        if (actualImageIndex === 1) {
+          return `Professional ${platform} social media carousel cover image with text overlay "${concept.title}", modern design, ${mediaType === 'company' ? 'corporate' : mediaType === 'advertisement' ? 'premium service' : 'educational'} style, square aspect ratio, high quality`;
+        } else if (actualImageIndex === 9) {
+          return `Professional ${platform} social media call-to-action image with text "${concept.callToAction}", modern design, engaging CTA style, square aspect ratio, high quality`;
+        } else {
+          return `Professional ${platform} social media carousel slide ${actualImageIndex}, ${concept.angle}, modern infographic style, clean design, square aspect ratio, high quality`;
+        }
+      });
 
       // Create promises for all 9 images of this carousel
       for (let imageIndex = 0; imageIndex < imagePrompts.length; imageIndex++) {
@@ -103,7 +128,7 @@ serve(async (req) => {
         
         const imagePromise = generateImage(prompt, imageSeedUrl).then(async (imageUrl) => {
           // Save to database
-          await supabase
+          const { error: imageError } = await supabase
             .from('social_media_images')
             .insert({
               post_id: postData.id,
@@ -114,8 +139,16 @@ serve(async (req) => {
               alt_text: `Carousel ${postIndex + 1} Image ${actualImageIndex}`
             });
           
-          console.log(`Completed image ${actualImageIndex}/9 for post ${postIndex + 1}`);
+          if (imageError) {
+            console.error('Image save error:', imageError);
+          } else {
+            console.log(`Completed image ${actualImageIndex}/9 for post ${postIndex + 1}`);
+          }
+          
           return imageUrl;
+        }).catch(error => {
+          console.error(`Error generating image ${actualImageIndex} for post ${postIndex + 1}:`, error);
+          return null;
         });
         
         allImagePromises.push(imagePromise);
@@ -137,9 +170,12 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error in generate-social-media-content function:', error);
+    console.error('=== ERROR in generate-social-media-content function ===');
+    console.error('Error details:', error);
+    console.error('Error stack:', error.stack);
     return new Response(JSON.stringify({ 
-      error: error.message || 'Failed to generate social media content' 
+      error: error.message || 'Failed to generate social media content',
+      details: error.toString()
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
