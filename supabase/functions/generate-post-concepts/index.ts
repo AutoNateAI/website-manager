@@ -75,26 +75,25 @@ serve(async (req) => {
 // Robust JSON parser to handle code fences or extra text
 function parseJSONSafe(text: string) {
   let t = String(text ?? '').trim();
+  
   // Remove Markdown code fences if present
   if (t.startsWith('```')) {
     t = t.replace(/^```(?:json)?\n?/i, '').replace(/```$/i, '').trim();
   }
-  // Extract the first JSON object/array if extra prose exists
+  
+  // Find JSON boundaries
   const firstBrace = t.indexOf('{');
   const lastBrace = t.lastIndexOf('}');
-  const firstBracket = t.indexOf('[');
-  const lastBracket = t.lastIndexOf(']');
-  if (firstBrace !== -1 && lastBrace !== -1 && (firstBrace < firstBracket || firstBracket === -1)) {
-    t = t.slice(firstBrace, lastBrace + 1);
-  } else if (firstBracket !== -1 && lastBracket !== -1) {
-    t = t.slice(firstBracket, lastBracket + 1);
+  
+  if (firstBrace === -1 || lastBrace === -1) {
+    throw new Error('No JSON object found in response');
   }
-  try {
-    return JSON.parse(t);
-  } catch (e) {
-    console.error('JSON parse failed, returning empty object. Raw text start:', t.slice(0, 200));
-    return {} as any;
-  }
+  
+  // Extract JSON portion
+  t = t.slice(firstBrace, lastBrace + 1);
+  
+  // Parse JSON
+  return JSON.parse(t);
 }
 
 async function fetchSourceContent(supabase: any, sourceItems: SourceItem[] = []) {
@@ -329,38 +328,28 @@ Return in JSON format:
 
   const data = await response.json();
   if (!response.ok) {
-    console.error('OpenAI error:', data);
-    throw new Error(data.error?.message || 'Failed to generate concepts');
+    console.error('OpenAI error response:', response.status, data);
+    throw new Error(`OpenAI API error: ${data.error?.message || 'Unknown error'}`);
   }
   
   console.log('OpenAI response content length:', data.choices?.[0]?.message?.content?.length);
   const content = data.choices?.[0]?.message?.content ?? '{}';
-  let result = parseJSONSafe(content);
-  console.log('Parsed result:', result);
+  console.log('Raw OpenAI content preview:', content.slice(0, 300));
+  
+  let result;
+  try {
+    result = parseJSONSafe(content);
+    console.log('Parsed result keys:', Object.keys(result));
+  } catch (parseError) {
+    console.error('JSON parsing failed:', parseError);
+    throw new Error('Failed to parse OpenAI response as JSON');
+  }
 
-  if (!result || !Array.isArray(result.concepts)) {
-    console.warn('LLM did not return valid concepts JSON, building fallback concepts');
-    const tones = mediaType === 'company' ? ['Authoritative', 'Strategic', 'Visionary']
-      : mediaType === 'advertisement' ? ['Confident', 'Trustworthy', 'Expert']
-      : ['Educational', 'Analytical', 'Practical'];
-    result = {
-      concepts: [1, 2, 3].map((n, idx) => ({
-        id: `concept-${n}`,
-        title: `${title} — ${mediaType === 'advertisement' ? 'Showcase' : mediaType === 'company' ? 'Business Impact' : 'Insight'} ${n}`,
-        angle: mediaType === 'company' ? 'Problem → AI Command Center Solution → ROI'
-          : mediaType === 'advertisement' ? 'Capability → Proof → CTA'
-          : 'Explain → Example → Takeaway',
-        targetAudience: mediaType === 'company' ? 'Decision-makers at growth-oriented companies'
-          : mediaType === 'advertisement' ? 'Prospective clients evaluating AI services'
-          : 'AI/tech community',
-        keyMessages: ['Clear hook', '3-5 concrete points', 'Strong CTA'],
-        tone: tones[idx] || 'Professional',
-        callToAction: mediaType === 'advertisement' ? 'Book a demo'
-          : mediaType === 'company' ? 'Schedule a consultation'
-          : 'Join the discussion'
-      }))
-    } as any;
+  if (!result || !Array.isArray(result.concepts) || result.concepts.length !== 3) {
+    console.error('Invalid result structure:', result);
+    throw new Error('OpenAI did not return valid concepts array');
   }
   
+  console.log('Successfully generated', result.concepts.length, 'concepts');
   return result.concepts;
 }

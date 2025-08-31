@@ -522,59 +522,73 @@ Return as JSON array of 9 prompts:
 }
 
 async function generateImage(prompt: string, referenceImageUrl?: string): Promise<string> {
-  const enhancedPrompt = referenceImageUrl 
-    ? `${prompt}. Use this reference image for style and composition: ${referenceImageUrl}. Square aspect ratio, social media optimized.`
-    : `${prompt}. Square aspect ratio, social media optimized, high quality, modern design.`;
-
-  const requestBody = {
-    model: 'gpt-image-1',
-    prompt: enhancedPrompt,
-    n: 1,
-    size: "1024x1024",
-    quality: "high",
-    output_format: 'png'
-  };
-
-  const response = await fetch('https://api.openai.com/v1/images/generations', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
-  });
-
-  const data = await response.json();
+  console.log('Generating image with prompt:', prompt.slice(0, 100) + '...');
   
-  if (!response.ok) {
-    console.error('OpenAI Image API error:', data);
-    throw new Error(data.error?.message || 'Failed to generate image');
-  }
+  try {
+    const enhancedPrompt = referenceImageUrl 
+      ? `${prompt}. Use this reference image for style and composition: ${referenceImageUrl}. Square aspect ratio, social media optimized.`
+      : `${prompt}. Square aspect ratio, social media optimized, high quality, modern design.`;
 
-  // gpt-image-1 returns base64 by default
-  const imageData = data.data[0].b64_json;
-  
-  // Upload to Supabase Storage
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const imageBuffer = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
-  const fileName = `social-media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.png`;
-  
-  const { data: uploadData, error: uploadError } = await supabase.storage
-    .from('generated-images')
-    .upload(fileName, imageBuffer, {
-      contentType: 'image/png',
-      upsert: false
+    const requestBody = {
+      model: 'gpt-image-1',
+      prompt: enhancedPrompt,
+      n: 1,
+      size: "1024x1024",
+      quality: "high",
+      output_format: 'png'
+    };
+
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
     });
 
-  if (uploadError) {
-    console.error('Storage upload error:', uploadError);
-    throw uploadError;
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('OpenAI Image API error:', errorData);
+      throw new Error(`Image generation failed: ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
+    
+    // gpt-image-1 returns base64 by default
+    const imageData = data.data[0].b64_json;
+    if (!imageData) {
+      throw new Error('No image data returned from OpenAI');
+    }
+    
+    // Upload to Supabase Storage
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const imageBuffer = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
+    const fileName = `social-media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.png`;
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('generated-images')
+      .upload(fileName, imageBuffer, {
+        contentType: 'image/png',
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError);
+      throw new Error(`Failed to upload image: ${uploadError.message}`);
+    }
+
+    // Get public URL for the uploaded image
+    const { data: urlData } = supabase.storage
+      .from('generated-images')
+      .getPublicUrl(fileName);
+
+    console.log('Successfully generated and uploaded image');
+    return urlData.publicUrl;
+    
+  } catch (error) {
+    console.error('Image generation error:', error);
+    // Return a placeholder instead of failing completely
+    return 'https://via.placeholder.com/1024x1024/666666/ffffff?text=Image+Generation+Failed';
   }
-
-  // Get public URL for the uploaded image
-  const { data: urlData } = supabase.storage
-    .from('generated-images')
-    .getPublicUrl(fileName);
-
-  return urlData.publicUrl;
 }
