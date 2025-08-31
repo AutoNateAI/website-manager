@@ -183,12 +183,14 @@ POST 3: "The Operations Transformation Blueprint" - Success Story Approach
 - Content Focus: Real transformation story, methodology, measurable outcomes
 - CTA: "Download the transformation blueprint"
 
-Each concept MUST have:
-- Completely different hook and title
-- Unique angle and approach to the same topic
-- Different target audience within companies
-- Specific, actionable content direction
-- Distinct call-to-action`;
+186: Each concept MUST have:
+187: - Completely different hook and title
+188: - Unique angle and approach to the same topic
+189: - Different target audience within companies
+190: - Specific, actionable content direction
+191: - Distinct call-to-action
+- keyMessages must include concrete numbers, specific examples, and visual direction for 5-8 carousel frames`;
+
   } else if (mediaType === 'advertisement') {
     prompt = `Create 3 COMPLETELY DIFFERENT ${platform} ${style} carousel concepts with a ${voice.toLowerCase()} voice for ADVERTISING your AI command center services.
 
@@ -307,34 +309,73 @@ Return in JSON format:
 
   console.log('Generated prompt:', prompt.substring(0, 200) + '...');
   
+  const requestPayload = {
+    model: 'gpt-5-2025-08-07',
+    messages: [
+      { role: 'system', content: 'You are an expert social media strategist who creates viral, deeply detailed content concepts with concrete metrics, examples, and vivid visual direction. Always return strict JSON only.' },
+      { role: 'user', content: prompt }
+    ],
+    response_format: { type: 'json_object' },
+    max_completion_tokens: 1800
+  } as const;
+
+  // Primary request via Chat Completions API
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${openAIApiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: 'gpt-5-2025-08-07',
-      messages: [
-        { role: 'system', content: 'You are an expert social media strategist who creates viral, engaging content concepts that target different audience segments effectively.' },
-        { role: 'user', content: prompt }
-      ],
-      response_format: { type: 'json_object' },
-      max_completion_tokens: 2000
-    }),
+    body: JSON.stringify(requestPayload),
   });
-  
-  console.log('OpenAI response status:', response.status);
 
   const data = await response.json();
-  if (!response.ok) {
-    console.error('OpenAI error response:', response.status, data);
-    throw new Error(`OpenAI API error: ${data.error?.message || 'Unknown error'}`);
+  console.log('OpenAI chat status:', response.status, 'finish_reason:', data.choices?.[0]?.finish_reason);
+  let content: string = data.choices?.[0]?.message?.content ?? '';
+
+  // Fallbacks when content is empty (observed with some JSON responses)
+  if (!content || !content.trim()) {
+    console.warn('Chat returned empty content. Falling back to Responses API.');
+    const resp2 = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-5-2025-08-07',
+        input: prompt,
+        response_format: { type: 'json_object' },
+        max_output_tokens: 1200,
+      }),
+    });
+    const data2 = await resp2.json();
+    console.log('Responses API status:', resp2.status);
+    content = data2.output_text ?? data2.output?.[0]?.content?.[0]?.text ?? '';
+
+    if (!content || !content.trim()) {
+      console.warn('Responses API empty. Retrying chat with gpt-5-mini.');
+      const responseMini = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...requestPayload, model: 'gpt-5-mini-2025-08-07' }),
+      });
+      const dataMini = await responseMini.json();
+      console.log('Mini chat status:', responseMini.status, 'finish_reason:', dataMini.choices?.[0]?.finish_reason);
+      content = dataMini.choices?.[0]?.message?.content ?? '';
+    }
+  }
+
+  if (!content || !content.trim()) {
+    console.error('All OpenAI attempts returned empty content.', { status: response.status, dataPreview: JSON.stringify(data).slice(0, 300) });
+    throw new Error('OpenAI returned empty content');
   }
   
-  console.log('OpenAI response content length:', data.choices?.[0]?.message?.content?.length);
-  const content = data.choices?.[0]?.message?.content ?? '{}';
-  console.log('Raw OpenAI content preview:', content.slice(0, 300));
+  console.log('OpenAI response content length:', content?.length || 0);
+  console.log('Raw OpenAI content preview:', (content || '').slice(0, 300));
   
   let result;
   try {
