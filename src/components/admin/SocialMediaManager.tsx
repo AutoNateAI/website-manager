@@ -80,6 +80,12 @@ const VOICE_OPTIONS = [
   'Creative Visionary'
 ];
 
+const MEDIA_TYPES = [
+  { value: 'company', label: 'Company-focused', description: 'Teaching companies about AI command centers and automation' },
+  { value: 'evergreen', label: 'Evergreen Educational', description: 'Community-focused educational content from a researcher perspective' },
+  { value: 'advertisement', label: 'Advertisement', description: 'Sales-focused content showcasing your AI services and expertise' }
+];
+
 const SocialMediaManager = () => {
   const [posts, setPosts] = useState<SocialMediaPost[]>([]);
   const [images, setImages] = useState<Record<string, SocialMediaImage[]>>({});
@@ -103,6 +109,7 @@ const SocialMediaManager = () => {
     platform: 'instagram' as 'instagram' | 'linkedin',
     style: '',
     voice: VOICE_OPTIONS[0],
+    mediaType: 'evergreen' as 'company' | 'evergreen' | 'advertisement',
     sourceItems: [] as SourceItem[],
     imageSeedUrl: '',
     imageSeedInstructions: '',
@@ -176,8 +183,8 @@ const SocialMediaManager = () => {
   };
 
   const generatePostConcepts = async () => {
-    if (!formData.title || !formData.platform || !formData.style) {
-      toast({ title: 'Please fill in title, platform, and style', variant: 'destructive' });
+    if (!formData.title || !formData.platform || !formData.style || !formData.mediaType) {
+      toast({ title: 'Please fill in title, platform, style, and content type', variant: 'destructive' });
       return;
     }
 
@@ -261,6 +268,7 @@ const SocialMediaManager = () => {
       platform: 'instagram',
       style: '',
       voice: VOICE_OPTIONS[0],
+      mediaType: 'evergreen',
       sourceItems: [],
       imageSeedUrl: '',
       imageSeedInstructions: '',
@@ -437,6 +445,31 @@ const SocialMediaManager = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Media Type Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="mediaType">Content Type *</Label>
+                  <Select
+                    value={formData.mediaType}
+                    onValueChange={(value: 'company' | 'evergreen' | 'advertisement') => 
+                      setFormData({ ...formData, mediaType: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MEDIA_TYPES.map(type => (
+                        <SelectItem key={type.value} value={type.value}>
+                          <div className="flex flex-col items-start">
+                            <span className="font-medium">{type.label}</span>
+                            <span className="text-xs text-muted-foreground">{type.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Source Items Selection */}

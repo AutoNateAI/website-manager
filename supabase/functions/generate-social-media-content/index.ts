@@ -32,6 +32,7 @@ serve(async (req) => {
       imageSeedUrl,
       imageSeedInstructions,
       contextDirection,
+      mediaType,
       postConcepts
     } = await req.json();
 
@@ -51,7 +52,7 @@ serve(async (req) => {
     
     // Generate all captions in parallel
     const captionPromises = postConcepts.map((concept, index) =>
-      generateCaptionAndHashtags(sourceContent, platform, style, voice, concept, contextDirection)
+      generateCaptionAndHashtags(sourceContent, platform, style, voice, concept, mediaType || 'evergreen', contextDirection)
     );
     const captionResults = await Promise.all(captionPromises);
 
@@ -71,7 +72,8 @@ serve(async (req) => {
           hashtags,
           image_seed_url: imageSeedUrl || null,
           image_seed_instructions: imageSeedInstructions || null,
-          context_direction: contextDirection || null
+          context_direction: contextDirection || null,
+          media_type: mediaType || 'evergreen'
         })
         .select()
         .single();
@@ -90,7 +92,7 @@ serve(async (req) => {
       const concept = postConcepts[postIndex];
       
       const imagePrompts = await generateImagePrompts(
-        sourceContent, platform, style, voice, imageSeedUrl, imageSeedInstructions, concept, postIndex + 1
+        sourceContent, platform, style, voice, imageSeedUrl, imageSeedInstructions, concept, mediaType || 'evergreen', postIndex + 1
       );
 
       // Create promises for all 9 images of this carousel
@@ -199,6 +201,7 @@ async function generateCaptionAndHashtags(
   style: string, 
   voice: string,
   concept: any,
+  mediaType: string,
   contextDirection?: string
 ) {
   const contentSummary = sourceContent.map(item => {
@@ -213,7 +216,12 @@ async function generateCaptionAndHashtags(
 
   const contextText = contextDirection ? `\n\nAdditional Context: ${contextDirection}` : '';
 
-  const prompt = `Create an engaging ${platform} ${style.toLowerCase()} post with a ${voice.toLowerCase()} voice based on this specific concept:
+  let systemPrompt = '';
+  let userPrompt = '';
+
+  if (mediaType === 'company') {
+    systemPrompt = 'You are an expert AI solutions consultant who creates compelling content that teaches companies about AI command centers and automation. You understand business pain points and can articulate technical solutions in business terms.';
+    userPrompt = `Create an engaging ${platform} ${style.toLowerCase()} post with a ${voice.toLowerCase()} voice that teaches companies about AI command centers and automation solutions.
 
 Post Concept:
 - Title/Hook: ${concept.title}
@@ -227,21 +235,87 @@ Source Content:
 ${contentSummary}${contextText}
 
 Generate:
-1. A captivating caption that follows the concept's angle and targets the specified audience (150-300 words for LinkedIn, 100-150 for Instagram)
-2. 10-15 relevant hashtags that align with the target audience and content angle
+1. A compelling caption that explains AI command center benefits for businesses (150-300 words for LinkedIn, 100-150 for Instagram)
+2. 10-15 business-focused hashtags including AI, automation, and industry-specific terms
 
 The content should:
-- Strictly follow the concept's angle and tone
-- Target the specified audience with appropriate language and examples
-- Include the key messages naturally within the flow
-- End with the specified call-to-action
-- Be engaging enough to encourage sharing and comments
+- Address real business challenges and solutions
+- Explain AI command center benefits in business terms
+- Include specific capabilities and ROI potential
+- Use professional language appropriate for decision-makers
+- End with a business-focused call-to-action
+- Position AI expertise naturally without being overly promotional
 
 Return in JSON format:
 {
   "caption": "...",
   "hashtags": ["hashtag1", "hashtag2", ...]
 }`;
+  } else if (mediaType === 'advertisement') {
+    systemPrompt = 'You are an expert marketing copywriter who creates high-converting social media content for AI services. You understand how to showcase expertise while building trust and driving action.';
+    userPrompt = `Create a compelling ${platform} ${style.toLowerCase()} advertisement with a ${voice.toLowerCase()} voice that showcases your AI command center expertise and drives conversions.
+
+Post Concept:
+- Title/Hook: ${concept.title}
+- Content Angle: ${concept.angle}
+- Target Audience: ${concept.targetAudience}
+- Key Messages: ${concept.keyMessages.join(', ')}
+- Tone: ${concept.tone}
+- Call to Action: ${concept.callToAction}
+
+Source Content:
+${contentSummary}${contextText}
+
+Generate:
+1. A persuasive caption that showcases AI expertise and drives action (150-300 words for LinkedIn, 100-150 for Instagram)
+2. 10-15 conversion-focused hashtags including service keywords and industry terms
+
+The content should:
+- Highlight unique AI command center capabilities
+- Include social proof or results where relevant
+- Build credibility and trust
+- Create urgency or value proposition
+- End with a strong call-to-action for consultation/demo
+- Be persuasive but not pushy or overly salesy
+
+Return in JSON format:
+{
+  "caption": "...",
+  "hashtags": ["hashtag1", "hashtag2", ...]
+}`;
+  } else {
+    systemPrompt = 'You are an expert AI researcher and educator who creates valuable educational content for the tech community. You excel at making complex concepts accessible and engaging.';
+    userPrompt = `Create an engaging ${platform} ${style.toLowerCase()} educational post with a ${voice.toLowerCase()} voice that provides valuable insights to the AI/tech community.
+
+Post Concept:
+- Title/Hook: ${concept.title}
+- Content Angle: ${concept.angle}
+- Target Audience: ${concept.targetAudience}
+- Key Messages: ${concept.keyMessages.join(', ')}
+- Tone: ${concept.tone}
+- Call to Action: ${concept.callToAction}
+
+Source Content:
+${contentSummary}${contextText}
+
+Generate:
+1. An educational caption that provides genuine value and insights (150-300 words for LinkedIn, 100-150 for Instagram)
+2. 10-15 community-focused hashtags including AI, tech, research, and learning terms
+
+The content should:
+- Provide genuine educational value and insights
+- Be backed by research or solid expertise
+- Use an authoritative yet accessible tone
+- Include actionable takeaways or thought-provoking questions
+- End with a community-building call-to-action
+- Focus on learning and sharing rather than promotion
+
+Return in JSON format:
+{
+  "caption": "...",
+  "hashtags": ["hashtag1", "hashtag2", ...]
+}`;
+  }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -252,8 +326,8 @@ Return in JSON format:
     body: JSON.stringify({
       model: 'gpt-5-2025-08-07',
       messages: [
-        { role: 'system', content: 'You are an expert social media content creator who creates viral, engaging posts.' },
-        { role: 'user', content: prompt }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
       ],
       max_completion_tokens: 1000
     }),
@@ -280,6 +354,7 @@ async function generateImagePrompts(
   imageSeedUrl?: string,
   imageSeedInstructions?: string,
   concept?: any,
+  mediaType?: string,
   carouselNumber?: number
 ) {
   const contentSummary = sourceContent.map(item => {
@@ -302,7 +377,10 @@ async function generateImagePrompts(
 - Tone: ${concept.tone}
 - Call to Action: ${concept.callToAction}` : '';
 
-  const prompt = `Create 9 image prompts for a social media carousel for ${platform} that follows this specific concept.
+  let prompt = '';
+  
+  if (mediaType === 'company') {
+    prompt = `Create 9 image prompts for a ${platform} carousel targeting COMPANIES about AI command centers and automation solutions.
 
 Source Content:
 ${contentSummary}
@@ -310,22 +388,73 @@ ${contentSummary}
 Style: ${style}
 Voice: ${voice}${seedContext}${conceptContext}
 
-The carousel should have:
-- Image 1: Captivating hook with bold text overlay that stops scrolling - should match the concept's title/hook
-- Images 2-8: Detail images with great graphics, building climactic engagement - focus on the key messages from the concept
-- Image 9: Strong CTA image that aligns with the concept's call-to-action
+The carousel should teach companies about AI command centers:
+- Image 1: Captivating business hook with professional text overlay - "${concept?.title || 'AI Command Centers Transform Business'}"
+- Images 2-8: Business-focused visuals showing AI automation benefits, ROI, efficiency gains, dashboard mockups, process improvements
+- Image 9: Professional CTA image encouraging consultation or demo
 
 Requirements:
-- Square 1:1 aspect ratio
-- Modern, professional design that matches the concept's tone (${concept?.tone || 'engaging'})
-- Include text overlays where appropriate
-- Target the specified audience: ${concept?.targetAudience || 'general audience'}
-- Be engaging, shareable, and informative
-- Build energy and momentum through the sequence
-- Stay true to the concept's angle and approach
+- Square 1:1 aspect ratio, professional business aesthetic
+- Corporate-friendly design with clean text overlays
+- Show AI dashboards, automation workflows, business metrics
+- Target business decision-makers and technical leaders
+- Professional color schemes (blues, grays, clean whites)
+- Include business icons, charts, productivity themes
+- Modern enterprise software aesthetic
 
 Return as JSON array of 9 prompts:
 ["prompt 1", "prompt 2", ..., "prompt 9"]`;
+  } else if (mediaType === 'advertisement') {
+    prompt = `Create 9 image prompts for a ${platform} carousel ADVERTISING your AI command center services and expertise.
+
+Source Content:
+${contentSummary}
+
+Style: ${style}
+Voice: ${voice}${seedContext}${conceptContext}
+
+The carousel should showcase your AI expertise and drive conversions:
+- Image 1: Attention-grabbing service showcase with compelling text overlay - "${concept?.title || 'Custom AI Solutions'}"
+- Images 2-8: Portfolio pieces, capability demonstrations, before/after results, technology stacks, client success stories
+- Image 9: Strong conversion-focused CTA image with contact information
+
+Requirements:
+- Square 1:1 aspect ratio, premium service provider aesthetic
+- High-quality, professional design that builds trust
+- Show your AI technologies, custom solutions, results
+- Include portfolio elements, technology logos, success metrics
+- Premium color schemes that convey expertise
+- Modern, cutting-edge visual style
+- Build credibility and showcase differentiation
+
+Return as JSON array of 9 prompts:
+["prompt 1", "prompt 2", ..., "prompt 9"]`;
+  } else {
+    prompt = `Create 9 image prompts for a ${platform} carousel providing EDUCATIONAL content to the AI/tech community.
+
+Source Content:
+${contentSummary}
+
+Style: ${style}
+Voice: ${voice}${seedContext}${conceptContext}
+
+The carousel should educate and inform the community:
+- Image 1: Educational hook with engaging text overlay - "${concept?.title || 'AI Insights'}"
+- Images 2-8: Educational diagrams, research visualizations, concept explanations, trend analyses, technical insights
+- Image 9: Community-building CTA encouraging discussion and learning
+
+Requirements:
+- Square 1:1 aspect ratio, educational and accessible design
+- Clean, informative visuals with clear text overlays
+- Include charts, diagrams, research visualizations, concept maps
+- Target AI enthusiasts, researchers, and practitioners
+- Use engaging but professional color schemes
+- Focus on clarity and educational value
+- Modern tech-forward aesthetic
+
+Return as JSON array of 9 prompts:
+["prompt 1", "prompt 2", ..., "prompt 9"]`;
+  }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
