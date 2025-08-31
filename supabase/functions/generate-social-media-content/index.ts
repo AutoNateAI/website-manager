@@ -103,7 +103,7 @@ serve(async (req) => {
 
     // Generate simplified image prompts and create images
     console.log('=== Starting image generation for all posts ===');
-    const allImagePromises = [];
+    const tasks: Array<() => Promise<void>> = [];
     
     for (let postIndex = 0; postIndex < createdPosts.length; postIndex++) {
       const postData = createdPosts[postIndex];
@@ -121,43 +121,51 @@ serve(async (req) => {
         }
       });
 
-      // Create promises for all 9 images of this carousel
+      // Build task functions for all 9 images of this carousel
       for (let imageIndex = 0; imageIndex < imagePrompts.length; imageIndex++) {
         const prompt = imagePrompts[imageIndex];
         const actualImageIndex = imageIndex + 1;
-        
-        const imagePromise = generateImage(prompt, imageSeedUrl).then(async (imageUrl) => {
-          // Save to database
-          const { error: imageError } = await supabase
-            .from('social_media_images')
-            .insert({
-              post_id: postData.id,
-              carousel_index: 1,
-              image_index: actualImageIndex,
-              image_url: imageUrl,
-              image_prompt: prompt,
-              alt_text: `Carousel ${postIndex + 1} Image ${actualImageIndex}`
-            });
-          
-          if (imageError) {
-            console.error('Image save error:', imageError);
-          } else {
-            console.log(`Completed image ${actualImageIndex}/9 for post ${postIndex + 1}`);
+
+        tasks.push(async () => {
+          try {
+            const imageUrl = await generateImage(prompt, imageSeedUrl);
+            const { error: imageError } = await supabase
+              .from('social_media_images')
+              .insert({
+                post_id: postData.id,
+                carousel_index: 1,
+                image_index: actualImageIndex,
+                image_url: imageUrl,
+                image_prompt: prompt,
+                alt_text: `Carousel ${postIndex + 1} Image ${actualImageIndex}`
+              });
+            if (imageError) {
+              console.error('Image save error:', imageError);
+            } else {
+              console.log(`Completed image ${actualImageIndex}/9 for post ${postIndex + 1}`);
+            }
+          } catch (error) {
+            console.error(`Error generating image ${actualImageIndex} for post ${postIndex + 1}:`, error);
           }
-          
-          return imageUrl;
-        }).catch(error => {
-          console.error(`Error generating image ${actualImageIndex} for post ${postIndex + 1}:`, error);
-          return null;
         });
-        
-        allImagePromises.push(imagePromise);
       }
     }
 
-    // Generate ALL 27 images in parallel
-    console.log(`Starting parallel generation of ${allImagePromises.length} images`);
-    await Promise.all(allImagePromises);
+    // Simple concurrency runner to avoid rate limits
+    const runPool = async (fns: Array<() => Promise<void>>, concurrency = 6) => {
+      let idx = 0;
+      const workers = Array.from({ length: concurrency }, () => (async () => {
+        while (true) {
+          const current = idx++;
+          if (current >= fns.length) break;
+          await fns[current]();
+        }
+      })());
+      await Promise.all(workers);
+    };
+
+    console.log(`Starting queued generation of ${tasks.length} images with concurrency 6`);
+    await runPool(tasks, 6);
     console.log('All images generated successfully');
 
     console.log('Social media content generation completed for 3 posts');
