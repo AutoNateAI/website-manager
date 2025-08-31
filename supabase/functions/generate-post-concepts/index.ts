@@ -89,7 +89,12 @@ function parseJSONSafe(text: string) {
   } else if (firstBracket !== -1 && lastBracket !== -1) {
     t = t.slice(firstBracket, lastBracket + 1);
   }
-  return JSON.parse(t);
+  try {
+    return JSON.parse(t);
+  } catch (e) {
+    console.error('JSON parse failed, returning empty object. Raw text start:', t.slice(0, 200));
+    return {} as any;
+  }
 }
 
 async function fetchSourceContent(supabase: any, sourceItems: SourceItem[] = []) {
@@ -300,6 +305,7 @@ Return in JSON format:
         { role: 'system', content: 'You are an expert social media strategist who creates viral, engaging content concepts that target different audience segments effectively.' },
         { role: 'user', content: prompt }
       ],
+      response_format: { type: 'json_object' },
       max_completion_tokens: 2000
     }),
   });
@@ -313,8 +319,33 @@ Return in JSON format:
   }
   
   console.log('OpenAI response content length:', data.choices?.[0]?.message?.content?.length);
-  const result = parseJSONSafe(data.choices?.[0]?.message?.content ?? '{}');
+  const content = data.choices?.[0]?.message?.content ?? '{}';
+  let result = parseJSONSafe(content);
   console.log('Parsed result:', result);
+
+  if (!result || !Array.isArray(result.concepts)) {
+    console.warn('LLM did not return valid concepts JSON, building fallback concepts');
+    const tones = mediaType === 'company' ? ['Authoritative', 'Strategic', 'Visionary']
+      : mediaType === 'advertisement' ? ['Confident', 'Trustworthy', 'Expert']
+      : ['Educational', 'Analytical', 'Practical'];
+    result = {
+      concepts: [1, 2, 3].map((n, idx) => ({
+        id: `concept-${n}`,
+        title: `${title} — ${mediaType === 'advertisement' ? 'Showcase' : mediaType === 'company' ? 'Business Impact' : 'Insight'} ${n}`,
+        angle: mediaType === 'company' ? 'Problem → AI Command Center Solution → ROI'
+          : mediaType === 'advertisement' ? 'Capability → Proof → CTA'
+          : 'Explain → Example → Takeaway',
+        targetAudience: mediaType === 'company' ? 'Decision-makers at growth-oriented companies'
+          : mediaType === 'advertisement' ? 'Prospective clients evaluating AI services'
+          : 'AI/tech community',
+        keyMessages: ['Clear hook', '3-5 concrete points', 'Strong CTA'],
+        tone: tones[idx] || 'Professional',
+        callToAction: mediaType === 'advertisement' ? 'Book a demo'
+          : mediaType === 'company' ? 'Schedule a consultation'
+          : 'Join the discussion'
+      }))
+    } as any;
+  }
   
   return result.concepts;
 }
