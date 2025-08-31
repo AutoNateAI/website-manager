@@ -175,8 +175,8 @@ const SocialMediaManager = () => {
   };
 
   const generatePostConcepts = async () => {
-    if (!formData.title || !formData.platform || !formData.style || formData.sourceItems.length === 0) {
-      toast({ title: 'Please fill in all required fields', variant: 'destructive' });
+    if (!formData.title || !formData.platform || !formData.style) {
+      toast({ title: 'Please fill in title, platform, and style', variant: 'destructive' });
       return;
     }
 
@@ -404,7 +404,7 @@ const SocialMediaManager = () => {
 
                 {/* Source Items Selection */}
                 <div className="space-y-4">
-                  <Label>Source Content (Select up to 3 items) *</Label>
+                  <Label>Source Content (Optional - up to 3 items)</Label>
                   <Tabs defaultValue="blogs" className="w-full">
                     <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="blogs">Blogs</TabsTrigger>
@@ -578,7 +578,7 @@ const SocialMediaManager = () => {
                   {!conceptsGenerated ? (
                     <Button 
                       onClick={generatePostConcepts}
-                      disabled={generatingConcepts || formData.sourceItems.length === 0}
+                      disabled={generatingConcepts}
                       className="w-full"
                     >
                       {generatingConcepts ? (

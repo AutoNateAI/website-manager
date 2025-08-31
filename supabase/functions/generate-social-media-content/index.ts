@@ -43,8 +43,11 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Normalize optional source items (can be empty)
+    const normalizedSourceItems = Array.isArray(sourceItems) ? sourceItems : [];
+
     // Fetch source content details
-    const sourceContent = await fetchSourceContent(supabase, sourceItems);
+    const sourceContent = await fetchSourceContent(supabase, normalizedSourceItems);
     
     // Create 3 separate posts using the refined concepts
     const createdPosts = [];
@@ -114,7 +117,25 @@ serve(async (req) => {
   }
 });
 
-async function fetchSourceContent(supabase: any, sourceItems: SourceItem[]) {
+// Robust JSON parser to handle code fences or extra text
+function parseJSONSafe(text: string) {
+  let t = String(text ?? '').trim();
+  if (t.startsWith('```')) {
+    t = t.replace(/^```(?:json)?\n?/i, '').replace(/```$/i, '').trim();
+  }
+  const firstBrace = t.indexOf('{');
+  const lastBrace = t.lastIndexOf('}');
+  const firstBracket = t.indexOf('[');
+  const lastBracket = t.lastIndexOf(']');
+  if (firstBrace !== -1 && lastBrace !== -1 && (firstBrace < firstBracket || firstBracket === -1)) {
+    t = t.slice(firstBrace, lastBrace + 1);
+  } else if (firstBracket !== -1 && lastBracket !== -1) {
+    t = t.slice(firstBracket, lastBracket + 1);
+  }
+  return JSON.parse(t);
+}
+
+async function fetchSourceContent(supabase: any, sourceItems: SourceItem[] = []) {
   const content = [];
   
   for (const item of sourceItems) {
@@ -213,7 +234,11 @@ Return in JSON format:
   });
 
   const data = await response.json();
-  const result = JSON.parse(data.choices[0].message.content);
+  if (!response.ok) {
+    console.error('OpenAI caption API error:', data);
+    throw new Error(data.error?.message || 'Failed to generate caption');
+  }
+  const result = parseJSONSafe(data.choices?.[0]?.message?.content ?? '{}');
   
   return {
     caption: result.caption,
@@ -336,7 +361,11 @@ Return as JSON array of 9 prompts:
   });
 
   const data = await response.json();
-  return JSON.parse(data.choices[0].message.content);
+  if (!response.ok) {
+    console.error('OpenAI prompt API error:', data);
+    throw new Error(data.error?.message || 'Failed to generate image prompts');
+  }
+  return parseJSONSafe(data.choices?.[0]?.message?.content ?? '[]');
 }
 
 async function generateImage(prompt: string, referenceImageUrl?: string): Promise<string> {
