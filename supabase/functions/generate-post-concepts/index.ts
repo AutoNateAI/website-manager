@@ -33,7 +33,8 @@ serve(async (req) => {
       contextDirection
     } = await req.json();
 
-    console.log('Starting post concept generation');
+    console.log('Starting post concept generation with mediaType:', mediaType);
+    console.log('Request data:', { title, platform, style, voice, mediaType });
 
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
@@ -152,63 +153,69 @@ Title: ${title}
 Source Content:
 ${contentSummary}${contextText}
 
-Context: You're teaching companies how AI command centers can transform their business operations. Focus on practical implementation, ROI, efficiency gains, and competitive advantages. Speak directly to decision-makers who need to understand the value proposition.
+Context: You're educating decision-makers at companies about how AI command centers can solve their operational challenges and drive measurable business results. Focus on ROI, efficiency, and competitive advantage. Position AI automation as the solution to their pain points.
 
-Create 3 different approaches:
+Create 3 different conversion-focused approaches:
 
-POST 1: Implementation-focused
-- Target audience: CTOs, IT Directors, Operations Managers
-- Angle: Step-by-step guide to implementing AI command centers in their specific industry
-- Tone: Technical but accessible, solution-oriented
+POST 1: Problem-Solution Implementation
+- Target audience: CTOs, IT Directors, Operations Managers seeking solutions
+- Angle: "Here's the exact business problem you're facing and how AI command centers solve it step-by-step"
+- Tone: Authoritative problem-solver, solution-oriented
+- Focus: Pain point identification → AI solution → implementation roadmap
 
-POST 2: ROI & Business Value focus
-- Target audience: C-Suite executives, Business owners, Financial decision-makers  
-- Angle: Cost savings, efficiency gains, competitive advantages of AI automation
-- Tone: Data-driven, strategic, results-focused
+POST 2: ROI & Competitive Advantage
+- Target audience: C-Suite executives, Business owners, Financial decision-makers
+- Angle: "Your competitors are gaining unfair advantages with AI automation - here's how you can leapfrog them"
+- Tone: Urgent, data-driven, results-focused
+- Focus: Market reality → competitive gap → AI solution → measurable outcomes
 
-POST 3: Industry-specific transformation
-- Target audience: Industry leaders in their specific vertical
-- Angle: How AI command centers are revolutionizing their particular industry
-- Tone: Visionary, forward-thinking, industry-expert
+POST 3: Industry Transformation Success
+- Target audience: Industry leaders worried about being left behind
+- Angle: "Leading companies in your industry are already using AI command centers - here's what they're achieving"
+- Tone: Insider knowledge, forward-thinking, FOMO-inducing
+- Focus: Industry examples → transformation results → implementation opportunity
 
 Each concept should:
-- Address real business pain points and solutions
-- Include specific AI automation capabilities and benefits
-- Provide actionable insights they can implement
-- Position your AI command center expertise naturally
-- Include a clear business-focused call-to-action`;
+- Start with a painful business challenge they recognize immediately
+- Position AI command centers as the proven solution
+- Include specific ROI metrics and efficiency gains
+- Create urgency around competitive disadvantage of inaction
+- End with a compelling business consultation call-to-action`;
   } else if (mediaType === 'advertisement') {
-    prompt = `Create 3 distinct ${platform} ${style} carousel concepts with a ${voice.toLowerCase()} voice for ADVERTISING your AI command center products and services.
+    prompt = `Create 3 distinct ${platform} ${style} carousel concepts with a ${voice.toLowerCase()} voice for ADVERTISING your AI command center services with high conversion focus.
 
 Title: ${title}
 Source Content:
 ${contentSummary}${contextText}
 
-Context: You're showcasing your AI command center capabilities, demonstrating what you can build, and converting prospects into clients. Focus on your expertise, proven results, and unique AI solutions.
+Context: You're showcasing your proven AI command center expertise to convert prospects into paying clients. Emphasize unique capabilities, successful implementations, and exclusive access to your services. Create desire and urgency.
 
-Create 3 different approaches:
+Create 3 different high-conversion approaches:
 
-POST 1: Capability showcase
-- Target audience: Potential clients needing AI solutions
-- Angle: Demonstrate the power and versatility of your AI command centers
-- Tone: Confident, expert, results-driven
+POST 1: Exclusive Capability Showcase
+- Target audience: Decision-makers ready to invest in AI solutions
+- Angle: "See the advanced AI capabilities most companies can't access - here's what we build for our clients"
+- Tone: Exclusive, high-value, expert authority
+- Focus: Unique technology → exclusive access → limited availability
 
-POST 2: Success story/Case study focus
-- Target audience: Decision-makers evaluating AI solutions
-- Angle: Real examples of successful AI command center implementations
-- Tone: Trustworthy, proven, outcome-focused
+POST 2: Client Success Transformation
+- Target audience: Prospects evaluating AI solution providers
+- Angle: "How we transformed [industry] operations with custom AI - detailed case study and results"
+- Tone: Proven results, trustworthy, outcome-focused
+- Focus: Client challenge → custom solution → measurable transformation → availability
 
-POST 3: Behind-the-scenes/Process focus
-- Target audience: Technical stakeholders and curious prospects
-- Angle: How you build custom AI solutions and command centers
-- Tone: Transparent, technical expertise, craftsmanship
+POST 3: Behind-the-Scenes Expertise
+- Target audience: Technical decision-makers and procurement teams
+- Angle: "Inside look at how we engineer custom AI solutions - methodology and expertise you won't find elsewhere"
+- Tone: Technical authority, transparent process, craftsmanship
+- Focus: Process expertise → quality standards → custom approach → consultation offer
 
 Each concept should:
-- Highlight your unique AI command center expertise
-- Include specific capabilities and technologies you offer
-- Show tangible results and benefits
-- Build trust and credibility
-- End with a strong call-to-action for consultation/demo`;
+- Demonstrate unique value proposition and differentiation
+- Include specific client results and capabilities
+- Create exclusivity and premium positioning
+- Build immediate trust and credibility
+- End with strong conversion CTA (consultation, demo, strategy session)`;
   } else {
     // Evergreen content
     prompt = `Create 3 distinct ${platform} ${style} educational carousel concepts with a ${voice.toLowerCase()} voice for EVERGREEN community content.
@@ -279,6 +286,8 @@ Return in JSON format:
   ]
 }`;
 
+  console.log('Generated prompt:', prompt.substring(0, 200) + '...');
+  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -294,13 +303,18 @@ Return in JSON format:
       max_completion_tokens: 2000
     }),
   });
+  
+  console.log('OpenAI response status:', response.status);
 
   const data = await response.json();
   if (!response.ok) {
     console.error('OpenAI error:', data);
     throw new Error(data.error?.message || 'Failed to generate concepts');
   }
+  
+  console.log('OpenAI response content length:', data.choices?.[0]?.message?.content?.length);
   const result = parseJSONSafe(data.choices?.[0]?.message?.content ?? '{}');
+  console.log('Parsed result:', result);
   
   return result.concepts;
 }
