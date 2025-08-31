@@ -152,108 +152,123 @@ async function generatePostConcepts(
   let prompt = '';
   
   if (mediaType === 'company') {
-    prompt = `Create 3 distinct ${platform} ${style} carousel concepts with a ${voice.toLowerCase()} voice targeting COMPANIES about AI command centers and automation solutions.
+    prompt = `Create 3 COMPLETELY DIFFERENT ${platform} ${style} carousel concepts with a ${voice.toLowerCase()} voice targeting COMPANIES about AI command centers and automation solutions.
 
-Title: ${title}
+Title/Theme: ${title}
 Source Content:
 ${contentSummary}${contextText}
 
-Context: You're educating decision-makers at companies about how AI command centers can solve their operational challenges and drive measurable business results. Focus on ROI, efficiency, and competitive advantage. Position AI automation as the solution to their pain points.
+CRITICAL: Each concept must be UNIQUE with different hooks, angles, and approaches. NO REPETITION.
 
-Create 3 different conversion-focused approaches:
+POST 1: "The Hidden Cost Crisis" - Problem Amplification Approach
+- Target audience: Finance leaders and cost-conscious executives
+- Unique Hook: "Your manual processes are costing you $X per month in hidden expenses"
+- Angle: Expose the hidden financial drain of manual operations → Show exact ROI calculations of AI automation
+- Tone: Urgent, data-driven, financial impact focused
+- Content Focus: Cost analysis, waste identification, precise savings calculations
+- CTA: "Get your free operational cost audit"
 
-POST 1: Problem-Solution Implementation
-- Target audience: CTOs, IT Directors, Operations Managers seeking solutions
-- Angle: "Here's the exact business problem you're facing and how AI command centers solve it step-by-step"
-- Tone: Authoritative problem-solver, solution-oriented
-- Focus: Pain point identification → AI solution → implementation roadmap
+POST 2: "The Competitive Intelligence Gap" - Market Positioning Approach  
+- Target audience: Strategic leaders and business owners
+- Unique Hook: "While you're stuck in manual mode, your competitors are scaling with AI"
+- Angle: Competitive disadvantage story → Market intelligence on AI adoption → How to leapfrog competition
+- Tone: Strategic urgency, insider knowledge, competitive advantage
+- Content Focus: Market trends, competitor examples, strategic positioning
+- CTA: "See how industry leaders are winning with AI"
 
-POST 2: ROI & Competitive Advantage
-- Target audience: C-Suite executives, Business owners, Financial decision-makers
-- Angle: "Your competitors are gaining unfair advantages with AI automation - here's how you can leapfrog them"
-- Tone: Urgent, data-driven, results-focused
-- Focus: Market reality → competitive gap → AI solution → measurable outcomes
+POST 3: "The Operations Transformation Blueprint" - Success Story Approach
+- Target audience: Operations managers and implementation teams
+- Unique Hook: "[Industry] company reduced processing time by 90% with custom AI command center"
+- Angle: Detailed case study → Step-by-step transformation process → Replicable results
+- Tone: Proof-driven, process-focused, achievement-oriented  
+- Content Focus: Real transformation story, methodology, measurable outcomes
+- CTA: "Download the transformation blueprint"
 
-POST 3: Industry Transformation Success
-- Target audience: Industry leaders worried about being left behind
-- Angle: "Leading companies in your industry are already using AI command centers - here's what they're achieving"
-- Tone: Insider knowledge, forward-thinking, FOMO-inducing
-- Focus: Industry examples → transformation results → implementation opportunity
-
-Each concept should:
-- Start with a painful business challenge they recognize immediately
-- Position AI command centers as the proven solution
-- Include specific ROI metrics and efficiency gains
-- Create urgency around competitive disadvantage of inaction
-- End with a compelling business consultation call-to-action`;
+Each concept MUST have:
+- Completely different hook and title
+- Unique angle and approach to the same topic
+- Different target audience within companies
+- Specific, actionable content direction
+- Distinct call-to-action`;
   } else if (mediaType === 'advertisement') {
-    prompt = `Create 3 distinct ${platform} ${style} carousel concepts with a ${voice.toLowerCase()} voice for ADVERTISING your AI command center services with high conversion focus.
+    prompt = `Create 3 COMPLETELY DIFFERENT ${platform} ${style} carousel concepts with a ${voice.toLowerCase()} voice for ADVERTISING your AI command center services.
 
-Title: ${title}
+Title/Theme: ${title}
 Source Content:
 ${contentSummary}${contextText}
 
-Context: You're showcasing your proven AI command center expertise to convert prospects into paying clients. Emphasize unique capabilities, successful implementations, and exclusive access to your services. Create desire and urgency.
+CRITICAL: Each concept must showcase DIFFERENT aspects of your expertise. NO REPETITION.
 
-Create 3 different high-conversion approaches:
+POST 1: "Exclusive Technology Showcase" - Capability Demonstration
+- Target audience: Technical decision-makers and CTOs
+- Unique Hook: "Inside look: The advanced AI stack we build for enterprise clients"
+- Angle: Deep-dive into proprietary technology → Exclusive capabilities → Limited access positioning
+- Tone: Technical authority, exclusive access, premium positioning
+- Content Focus: Technology stack, advanced capabilities, enterprise-grade solutions
+- CTA: "Request technical consultation"
 
-POST 1: Exclusive Capability Showcase
-- Target audience: Decision-makers ready to invest in AI solutions
-- Angle: "See the advanced AI capabilities most companies can't access - here's what we build for our clients"
-- Tone: Exclusive, high-value, expert authority
-- Focus: Unique technology → exclusive access → limited availability
+POST 2: "Client Transformation Gallery" - Social Proof Approach
+- Target audience: Business leaders evaluating providers
+- Unique Hook: "How we transformed [Industry] operations: From chaos to command center"
+- Angle: Before/after transformation stories → Client testimonials → Proven methodology
+- Tone: Results-focused, trustworthy, transformation-driven
+- Content Focus: Client success stories, transformation metrics, testimonials
+- CTA: "See more success stories"
 
-POST 2: Client Success Transformation
-- Target audience: Prospects evaluating AI solution providers
-- Angle: "How we transformed [industry] operations with custom AI - detailed case study and results"
-- Tone: Proven results, trustworthy, outcome-focused
-- Focus: Client challenge → custom solution → measurable transformation → availability
+POST 3: "Behind the Build Process" - Methodology Showcase
+- Target audience: Procurement teams and technical evaluators
+- Unique Hook: "Why our 90-day AI implementation succeeds where others fail"
+- Angle: Unique methodology → Quality process → Guaranteed outcomes approach
+- Tone: Process-confident, quality-focused, guarantee-backed
+- Content Focus: Implementation process, quality standards, success methodology  
+- CTA: "Schedule implementation planning session"
 
-POST 3: Behind-the-Scenes Expertise
-- Target audience: Technical decision-makers and procurement teams
-- Angle: "Inside look at how we engineer custom AI solutions - methodology and expertise you won't find elsewhere"
-- Tone: Technical authority, transparent process, craftsmanship
-- Focus: Process expertise → quality standards → custom approach → consultation offer
-
-Each concept should:
-- Demonstrate unique value proposition and differentiation
-- Include specific client results and capabilities
-- Create exclusivity and premium positioning
-- Build immediate trust and credibility
-- End with strong conversion CTA (consultation, demo, strategy session)`;
+Each concept MUST have:
+- Different value proposition and positioning
+- Unique aspect of your services highlighted
+- Different proof points and credibility builders
+- Specific target within prospect organizations
+- Distinct conversion-focused CTA`;
   } else {
     // Evergreen content
-    prompt = `Create 3 distinct ${platform} ${style} educational carousel concepts with a ${voice.toLowerCase()} voice for EVERGREEN community content.
+    prompt = `Create 3 COMPLETELY DIFFERENT ${platform} ${style} educational carousel concepts with a ${voice.toLowerCase()} voice for EVERGREEN community content.
 
-Title: ${title}
+Title/Theme: ${title}
 Source Content:
 ${contentSummary}${contextText}
 
-Context: You're an expert researcher and educator sharing valuable insights about AI, automation, and technology trends. Focus on educating the community, sharing research-backed insights, and establishing thought leadership.
+CRITICAL: Each concept must approach AI/tech education from DIFFERENT angles. NO REPETITION.
 
-Create 3 different approaches:
+POST 1: "The Research Deep-Dive" - Academic Researcher Approach
+- Target audience: AI researchers, academics, and serious practitioners
+- Unique Hook: "New research reveals [specific finding] about AI implementation"
+- Angle: Latest research findings → Technical analysis → Implications for practice
+- Tone: Academic authority, research-backed, analytically rigorous
+- Content Focus: Research data, technical insights, peer-reviewed findings
+- CTA: "Read the full research analysis"
 
-POST 1: Educational/Tutorial focus
-- Target audience: AI/tech enthusiasts wanting to learn
-- Angle: Break down complex AI concepts into digestible insights
-- Tone: Educational, researcher-like, accessible
+POST 2: "The Practical Implementation Guide" - Hands-on Educator Approach
+- Target audience: Developers and technical implementers
+- Unique Hook: "Step-by-step: How to actually implement [AI concept] in production"
+- Angle: Practical tutorial → Real-world challenges → Working solutions
+- Tone: Practical mentor, implementation-focused, experience-based
+- Content Focus: Code examples, implementation steps, troubleshooting tips
+- CTA: "Get the implementation toolkit"
 
-POST 2: Industry trends/Research focus
-- Target audience: Professionals staying current with AI developments
-- Angle: Latest research, trends, and implications for the industry
-- Tone: Analytical, authoritative, research-based
+POST 3: "The Industry Impact Analysis" - Strategic Thinker Approach  
+- Target audience: Business technologists and strategic planners
+- Unique Hook: "Why [AI trend] will reshape [industry] in the next 2 years"
+- Angle: Trend analysis → Strategic implications → Future predictions
+- Tone: Strategic analyst, forward-thinking, trend-spotting
+- Content Focus: Market analysis, strategic implications, future scenarios
+- CTA: "Join the strategic discussion"
 
-POST 3: Practical insights/Applications focus
-- Target audience: Practitioners looking for actionable knowledge
-- Angle: Real-world applications and practical implications of AI research
-- Tone: Practical, insightful, community-focused
-
-Each concept should:
-- Provide genuine educational value to the community
-- Be backed by research or solid expertise
-- Encourage learning and discussion
-- Share insights without being promotional
-- Include a community-building call-to-action`;
+Each concept MUST have:
+- Completely different educational angle and approach
+- Unique hook related to the source material
+- Different aspect of AI/tech knowledge shared
+- Distinct target within the tech community  
+- Different type of value provided (research/practical/strategic)`;
   }
 
   prompt += `

@@ -36,7 +36,8 @@ serve(async (req) => {
       postConcepts
     } = await req.json();
 
-    console.log('Starting social media content generation for 3 separate posts with refined concepts');
+  console.log('Starting social media content generation for 3 separate posts with refined concepts');
+  console.log('Received data:', { title, platform, style, voice, mediaType });
 
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
@@ -317,6 +318,8 @@ Return in JSON format:
 }`;
   }
 
+  console.log('Generated enhanced prompt for', mediaType);
+  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -329,6 +332,7 @@ Return in JSON format:
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
+      response_format: { type: 'json_object' },
       max_completion_tokens: 1000
     }),
   });
@@ -468,6 +472,7 @@ Return as JSON array of 9 prompts:
         { role: 'system', content: 'You are an expert visual content creator who designs viral social media carousels.' },
         { role: 'user', content: prompt }
       ],
+      response_format: { type: 'json_object' },
       max_completion_tokens: 2000
     }),
   });
