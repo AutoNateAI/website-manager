@@ -80,12 +80,6 @@ const VOICE_OPTIONS = [
   'Creative Visionary'
 ];
 
-const MEDIA_TYPES = [
-  { value: 'company', label: 'Company-focused', description: 'Teaching companies about AI command centers and automation' },
-  { value: 'evergreen', label: 'Evergreen Educational', description: 'Community-focused educational content from a researcher perspective' },
-  { value: 'advertisement', label: 'Advertisement', description: 'Sales-focused content showcasing your AI services and expertise' }
-];
-
 const SocialMediaManager = () => {
   const [posts, setPosts] = useState<SocialMediaPost[]>([]);
   const [images, setImages] = useState<Record<string, SocialMediaImage[]>>({});
@@ -102,14 +96,12 @@ const SocialMediaManager = () => {
   const [showImageEditor, setShowImageEditor] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress | null>(null);
-  const [loadingImages, setLoadingImages] = useState<Record<string, { loading: boolean; url?: string }>>({});
   
   const [formData, setFormData] = useState({
     title: '',
     platform: 'instagram' as 'instagram' | 'linkedin',
     style: '',
     voice: VOICE_OPTIONS[0],
-    mediaType: 'evergreen' as 'company' | 'evergreen' | 'advertisement',
     sourceItems: [] as SourceItem[],
     imageSeedUrl: '',
     imageSeedInstructions: '',
@@ -183,8 +175,8 @@ const SocialMediaManager = () => {
   };
 
   const generatePostConcepts = async () => {
-    if (!formData.title || !formData.platform || !formData.style || !formData.mediaType) {
-      toast({ title: 'Please fill in title, platform, style, and content type', variant: 'destructive' });
+    if (!formData.title || !formData.platform || !formData.style) {
+      toast({ title: 'Please fill in title, platform, and style', variant: 'destructive' });
       return;
     }
 
@@ -224,17 +216,7 @@ const SocialMediaManager = () => {
     }
 
     setGenerating(true);
-    setGenerationProgress({ postIndex: 0, carouselIndex: 0, imageIndex: 0, total: 27, completed: 0 });
-    
-    // Initialize loading state for all 27 images (3 posts × 9 images each)
-    const initialLoadingState: Record<string, { loading: boolean; url?: string }> = {};
-    for (let postIndex = 0; postIndex < 3; postIndex++) {
-      for (let imageIndex = 1; imageIndex <= 9; imageIndex++) {
-        const key = `post-${postIndex}-image-${imageIndex}`;
-        initialLoadingState[key] = { loading: true };
-      }
-    }
-    setLoadingImages(initialLoadingState);
+    setGenerationProgress({ postIndex: 1, carouselIndex: 1, imageIndex: 1, total: 27, completed: 0 });
 
     try {
       const { data: generatedData, error: generateError } = await supabase.functions.invoke('generate-social-media-content', {
@@ -251,14 +233,13 @@ const SocialMediaManager = () => {
       setShowCreateDialog(false);
       resetForm();
       
-      toast({ title: `Successfully generated ${generatedData.postsCreated} social media posts with 27 images!` });
+      toast({ title: `Successfully generated ${generatedData.postsCreated} social media posts!` });
     } catch (error) {
       console.error('Error generating posts:', error);
       toast({ title: 'Error generating posts', variant: 'destructive' });
     } finally {
       setGenerating(false);
       setGenerationProgress(null);
-      setLoadingImages({});
     }
   };
 
@@ -268,7 +249,6 @@ const SocialMediaManager = () => {
       platform: 'instagram',
       style: '',
       voice: VOICE_OPTIONS[0],
-      mediaType: 'evergreen',
       sourceItems: [],
       imageSeedUrl: '',
       imageSeedInstructions: '',
@@ -303,22 +283,6 @@ const SocialMediaManager = () => {
 
   const renderCarouselPreview = (postId: string) => {
     const postImages = images[postId] || [];
-    
-    // If we're generating and this post doesn't have images yet, show loading grid
-    if (generating && postImages.length === 0) {
-      return (
-        <div className="grid grid-cols-3 gap-2">
-          {Array.from({ length: 9 }, (_, index) => (
-            <div 
-              key={index}
-              className="aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center"
-            >
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
-            </div>
-          ))}
-        </div>
-      );
-    }
 
     return (
       <div className="grid grid-cols-3 gap-2">
@@ -336,15 +300,6 @@ const SocialMediaManager = () => {
               alt={image.alt_text || `Image ${imgIndex + 1}`}
               className="w-full h-full object-cover"
             />
-          </div>
-        ))}
-        {/* Fill empty slots with loading if we're still generating */}
-        {generating && postImages.length < 9 && Array.from({ length: 9 - postImages.length }, (_, index) => (
-          <div 
-            key={`loading-${index}`}
-            className="aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center"
-          >
-            <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
           </div>
         ))}
       </div>
@@ -447,31 +402,6 @@ const SocialMediaManager = () => {
                   </div>
                 </div>
 
-                {/* Media Type Selection */}
-                <div className="space-y-2">
-                  <Label htmlFor="mediaType">Content Type *</Label>
-                  <Select
-                    value={formData.mediaType}
-                    onValueChange={(value: 'company' | 'evergreen' | 'advertisement') => 
-                      setFormData({ ...formData, mediaType: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MEDIA_TYPES.map(type => (
-                        <SelectItem key={type.value} value={type.value}>
-                          <div className="flex flex-col items-start">
-                            <span className="font-medium">{type.label}</span>
-                            <span className="text-xs text-muted-foreground">{type.description}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 {/* Source Items Selection */}
                 <div className="space-y-4">
                   <Label>Source Content (Optional - up to 3 items)</Label>
@@ -563,31 +493,18 @@ const SocialMediaManager = () => {
 
                 {/* Generation Progress */}
                 {generating && generationProgress && (
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span>Generating 27 images in parallel...</span>
-                      <span>All posts and images loading simultaneously</span>
+                      <span>Generating images...</span>
+                      <span>{Math.round((generationProgress.completed / generationProgress.total) * 100)}%</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      {/* Show 3 loading grids for the 3 posts */}
-                      {Array.from({ length: 3 }, (_, postIndex) => (
-                        <div key={postIndex} className="space-y-2">
-                          <h4 className="text-sm font-medium">Post {postIndex + 1}</h4>
-                          <div className="grid grid-cols-3 gap-1">
-                            {Array.from({ length: 9 }, (_, imageIndex) => (
-                              <div 
-                                key={imageIndex}
-                                className="aspect-square bg-muted rounded border flex items-center justify-center"
-                              >
-                                <div className="animate-spin rounded-full h-3 w-3 border border-primary border-t-transparent"></div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground text-center">
-                      All 27 images are generating simultaneously. This should complete in seconds with your high-speed API!
+                    <Progress 
+                      value={(generationProgress.completed / generationProgress.total) * 100} 
+                      className="w-full" 
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Generating post {generationProgress.postIndex}/3, 
+                      Image {generationProgress.imageIndex}/9
                     </p>
                   </div>
                 )}
@@ -682,10 +599,16 @@ const SocialMediaManager = () => {
                       {generating ? (
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Generating All Posts & Images...
+                          Generating Posts & Images...
+                          <div className="ml-2">
+                            <p className="text-xs text-muted-foreground">
+                              Generating post {generationProgress?.postIndex}/3, 
+                              Image {generationProgress?.imageIndex}/9
+                            </p>
+                          </div>
                         </>
                       ) : (
-                        'Generate 3 Posts (27 Images in Parallel)'
+                        'Generate 3 Social Media Posts'
                       )}
                     </Button>
                   )}

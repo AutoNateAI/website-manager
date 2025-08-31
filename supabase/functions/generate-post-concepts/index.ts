@@ -29,12 +29,10 @@ serve(async (req) => {
       style,
       voice,
       sourceItems,
-      mediaType,
       contextDirection
     } = await req.json();
 
-    console.log('Starting post concept generation with mediaType:', mediaType);
-    console.log('Request data:', { title, platform, style, voice, mediaType });
+    console.log('Starting post concept generation');
 
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
@@ -50,7 +48,7 @@ serve(async (req) => {
     
     // Generate 3 distinct post concepts
     const concepts = await generatePostConcepts(
-      sourceContent, platform, style, voice, title, mediaType || 'evergreen', contextDirection
+      sourceContent, platform, style, voice, title, contextDirection
     );
 
     console.log('Post concept generation completed');
@@ -75,24 +73,20 @@ serve(async (req) => {
 // Robust JSON parser to handle code fences or extra text
 function parseJSONSafe(text: string) {
   let t = String(text ?? '').trim();
-  
   // Remove Markdown code fences if present
   if (t.startsWith('```')) {
     t = t.replace(/^```(?:json)?\n?/i, '').replace(/```$/i, '').trim();
   }
-  
-  // Find JSON boundaries
+  // Extract the first JSON object/array if extra prose exists
   const firstBrace = t.indexOf('{');
   const lastBrace = t.lastIndexOf('}');
-  
-  if (firstBrace === -1 || lastBrace === -1) {
-    throw new Error('No JSON object found in response');
+  const firstBracket = t.indexOf('[');
+  const lastBracket = t.lastIndexOf(']');
+  if (firstBrace !== -1 && lastBrace !== -1 && (firstBrace < firstBracket || firstBracket === -1)) {
+    t = t.slice(firstBrace, lastBrace + 1);
+  } else if (firstBracket !== -1 && lastBracket !== -1) {
+    t = t.slice(firstBracket, lastBracket + 1);
   }
-  
-  // Extract JSON portion
-  t = t.slice(firstBrace, lastBrace + 1);
-  
-  // Parse JSON
   return JSON.parse(t);
 }
 
@@ -133,7 +127,6 @@ async function generatePostConcepts(
   style: string, 
   voice: string,
   title: string,
-  mediaType: string,
   contextDirection?: string
 ) {
   const contentSummary = sourceContent.map(item => {
@@ -148,131 +141,35 @@ async function generatePostConcepts(
 
   const contextText = contextDirection ? `\n\nAdditional Context: ${contextDirection}` : '';
 
-  let prompt = '';
-  
-  if (mediaType === 'company') {
-    prompt = `Create 3 COMPLETELY DIFFERENT ${platform} ${style} carousel concepts with a ${voice.toLowerCase()} voice targeting COMPANIES about AI command centers and automation solutions.
+  const prompt = `Analyze the source content and create 3 distinct post concepts for ${platform} ${style} posts with a ${voice.toLowerCase()} voice.
 
-Title/Theme: ${title}
+Title: ${title}
 Source Content:
 ${contentSummary}${contextText}
 
-CRITICAL: Each concept must be UNIQUE with different hooks, angles, and approaches. NO REPETITION.
+Create 3 completely different approaches to the same source material:
 
-POST 1: "The Hidden Cost Crisis" - Problem Amplification Approach
-- Target audience: Finance leaders and cost-conscious executives
-- Unique Hook: "Your manual processes are costing you $X per month in hidden expenses"
-- Angle: Expose the hidden financial drain of manual operations → Show exact ROI calculations of AI automation
-- Tone: Urgent, data-driven, financial impact focused
-- Content Focus: Cost analysis, waste identification, precise savings calculations
-- CTA: "Get your free operational cost audit"
+POST 1: Educational/How-to focus
+- Target audience: Beginners or those wanting to learn
+- Angle: Break down complex concepts into digestible steps
+- Tone: Helpful, encouraging, accessible
 
-POST 2: "The Competitive Intelligence Gap" - Market Positioning Approach  
-- Target audience: Strategic leaders and business owners
-- Unique Hook: "While you're stuck in manual mode, your competitors are scaling with AI"
-- Angle: Competitive disadvantage story → Market intelligence on AI adoption → How to leapfrog competition
-- Tone: Strategic urgency, insider knowledge, competitive advantage
-- Content Focus: Market trends, competitor examples, strategic positioning
-- CTA: "See how industry leaders are winning with AI"
+POST 2: Strategic/Thought Leadership focus  
+- Target audience: Professionals and decision-makers
+- Angle: Industry insights, trends, and strategic implications
+- Tone: Authoritative, analytical, forward-thinking
 
-POST 3: "The Operations Transformation Blueprint" - Success Story Approach
-- Target audience: Operations managers and implementation teams
-- Unique Hook: "[Industry] company reduced processing time by 90% with custom AI command center"
-- Angle: Detailed case study → Step-by-step transformation process → Replicable results
-- Tone: Proof-driven, process-focused, achievement-oriented  
-- Content Focus: Real transformation story, methodology, measurable outcomes
-- CTA: "Download the transformation blueprint"
+POST 3: Inspirational/Story-driven focus
+- Target audience: Broader audience seeking motivation
+- Angle: Personal journey, transformation, or behind-the-scenes
+- Tone: Motivational, relatable, engaging
 
-186: Each concept MUST have:
-187: - Completely different hook and title
-188: - Unique angle and approach to the same topic
-189: - Different target audience within companies
-190: - Specific, actionable content direction
-191: - Distinct call-to-action
-- keyMessages must include concrete numbers, specific examples, and visual direction for 5-8 carousel frames`;
-
-  } else if (mediaType === 'advertisement') {
-    prompt = `Create 3 COMPLETELY DIFFERENT ${platform} ${style} carousel concepts with a ${voice.toLowerCase()} voice for ADVERTISING your AI command center services.
-
-Title/Theme: ${title}
-Source Content:
-${contentSummary}${contextText}
-
-CRITICAL: Each concept must showcase DIFFERENT aspects of your expertise. NO REPETITION.
-
-POST 1: "Exclusive Technology Showcase" - Capability Demonstration
-- Target audience: Technical decision-makers and CTOs
-- Unique Hook: "Inside look: The advanced AI stack we build for enterprise clients"
-- Angle: Deep-dive into proprietary technology → Exclusive capabilities → Limited access positioning
-- Tone: Technical authority, exclusive access, premium positioning
-- Content Focus: Technology stack, advanced capabilities, enterprise-grade solutions
-- CTA: "Request technical consultation"
-
-POST 2: "Client Transformation Gallery" - Social Proof Approach
-- Target audience: Business leaders evaluating providers
-- Unique Hook: "How we transformed [Industry] operations: From chaos to command center"
-- Angle: Before/after transformation stories → Client testimonials → Proven methodology
-- Tone: Results-focused, trustworthy, transformation-driven
-- Content Focus: Client success stories, transformation metrics, testimonials
-- CTA: "See more success stories"
-
-POST 3: "Behind the Build Process" - Methodology Showcase
-- Target audience: Procurement teams and technical evaluators
-- Unique Hook: "Why our 90-day AI implementation succeeds where others fail"
-- Angle: Unique methodology → Quality process → Guaranteed outcomes approach
-- Tone: Process-confident, quality-focused, guarantee-backed
-- Content Focus: Implementation process, quality standards, success methodology  
-- CTA: "Schedule implementation planning session"
-
-Each concept MUST have:
-- Different value proposition and positioning
-- Unique aspect of your services highlighted
-- Different proof points and credibility builders
-- Specific target within prospect organizations
-- Distinct conversion-focused CTA`;
-  } else {
-    // Evergreen content
-    prompt = `Create 3 COMPLETELY DIFFERENT ${platform} ${style} educational carousel concepts with a ${voice.toLowerCase()} voice for EVERGREEN community content.
-
-Title/Theme: ${title}
-Source Content:
-${contentSummary}${contextText}
-
-CRITICAL: Each concept must approach AI/tech education from DIFFERENT angles. NO REPETITION.
-
-POST 1: "The Research Deep-Dive" - Academic Researcher Approach
-- Target audience: AI researchers, academics, and serious practitioners
-- Unique Hook: "New research reveals [specific finding] about AI implementation"
-- Angle: Latest research findings → Technical analysis → Implications for practice
-- Tone: Academic authority, research-backed, analytically rigorous
-- Content Focus: Research data, technical insights, peer-reviewed findings
-- CTA: "Read the full research analysis"
-
-POST 2: "The Practical Implementation Guide" - Hands-on Educator Approach
-- Target audience: Developers and technical implementers
-- Unique Hook: "Step-by-step: How to actually implement [AI concept] in production"
-- Angle: Practical tutorial → Real-world challenges → Working solutions
-- Tone: Practical mentor, implementation-focused, experience-based
-- Content Focus: Code examples, implementation steps, troubleshooting tips
-- CTA: "Get the implementation toolkit"
-
-POST 3: "The Industry Impact Analysis" - Strategic Thinker Approach  
-- Target audience: Business technologists and strategic planners
-- Unique Hook: "Why [AI trend] will reshape [industry] in the next 2 years"
-- Angle: Trend analysis → Strategic implications → Future predictions
-- Tone: Strategic analyst, forward-thinking, trend-spotting
-- Content Focus: Market analysis, strategic implications, future scenarios
-- CTA: "Join the strategic discussion"
-
-Each concept MUST have:
-- Completely different educational angle and approach
-- Unique hook related to the source material
-- Different aspect of AI/tech knowledge shared
-- Distinct target within the tech community  
-- Different type of value provided (research/practical/strategic)`;
-  }
-
-  prompt += `
+Each concept should:
+- Be genuinely different in approach and target audience
+- Leverage the source content from a unique angle
+- Include specific key messages that would resonate with that audience
+- Have a clear call-to-action relevant to that audience segment
+- Build energy and encourage sharing/engagement
 
 Return in JSON format:
 {
@@ -283,7 +180,7 @@ Return in JSON format:
       "angle": "Detailed description of the approach and why this angle works",
       "targetAudience": "Specific description of who this targets",
       "keyMessages": ["message 1", "message 2", "message 3"],
-      "tone": "Appropriate tone for this concept",
+      "tone": "Educational",
       "callToAction": "Specific CTA for this audience"
     },
     {
@@ -292,7 +189,7 @@ Return in JSON format:
       "angle": "Detailed description of the approach and why this angle works",
       "targetAudience": "Specific description of who this targets", 
       "keyMessages": ["message 1", "message 2", "message 3"],
-      "tone": "Appropriate tone for this concept",
+      "tone": "Strategic",
       "callToAction": "Specific CTA for this audience"
     },
     {
@@ -301,96 +198,35 @@ Return in JSON format:
       "angle": "Detailed description of the approach and why this angle works",
       "targetAudience": "Specific description of who this targets",
       "keyMessages": ["message 1", "message 2", "message 3"], 
-      "tone": "Appropriate tone for this concept",
+      "tone": "Inspirational",
       "callToAction": "Specific CTA for this audience"
     }
   ]
 }`;
 
-  console.log('Generated prompt:', prompt.substring(0, 200) + '...');
-  
-  const requestPayload = {
-    model: 'gpt-5-2025-08-07',
-    messages: [
-      { role: 'system', content: 'You are an expert social media strategist who creates viral, deeply detailed content concepts with concrete metrics, examples, and vivid visual direction. Always return strict JSON only.' },
-      { role: 'user', content: prompt }
-    ],
-    response_format: { type: 'json_object' },
-    max_completion_tokens: 1800
-  } as const;
-
-  // Primary request via Chat Completions API
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${openAIApiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(requestPayload),
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: 'You are an expert social media strategist who creates viral, engaging content concepts that target different audience segments effectively.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.8,
+      max_tokens: 2000
+    }),
   });
 
   const data = await response.json();
-  console.log('OpenAI chat status:', response.status, 'finish_reason:', data.choices?.[0]?.finish_reason);
-  let content: string = data.choices?.[0]?.message?.content ?? '';
-
-  // Fallbacks when content is empty (observed with some JSON responses)
-  if (!content || !content.trim()) {
-    console.warn('Chat returned empty content. Falling back to Responses API.');
-    const resp2 = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
-        input: prompt,
-        response_format: { type: 'json_object' },
-        max_output_tokens: 1200,
-      }),
-    });
-    const data2 = await resp2.json();
-    console.log('Responses API status:', resp2.status);
-    content = data2.output_text ?? data2.output?.[0]?.content?.[0]?.text ?? '';
-
-    if (!content || !content.trim()) {
-      console.warn('Responses API empty. Retrying chat with gpt-5-mini.');
-      const responseMini = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ ...requestPayload, model: 'gpt-5-mini-2025-08-07' }),
-      });
-      const dataMini = await responseMini.json();
-      console.log('Mini chat status:', responseMini.status, 'finish_reason:', dataMini.choices?.[0]?.finish_reason);
-      content = dataMini.choices?.[0]?.message?.content ?? '';
-    }
+  if (!response.ok) {
+    console.error('OpenAI error:', data);
+    throw new Error(data.error?.message || 'Failed to generate concepts');
   }
-
-  if (!content || !content.trim()) {
-    console.error('All OpenAI attempts returned empty content.', { status: response.status, dataPreview: JSON.stringify(data).slice(0, 300) });
-    throw new Error('OpenAI returned empty content');
-  }
+  const result = parseJSONSafe(data.choices?.[0]?.message?.content ?? '{}');
   
-  console.log('OpenAI response content length:', content?.length || 0);
-  console.log('Raw OpenAI content preview:', (content || '').slice(0, 300));
-  
-  let result;
-  try {
-    result = parseJSONSafe(content);
-    console.log('Parsed result keys:', Object.keys(result));
-  } catch (parseError) {
-    console.error('JSON parsing failed:', parseError);
-    throw new Error('Failed to parse OpenAI response as JSON');
-  }
-
-  if (!result || !Array.isArray(result.concepts) || result.concepts.length !== 3) {
-    console.error('Invalid result structure:', result);
-    throw new Error('OpenAI did not return valid concepts array');
-  }
-  
-  console.log('Successfully generated', result.concepts.length, 'concepts');
   return result.concepts;
 }

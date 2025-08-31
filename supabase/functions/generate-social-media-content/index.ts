@@ -23,8 +23,6 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== generate-social-media-content function started ===');
-    
     const { 
       title,
       platform,
@@ -34,21 +32,13 @@ serve(async (req) => {
       imageSeedUrl,
       imageSeedInstructions,
       contextDirection,
-      mediaType,
       postConcepts
     } = await req.json();
 
     console.log('Starting social media content generation for 3 separate posts with refined concepts');
-    console.log('Received data:', { title, platform, style, voice, mediaType });
 
     if (!openAIApiKey) {
-      console.error('OpenAI API key not configured');
       throw new Error('OpenAI API key not configured');
-    }
-
-    if (!postConcepts || postConcepts.length !== 3) {
-      console.error('Invalid postConcepts:', postConcepts);
-      throw new Error('Expected exactly 3 post concepts');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -59,19 +49,18 @@ serve(async (req) => {
     // Fetch source content details
     const sourceContent = await fetchSourceContent(supabase, normalizedSourceItems);
     
-    // Generate all captions in parallel
-    console.log('=== Generating captions for 3 posts ===');
-    const captionPromises = postConcepts.map((concept, index) =>
-      generateCaptionAndHashtags(sourceContent, platform, style, voice, concept, mediaType || 'evergreen', contextDirection)
-    );
-    const captionResults = await Promise.all(captionPromises);
-    console.log('Captions generated successfully');
-
-    // Create all 3 posts in parallel
-    console.log('=== Creating 3 posts in database ===');
-    const postPromises = postConcepts.map(async (concept, index) => {
-      const { caption, hashtags } = captionResults[index];
+    // Create 3 separate posts using the refined concepts
+    const createdPosts = [];
+    
+    for (let postIndex = 1; postIndex <= 3; postIndex++) {
+      const concept = postConcepts[postIndex - 1];
       
+      // Generate caption and hashtags for this specific concept
+      const { caption, hashtags } = await generateCaptionAndHashtags(
+        sourceContent, platform, style, voice, concept, contextDirection
+      );
+
+      // Create post
       const { data: postData, error: postError } = await supabase
         .from('social_media_posts')
         .insert({
@@ -84,89 +73,29 @@ serve(async (req) => {
           hashtags,
           image_seed_url: imageSeedUrl || null,
           image_seed_instructions: imageSeedInstructions || null,
-          context_direction: contextDirection || null,
-          media_type: mediaType || 'evergreen'
+          context_direction: contextDirection || null
         })
         .select()
         .single();
 
-      if (postError) {
-        console.error('Post creation error:', postError);
-        throw postError;
-      }
-      console.log('Created post:', postData.id);
-      return postData;
-    });
-
-    const createdPosts = await Promise.all(postPromises);
-    console.log('All posts created successfully');
-
-    // Generate simplified image prompts and create images
-    console.log('=== Starting image generation for all posts ===');
-    const tasks: Array<() => Promise<void>> = [];
-    
-    for (let postIndex = 0; postIndex < createdPosts.length; postIndex++) {
-      const postData = createdPosts[postIndex];
-      const concept = postConcepts[postIndex];
+      if (postError) throw postError;
       
-      // Create 9 simple image prompts for this post
-      const imagePrompts = Array.from({ length: 9 }, (_, imageIndex) => {
-        const actualImageIndex = imageIndex + 1;
-        if (actualImageIndex === 1) {
-          return `Professional ${platform} social media carousel cover image with text overlay "${concept.title}", modern design, ${mediaType === 'company' ? 'corporate' : mediaType === 'advertisement' ? 'premium service' : 'educational'} style, square aspect ratio, high quality`;
-        } else if (actualImageIndex === 9) {
-          return `Professional ${platform} social media call-to-action image with text "${concept.callToAction}", modern design, engaging CTA style, square aspect ratio, high quality`;
-        } else {
-          return `Professional ${platform} social media carousel slide ${actualImageIndex}, ${concept.angle}, modern infographic style, clean design, square aspect ratio, high quality`;
-        }
-      });
+      createdPosts.push(postData);
 
-      // Build task functions for all 9 images of this carousel
-      for (let imageIndex = 0; imageIndex < imagePrompts.length; imageIndex++) {
-        const prompt = imagePrompts[imageIndex];
-        const actualImageIndex = imageIndex + 1;
-
-        tasks.push(async () => {
-          try {
-            const imageUrl = await generateImage(prompt, imageSeedUrl);
-            const { error: imageError } = await supabase
-              .from('social_media_images')
-              .insert({
-                post_id: postData.id,
-                carousel_index: 1,
-                image_index: actualImageIndex,
-                image_url: imageUrl,
-                image_prompt: prompt,
-                alt_text: `Carousel ${postIndex + 1} Image ${actualImageIndex}`
-              });
-            if (imageError) {
-              console.error('Image save error:', imageError);
-            } else {
-              console.log(`Completed image ${actualImageIndex}/9 for post ${postIndex + 1}`);
-            }
-          } catch (error) {
-            console.error(`Error generating image ${actualImageIndex} for post ${postIndex + 1}:`, error);
-          }
-        });
-      }
+      // Generate 1 carousel of 9 images for this post
+      await generateImageCarousel(
+        supabase, 
+        postData.id, 
+        sourceContent, 
+        platform, 
+        style, 
+        voice,
+        imageSeedUrl,
+        imageSeedInstructions,
+        concept,
+        postIndex
+      );
     }
-
-    // Simple concurrency runner to avoid rate limits
-    const runPool = async (fns: Array<() => Promise<void>>, concurrency = 6) => {
-      let idx = 0;
-      const workers = Array.from({ length: concurrency }, () => (async () => {
-        while (true) {
-          const current = idx++;
-          if (current >= fns.length) break;
-          await fns[current]();
-        }
-      })());
-      await Promise.all(workers);
-    };
-
-    console.log(`Starting queued generation of ${tasks.length} images with concurrency 6`);
-    await runPool(tasks, 6);
-    console.log('All images generated successfully');
 
     console.log('Social media content generation completed for 3 posts');
 
@@ -178,12 +107,9 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('=== ERROR in generate-social-media-content function ===');
-    console.error('Error details:', error);
-    console.error('Error stack:', error.stack);
+    console.error('Error in generate-social-media-content function:', error);
     return new Response(JSON.stringify({ 
-      error: error.message || 'Failed to generate social media content',
-      details: error.toString()
+      error: error.message || 'Failed to generate social media content' 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -246,7 +172,6 @@ async function generateCaptionAndHashtags(
   style: string, 
   voice: string,
   concept: any,
-  mediaType: string,
   contextDirection?: string
 ) {
   const contentSummary = sourceContent.map(item => {
@@ -261,12 +186,7 @@ async function generateCaptionAndHashtags(
 
   const contextText = contextDirection ? `\n\nAdditional Context: ${contextDirection}` : '';
 
-  let systemPrompt = '';
-  let userPrompt = '';
-
-  if (mediaType === 'company') {
-    systemPrompt = 'You are an expert AI solutions consultant who creates compelling content that teaches companies about AI command centers and automation. You understand business pain points and can articulate technical solutions in business terms.';
-    userPrompt = `Create an engaging ${platform} ${style.toLowerCase()} post with a ${voice.toLowerCase()} voice that teaches companies about AI command centers and automation solutions.
+  const prompt = `Create an engaging ${platform} ${style.toLowerCase()} post with a ${voice.toLowerCase()} voice based on this specific concept:
 
 Post Concept:
 - Title/Hook: ${concept.title}
@@ -280,90 +200,22 @@ Source Content:
 ${contentSummary}${contextText}
 
 Generate:
-1. A compelling caption that explains AI command center benefits for businesses (150-300 words for LinkedIn, 100-150 for Instagram)
-2. 10-15 business-focused hashtags including AI, automation, and industry-specific terms
+1. A captivating caption that follows the concept's angle and targets the specified audience (150-300 words for LinkedIn, 100-150 for Instagram)
+2. 10-15 relevant hashtags that align with the target audience and content angle
 
 The content should:
-- Address real business challenges and solutions
-- Explain AI command center benefits in business terms
-- Include specific capabilities and ROI potential
-- Use professional language appropriate for decision-makers
-- End with a business-focused call-to-action
-- Position AI expertise naturally without being overly promotional
+- Strictly follow the concept's angle and tone
+- Target the specified audience with appropriate language and examples
+- Include the key messages naturally within the flow
+- End with the specified call-to-action
+- Be engaging enough to encourage sharing and comments
 
 Return in JSON format:
 {
   "caption": "...",
   "hashtags": ["hashtag1", "hashtag2", ...]
 }`;
-  } else if (mediaType === 'advertisement') {
-    systemPrompt = 'You are an expert marketing copywriter who creates high-converting social media content for AI services. You understand how to showcase expertise while building trust and driving action.';
-    userPrompt = `Create a compelling ${platform} ${style.toLowerCase()} advertisement with a ${voice.toLowerCase()} voice that showcases your AI command center expertise and drives conversions.
 
-Post Concept:
-- Title/Hook: ${concept.title}
-- Content Angle: ${concept.angle}
-- Target Audience: ${concept.targetAudience}
-- Key Messages: ${concept.keyMessages.join(', ')}
-- Tone: ${concept.tone}
-- Call to Action: ${concept.callToAction}
-
-Source Content:
-${contentSummary}${contextText}
-
-Generate:
-1. A persuasive caption that showcases AI expertise and drives action (150-300 words for LinkedIn, 100-150 for Instagram)
-2. 10-15 conversion-focused hashtags including service keywords and industry terms
-
-The content should:
-- Highlight unique AI command center capabilities
-- Include social proof or results where relevant
-- Build credibility and trust
-- Create urgency or value proposition
-- End with a strong call-to-action for consultation/demo
-- Be persuasive but not pushy or overly salesy
-
-Return in JSON format:
-{
-  "caption": "...",
-  "hashtags": ["hashtag1", "hashtag2", ...]
-}`;
-  } else {
-    systemPrompt = 'You are an expert AI researcher and educator who creates valuable educational content for the tech community. You excel at making complex concepts accessible and engaging.';
-    userPrompt = `Create an engaging ${platform} ${style.toLowerCase()} educational post with a ${voice.toLowerCase()} voice that provides valuable insights to the AI/tech community.
-
-Post Concept:
-- Title/Hook: ${concept.title}
-- Content Angle: ${concept.angle}
-- Target Audience: ${concept.targetAudience}
-- Key Messages: ${concept.keyMessages.join(', ')}
-- Tone: ${concept.tone}
-- Call to Action: ${concept.callToAction}
-
-Source Content:
-${contentSummary}${contextText}
-
-Generate:
-1. An educational caption that provides genuine value and insights (150-300 words for LinkedIn, 100-150 for Instagram)
-2. 10-15 community-focused hashtags including AI, tech, research, and learning terms
-
-The content should:
-- Provide genuine educational value and insights
-- Be backed by research or solid expertise
-- Use an authoritative yet accessible tone
-- Include actionable takeaways or thought-provoking questions
-- End with a community-building call-to-action
-- Focus on learning and sharing rather than promotion
-
-Return in JSON format:
-{
-  "caption": "...",
-  "hashtags": ["hashtag1", "hashtag2", ...]
-}`;
-  }
-
-  console.log('Generated enhanced prompt for', mediaType);
-  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -371,13 +223,13 @@ Return in JSON format:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-5-2025-08-07',
+      model: 'gpt-4o',
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: 'system', content: 'You are an expert social media content creator who creates viral, engaging posts.' },
+        { role: 'user', content: prompt }
       ],
-      response_format: { type: 'json_object' },
-      max_completion_tokens: 1000
+      temperature: 0.8,
+      max_tokens: 1000
     }),
   });
 
@@ -394,6 +246,48 @@ Return in JSON format:
   };
 }
 
+async function generateImageCarousel(
+  supabase: any,
+  postId: string,
+  sourceContent: any[],
+  platform: string,
+  style: string,
+  voice: string,
+  imageSeedUrl?: string,
+  imageSeedInstructions?: string,
+  concept?: any,
+  carouselNumber?: number
+) {
+  const imagePrompts = await generateImagePrompts(
+    sourceContent, platform, style, voice, imageSeedUrl, imageSeedInstructions, concept, carouselNumber
+  );
+
+  // Generate 9 images for this carousel
+  const imagePromises = imagePrompts.map(async (prompt, imageIndex) => {
+    const actualImageIndex = imageIndex + 1;
+    console.log(`Generating image ${actualImageIndex}/9 for carousel ${carouselNumber || 1}`);
+    
+    const imageUrl = await generateImage(prompt, imageSeedUrl);
+    
+    // Save to database (carousel_index = 1 since each post has only one carousel now)
+    await supabase
+      .from('social_media_images')
+      .insert({
+        post_id: postId,
+        carousel_index: 1,
+        image_index: actualImageIndex,
+        image_url: imageUrl,
+        image_prompt: prompt,
+        alt_text: `Carousel ${carouselNumber || 1} Image ${actualImageIndex}`
+      });
+    
+    return imageUrl;
+  });
+  
+  await Promise.all(imagePromises);
+  console.log(`Completed carousel ${carouselNumber || 1}`);
+}
+
 async function generateImagePrompts(
   sourceContent: any[],
   platform: string,
@@ -402,7 +296,6 @@ async function generateImagePrompts(
   imageSeedUrl?: string,
   imageSeedInstructions?: string,
   concept?: any,
-  mediaType?: string,
   carouselNumber?: number
 ) {
   const contentSummary = sourceContent.map(item => {
@@ -425,10 +318,7 @@ async function generateImagePrompts(
 - Tone: ${concept.tone}
 - Call to Action: ${concept.callToAction}` : '';
 
-  let prompt = '';
-  
-  if (mediaType === 'company') {
-    prompt = `Create 9 image prompts for a ${platform} carousel targeting COMPANIES about AI command centers and automation solutions.
+  const prompt = `Create 9 image prompts for a social media carousel for ${platform} that follows this specific concept.
 
 Source Content:
 ${contentSummary}
@@ -436,73 +326,22 @@ ${contentSummary}
 Style: ${style}
 Voice: ${voice}${seedContext}${conceptContext}
 
-The carousel should teach companies about AI command centers:
-- Image 1: Captivating business hook with professional text overlay - "${concept?.title || 'AI Command Centers Transform Business'}"
-- Images 2-8: Business-focused visuals showing AI automation benefits, ROI, efficiency gains, dashboard mockups, process improvements
-- Image 9: Professional CTA image encouraging consultation or demo
+The carousel should have:
+- Image 1: Captivating hook with bold text overlay that stops scrolling - should match the concept's title/hook
+- Images 2-8: Detail images with great graphics, building climactic engagement - focus on the key messages from the concept
+- Image 9: Strong CTA image that aligns with the concept's call-to-action
 
 Requirements:
-- Square 1:1 aspect ratio, professional business aesthetic
-- Corporate-friendly design with clean text overlays
-- Show AI dashboards, automation workflows, business metrics
-- Target business decision-makers and technical leaders
-- Professional color schemes (blues, grays, clean whites)
-- Include business icons, charts, productivity themes
-- Modern enterprise software aesthetic
+- Square 1:1 aspect ratio
+- Modern, professional design that matches the concept's tone (${concept?.tone || 'engaging'})
+- Include text overlays where appropriate
+- Target the specified audience: ${concept?.targetAudience || 'general audience'}
+- Be engaging, shareable, and informative
+- Build energy and momentum through the sequence
+- Stay true to the concept's angle and approach
 
 Return as JSON array of 9 prompts:
 ["prompt 1", "prompt 2", ..., "prompt 9"]`;
-  } else if (mediaType === 'advertisement') {
-    prompt = `Create 9 image prompts for a ${platform} carousel ADVERTISING your AI command center services and expertise.
-
-Source Content:
-${contentSummary}
-
-Style: ${style}
-Voice: ${voice}${seedContext}${conceptContext}
-
-The carousel should showcase your AI expertise and drive conversions:
-- Image 1: Attention-grabbing service showcase with compelling text overlay - "${concept?.title || 'Custom AI Solutions'}"
-- Images 2-8: Portfolio pieces, capability demonstrations, before/after results, technology stacks, client success stories
-- Image 9: Strong conversion-focused CTA image with contact information
-
-Requirements:
-- Square 1:1 aspect ratio, premium service provider aesthetic
-- High-quality, professional design that builds trust
-- Show your AI technologies, custom solutions, results
-- Include portfolio elements, technology logos, success metrics
-- Premium color schemes that convey expertise
-- Modern, cutting-edge visual style
-- Build credibility and showcase differentiation
-
-Return as JSON array of 9 prompts:
-["prompt 1", "prompt 2", ..., "prompt 9"]`;
-  } else {
-    prompt = `Create 9 image prompts for a ${platform} carousel providing EDUCATIONAL content to the AI/tech community.
-
-Source Content:
-${contentSummary}
-
-Style: ${style}
-Voice: ${voice}${seedContext}${conceptContext}
-
-The carousel should educate and inform the community:
-- Image 1: Educational hook with engaging text overlay - "${concept?.title || 'AI Insights'}"
-- Images 2-8: Educational diagrams, research visualizations, concept explanations, trend analyses, technical insights
-- Image 9: Community-building CTA encouraging discussion and learning
-
-Requirements:
-- Square 1:1 aspect ratio, educational and accessible design
-- Clean, informative visuals with clear text overlays
-- Include charts, diagrams, research visualizations, concept maps
-- Target AI enthusiasts, researchers, and practitioners
-- Use engaging but professional color schemes
-- Focus on clarity and educational value
-- Modern tech-forward aesthetic
-
-Return as JSON array of 9 prompts:
-["prompt 1", "prompt 2", ..., "prompt 9"]`;
-  }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -511,13 +350,13 @@ Return as JSON array of 9 prompts:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-5-2025-08-07',
+      model: 'gpt-4o',
       messages: [
         { role: 'system', content: 'You are an expert visual content creator who designs viral social media carousels.' },
         { role: 'user', content: prompt }
       ],
-      response_format: { type: 'json_object' },
-      max_completion_tokens: 2000
+      temperature: 0.9,
+      max_tokens: 2000
     }),
   });
 
@@ -530,73 +369,59 @@ Return as JSON array of 9 prompts:
 }
 
 async function generateImage(prompt: string, referenceImageUrl?: string): Promise<string> {
-  console.log('Generating image with prompt:', prompt.slice(0, 100) + '...');
+  const enhancedPrompt = referenceImageUrl 
+    ? `${prompt}. Use this reference image for style and composition: ${referenceImageUrl}. Square aspect ratio, social media optimized.`
+    : `${prompt}. Square aspect ratio, social media optimized, high quality, modern design.`;
+
+  const requestBody = {
+    model: 'gpt-image-1',
+    prompt: enhancedPrompt,
+    n: 1,
+    size: "1024x1024",
+    quality: "high",
+    output_format: 'png'
+  };
+
+  const response = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  const data = await response.json();
   
-  try {
-    const enhancedPrompt = referenceImageUrl 
-      ? `${prompt}. Use this reference image for style and composition: ${referenceImageUrl}. Square aspect ratio, social media optimized.`
-      : `${prompt}. Square aspect ratio, social media optimized, high quality, modern design.`;
+  if (!response.ok) {
+    console.error('OpenAI Image API error:', data);
+    throw new Error(data.error?.message || 'Failed to generate image');
+  }
 
-    const requestBody = {
-      model: 'gpt-image-1',
-      prompt: enhancedPrompt,
-      n: 1,
-      size: "1024x1024",
-      quality: "high",
-      output_format: 'png'
-    };
-
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
+  // gpt-image-1 returns base64 by default
+  const imageData = data.data[0].b64_json;
+  
+  // Upload to Supabase Storage
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const imageBuffer = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
+  const fileName = `social-media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.png`;
+  
+  const { data: uploadData, error: uploadError } = await supabase.storage
+    .from('generated-images')
+    .upload(fileName, imageBuffer, {
+      contentType: 'image/png',
+      upsert: false
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('OpenAI Image API error:', errorData);
-      throw new Error(`Image generation failed: ${errorData.error?.message || 'Unknown error'}`);
-    }
-
-    const data = await response.json();
-    
-    // gpt-image-1 returns base64 by default
-    const imageData = data.data[0].b64_json;
-    if (!imageData) {
-      throw new Error('No image data returned from OpenAI');
-    }
-    
-    // Upload to Supabase Storage
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const imageBuffer = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
-    const fileName = `social-media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.png`;
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('generated-images')
-      .upload(fileName, imageBuffer, {
-        contentType: 'image/png',
-        upsert: false
-      });
-
-    if (uploadError) {
-      console.error('Storage upload error:', uploadError);
-      throw new Error(`Failed to upload image: ${uploadError.message}`);
-    }
-
-    // Get public URL for the uploaded image
-    const { data: urlData } = supabase.storage
-      .from('generated-images')
-      .getPublicUrl(fileName);
-
-    console.log('Successfully generated and uploaded image');
-    return urlData.publicUrl;
-    
-  } catch (error) {
-    console.error('Image generation error:', error);
-    // Return a placeholder instead of failing completely
-    return 'https://via.placeholder.com/1024x1024/666666/ffffff?text=Image+Generation+Failed';
+  if (uploadError) {
+    console.error('Storage upload error:', uploadError);
+    throw uploadError;
   }
+
+  // Get public URL for the uploaded image
+  const { data: urlData } = supabase.storage
+    .from('generated-images')
+    .getPublicUrl(fileName);
+
+  return urlData.publicUrl;
 }

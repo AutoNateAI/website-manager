@@ -1840,7 +1840,6 @@ export type Database = {
           image_seed_instructions: string | null
           image_seed_url: string | null
           is_published: boolean
-          media_type: string | null
           platform: string
           platform_type: string | null
           source_items: Json
@@ -1858,7 +1857,6 @@ export type Database = {
           image_seed_instructions?: string | null
           image_seed_url?: string | null
           is_published?: boolean
-          media_type?: string | null
           platform: string
           platform_type?: string | null
           source_items?: Json
@@ -1876,7 +1874,6 @@ export type Database = {
           image_seed_instructions?: string | null
           image_seed_url?: string | null
           is_published?: boolean
-          media_type?: string | null
           platform?: string
           platform_type?: string | null
           source_items?: Json
