@@ -211,13 +211,12 @@ Return in JSON format:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o',
+      model: 'gpt-5-2025-08-07',
       messages: [
         { role: 'system', content: 'You are an expert social media strategist who creates viral, engaging content concepts that target different audience segments effectively.' },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.8,
-      max_tokens: 2000
+      max_completion_tokens: 2000
     }),
   });
 

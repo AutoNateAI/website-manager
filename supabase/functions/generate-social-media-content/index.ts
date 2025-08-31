@@ -49,18 +49,16 @@ serve(async (req) => {
     // Fetch source content details
     const sourceContent = await fetchSourceContent(supabase, normalizedSourceItems);
     
-    // Create 3 separate posts using the refined concepts
-    const createdPosts = [];
-    
-    for (let postIndex = 1; postIndex <= 3; postIndex++) {
-      const concept = postConcepts[postIndex - 1];
-      
-      // Generate caption and hashtags for this specific concept
-      const { caption, hashtags } = await generateCaptionAndHashtags(
-        sourceContent, platform, style, voice, concept, contextDirection
-      );
+    // Generate all captions in parallel
+    const captionPromises = postConcepts.map((concept, index) =>
+      generateCaptionAndHashtags(sourceContent, platform, style, voice, concept, contextDirection)
+    );
+    const captionResults = await Promise.all(captionPromises);
 
-      // Create post
+    // Create all 3 posts in parallel
+    const postPromises = postConcepts.map(async (concept, index) => {
+      const { caption, hashtags } = captionResults[index];
+      
       const { data: postData, error: postError } = await supabase
         .from('social_media_posts')
         .insert({
@@ -79,23 +77,52 @@ serve(async (req) => {
         .single();
 
       if (postError) throw postError;
-      
-      createdPosts.push(postData);
+      return postData;
+    });
 
-      // Generate 1 carousel of 9 images for this post
-      await generateImageCarousel(
-        supabase, 
-        postData.id, 
-        sourceContent, 
-        platform, 
-        style, 
-        voice,
-        imageSeedUrl,
-        imageSeedInstructions,
-        concept,
-        postIndex
+    const createdPosts = await Promise.all(postPromises);
+
+    // Generate all image prompts for all posts in parallel
+    const allImagePromises = [];
+    
+    for (let postIndex = 0; postIndex < createdPosts.length; postIndex++) {
+      const postData = createdPosts[postIndex];
+      const concept = postConcepts[postIndex];
+      
+      const imagePrompts = await generateImagePrompts(
+        sourceContent, platform, style, voice, imageSeedUrl, imageSeedInstructions, concept, postIndex + 1
       );
+
+      // Create promises for all 9 images of this carousel
+      for (let imageIndex = 0; imageIndex < imagePrompts.length; imageIndex++) {
+        const prompt = imagePrompts[imageIndex];
+        const actualImageIndex = imageIndex + 1;
+        
+        const imagePromise = generateImage(prompt, imageSeedUrl).then(async (imageUrl) => {
+          // Save to database
+          await supabase
+            .from('social_media_images')
+            .insert({
+              post_id: postData.id,
+              carousel_index: 1,
+              image_index: actualImageIndex,
+              image_url: imageUrl,
+              image_prompt: prompt,
+              alt_text: `Carousel ${postIndex + 1} Image ${actualImageIndex}`
+            });
+          
+          console.log(`Completed image ${actualImageIndex}/9 for post ${postIndex + 1}`);
+          return imageUrl;
+        });
+        
+        allImagePromises.push(imagePromise);
+      }
     }
+
+    // Generate ALL 27 images in parallel
+    console.log(`Starting parallel generation of ${allImagePromises.length} images`);
+    await Promise.all(allImagePromises);
+    console.log('All images generated successfully');
 
     console.log('Social media content generation completed for 3 posts');
 
@@ -223,13 +250,12 @@ Return in JSON format:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o',
+      model: 'gpt-5-2025-08-07',
       messages: [
         { role: 'system', content: 'You are an expert social media content creator who creates viral, engaging posts.' },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.8,
-      max_tokens: 1000
+      max_completion_tokens: 1000
     }),
   });
 
@@ -244,48 +270,6 @@ Return in JSON format:
     caption: result.caption,
     hashtags: result.hashtags
   };
-}
-
-async function generateImageCarousel(
-  supabase: any,
-  postId: string,
-  sourceContent: any[],
-  platform: string,
-  style: string,
-  voice: string,
-  imageSeedUrl?: string,
-  imageSeedInstructions?: string,
-  concept?: any,
-  carouselNumber?: number
-) {
-  const imagePrompts = await generateImagePrompts(
-    sourceContent, platform, style, voice, imageSeedUrl, imageSeedInstructions, concept, carouselNumber
-  );
-
-  // Generate 9 images for this carousel
-  const imagePromises = imagePrompts.map(async (prompt, imageIndex) => {
-    const actualImageIndex = imageIndex + 1;
-    console.log(`Generating image ${actualImageIndex}/9 for carousel ${carouselNumber || 1}`);
-    
-    const imageUrl = await generateImage(prompt, imageSeedUrl);
-    
-    // Save to database (carousel_index = 1 since each post has only one carousel now)
-    await supabase
-      .from('social_media_images')
-      .insert({
-        post_id: postId,
-        carousel_index: 1,
-        image_index: actualImageIndex,
-        image_url: imageUrl,
-        image_prompt: prompt,
-        alt_text: `Carousel ${carouselNumber || 1} Image ${actualImageIndex}`
-      });
-    
-    return imageUrl;
-  });
-  
-  await Promise.all(imagePromises);
-  console.log(`Completed carousel ${carouselNumber || 1}`);
 }
 
 async function generateImagePrompts(
@@ -350,13 +334,12 @@ Return as JSON array of 9 prompts:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o',
+      model: 'gpt-5-2025-08-07',
       messages: [
         { role: 'system', content: 'You are an expert visual content creator who designs viral social media carousels.' },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.9,
-      max_tokens: 2000
+      max_completion_tokens: 2000
     }),
   });
 
