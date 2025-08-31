@@ -776,17 +776,17 @@ export const PersonalNetworkLeadsManager = () => {
           {filteredLeads.map((lead) => (
             <Card key={lead.id} className="hover:shadow-md transition-shadow">
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{lead.name}</CardTitle>
-                    <CardDescription>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="text-lg truncate">{lead.name}</CardTitle>
+                    <CardDescription className="truncate">
                       {lead.position && lead.company?.name 
                         ? `${lead.position} at ${lead.company.name}`
                         : lead.position || lead.company?.name || 'No company info'
                       }
                     </CardDescription>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-shrink-0">
                     <Badge variant={getStatusColor(lead.lead_status)}>{lead.lead_status}</Badge>
                   </div>
                 </div>

@@ -90,9 +90,9 @@ export const PersonCard = ({ person, onEdit, onDelete }: PersonCardProps) => {
     <>
       <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <Avatar className="w-12 h-12">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <Avatar className="w-12 h-12 flex-shrink-0">
               <AvatarImage src={person.profile_image_url} alt={person.name} />
               <AvatarFallback className="bg-primary/10 text-primary">
                 {getInitials(person.name)}
@@ -108,7 +108,7 @@ export const PersonCard = ({ person, onEdit, onDelete }: PersonCardProps) => {
               </Badge>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <Button variant="ghost" size="sm" onClick={onEdit} aria-label="Edit person">
               <Edit className="w-4 h-4" />
             </Button>

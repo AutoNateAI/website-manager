@@ -44,9 +44,9 @@ export const CompanyCard = ({ company, onEdit, onDelete }: CompanyCardProps) => 
     <>
       <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
               <Building className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
@@ -56,7 +56,7 @@ export const CompanyCard = ({ company, onEdit, onDelete }: CompanyCardProps) => 
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <Button variant="ghost" size="sm" onClick={onEdit} aria-label="Edit company">
               <Edit className="w-4 h-4" />
             </Button>
