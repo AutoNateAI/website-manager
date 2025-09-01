@@ -61,28 +61,32 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
   const getStatusIcon = (status?: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-success" />;
       case 'failed':
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
+        return <AlertCircle className="h-4 w-4 text-destructive" />;
+      case 'cancelled':
+        return <X className="h-4 w-4 text-muted-foreground" />;
       case 'generating_images':
-        return <ImageIcon className="h-4 w-4 text-blue-500" />;
+        return <ImageIcon className="h-4 w-4 text-primary animate-pulse" />;
       default:
-        return <Clock className="h-4 w-4 text-yellow-500" />;
+        return <Clock className="h-4 w-4 text-muted-foreground animate-pulse" />;
     }
   };
 
   const getStatusColor = (status?: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success/10 text-success border-success/20';
       case 'failed':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/10 text-destructive border-destructive/20';
+      case 'cancelled':
+        return 'bg-muted text-muted-foreground border-border';
       case 'generating_images':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-primary/10 text-primary border-primary/20';
       case 'generating_caption':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-secondary/10 text-secondary-foreground border-secondary/20';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted/50 text-muted-foreground border-border';
     }
   };
 
@@ -110,15 +114,20 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
     
     switch (post.status) {
       case 'completed':
-        return 'Completed';
+        const completed = progress.images_completed || 0;
+        const total = progress.images_total || 9;
+        return completed === total ? 'Completed' : `Completed (${completed}/${total} images)`;
       case 'generating_caption':
         return 'Generating caption...';
       case 'generating_images':
-        const completed = progress.images_completed || 0;
-        const total = progress.images_total || 9;
-        return `Generating images (${completed}/${total})`;
+        const completedImages = progress.images_completed || 0;
+        const totalImages = progress.images_total || 9;
+        const failedImages = progress.failed_images || [];
+        return `Generating images (${completedImages}/${totalImages}${failedImages.length > 0 ? `, ${failedImages.length} failed` : ''})`;
       case 'failed':
         return `Failed: ${progress.error || 'Unknown error'}`;
+      case 'cancelled':
+        return 'Cancelled';
       default:
         return 'Pending...';
     }

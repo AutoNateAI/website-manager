@@ -255,7 +255,7 @@ const SocialMediaManager = () => {
       setShowCreateDialog(false);
       resetForm();
       
-      toast({ title: `Successfully generated ${generatedData.postsCreated} social media posts!` });
+      toast({ title: `Successfully generated ${generatedData.postIds.length} social media posts!` });
     } catch (error) {
       console.error('Error generating posts:', error);
       toast({ title: 'Error generating posts', variant: 'destructive' });
