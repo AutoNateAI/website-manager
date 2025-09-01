@@ -132,6 +132,14 @@ const SocialMediaManager = () => {
     setCurrentPage(1);
   }, [searchTerm, selectedPlatform]);
 
+  // Scroll to top when page changes
+  useEffect(() => {
+    const postsContainer = document.getElementById('posts-container');
+    if (postsContainer) {
+      postsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [currentPage]);
+
   const fetchData = async () => {
     try {
       const [postsRes, blogsRes, liveBuildsRes, adsRes] = await Promise.all([
@@ -717,7 +725,7 @@ const SocialMediaManager = () => {
       </div>
 
       {/* Posts Grid */}
-      <div className="space-y-6">
+      <div id="posts-container" className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {paginatedPosts.map(post => (
             <SocialMediaPostCard
