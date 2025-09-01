@@ -24,7 +24,7 @@ serve(async (req) => {
   try {
     console.log('Starting non-blocking social media content generation');
     
-    const { postConcepts, platform, style, voice, mediaType, sourceItems = [] } = await req.json();
+    const { postConcepts, platform, style, voice, mediaType, sourceItems = [], contextDirection } = await req.json();
     
     if (!postConcepts || !Array.isArray(postConcepts) || postConcepts.length !== 3) {
       throw new Error('Invalid postConcepts: must be an array of exactly 3 concepts');
@@ -99,6 +99,7 @@ serve(async (req) => {
               platform,
               style,
               voice,
+              contextDirection,
             },
           }).then(({ error }) => {
             if (error) console.error('Invoke error for process-social-post:', error);

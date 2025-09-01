@@ -20,7 +20,7 @@ serve(async (req) => {
   try {
     if (!openAIApiKey) throw new Error('OPENAI_API_KEY not configured');
 
-    const { postId, concept, platform, style, voice } = await req.json();
+    const { postId, concept, platform, style, voice, contextDirection } = await req.json();
     if (!postId) {
       return new Response(JSON.stringify({ error: 'postId is required' }), {
         status: 400,
@@ -36,7 +36,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // Run the heavy work in background so this function returns fast
-    EdgeRuntime.waitUntil(processPost({ supabase, openAIApiKey, postId, concept, platform, style, voice }));
+    EdgeRuntime.waitUntil(processPost({ supabase, openAIApiKey, postId, concept, platform, style, voice, contextDirection }));
 
     return res;
   } catch (error) {
@@ -48,7 +48,7 @@ serve(async (req) => {
   }
 });
 
-async function processPost({ supabase, openAIApiKey, postId, concept, platform, style, voice }: any) {
+async function processPost({ supabase, openAIApiKey, postId, concept, platform, style, voice, contextDirection }: any) {
   console.log(`[process-social-post] Start for post ${postId}`);
 
   // 1) Load post + source items
@@ -83,8 +83,8 @@ async function processPost({ supabase, openAIApiKey, postId, concept, platform, 
       .eq('id', postId);
 
     const [captionData, imagePrompts] = await Promise.all([
-      generateCaptionAndHashtags(openAIApiKey, sourceContent, concept, platform, style, voice),
-      generateImagePrompts(openAIApiKey, sourceContent, concept, platform, style, voice, { caption: concept?.title || '' }),
+      generateCaptionAndHashtags(openAIApiKey, sourceContent, concept, platform, style, voice, contextDirection),
+      generateImagePrompts(openAIApiKey, sourceContent, concept, platform, style, voice, { caption: concept?.title || '' }, contextDirection),
     ]);
 
     // 4) Update caption + switch to image generation state
@@ -196,7 +196,8 @@ async function generateCaptionAndHashtags(
   concept: any,
   platform: string,
   style: string,
-  voice: string
+  voice: string,
+  contextDirection?: string
 ): Promise<{ caption: string; hashtags: string[] }> {
   console.log(`[process-social-post] Generating caption`);
 
@@ -221,14 +222,50 @@ async function generateCaptionAndHashtags(
   let prompt = template
     .replace(/\{\{platform\}\}/g, platform)
     .replace(/\{\{style\}\}/g, style)
-    .replace(/\{\{voice\}\}/g, voice)
-    .replace(/\{\{concept\}\}/g, JSON.stringify(concept));
+    .replace(/\{\{voice\}\}/g, voice);
 
+  // Replace individual concept fields  
+  if (concept) {
+    prompt = prompt
+      .replace(/\{\{concept\.title\}\}/g, concept.title || '')
+      .replace(/\{\{concept\.targetAudience\}\}/g, concept.targetAudience || '')
+      .replace(/\{\{concept\.angle\}\}/g, concept.angle || '')
+      .replace(/\{\{concept\.keyMessages\}\}/g, Array.isArray(concept.keyMessages) ? concept.keyMessages.join(', ') : '')
+      .replace(/\{\{concept\.callToAction\}\}/g, concept.callToAction || '')
+      .replace(/\{\{concept\}\}/g, JSON.stringify(concept));
+  }
+
+  // Handle context_direction conditionals
+  if (contextDirection) {
+    prompt = prompt
+      .replace(/\{\{#if context_direction\}\}(.*?)\{\{\/if\}\}/gs, '$1')
+      .replace(/\{\{context_direction\}\}/g, contextDirection);
+  } else {
+    prompt = prompt.replace(/\{\{#if context_direction\}\}(.*?)\{\{\/if\}\}/gs, '');
+  }
+
+  // Handle source_content conditionals
   if (sourceContent) {
-    prompt = prompt.replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '$1').replace(/\{\{source_content\}\}/g, sourceContent);
+    prompt = prompt
+      .replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '$1')
+      .replace(/\{\{source_content\}\}/g, sourceContent);
   } else {
     prompt = prompt.replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '');
   }
+
+  // Debug logging: preview prompt and any unreplaced tokens (max 10 shown)
+  const unreplaced = (prompt.match(/\{\{[^}]+\}\}/g) || [])
+    .filter(v => !v.startsWith('{{#') && !v.startsWith('{{/'))
+    .slice(0, 10);
+  console.log('[process-social-post] caption prompt preview', {
+    platform,
+    style,
+    voice,
+    hasSourceContent: Boolean(sourceContent),
+    hasContextDirection: Boolean(contextDirection),
+    unreplacedTokens: unreplaced,
+    preview: prompt.slice(0, 800),
+  });
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -252,6 +289,13 @@ async function generateCaptionAndHashtags(
 
   const data = await response.json();
   const result = parseJSONSafe(data.choices?.[0]?.message?.content ?? '{}');
+  
+  // Debug logging: result summary
+  console.log('[process-social-post] caption result summary', {
+    hasCaption: Boolean(result.caption),
+    hashtagCount: Array.isArray(result.hashtags) ? result.hashtags.length : 0,
+  });
+  
   return { caption: result.caption || 'Generated caption', hashtags: result.hashtags || [] };
 }
 
@@ -262,7 +306,8 @@ async function generateImagePrompts(
   platform: string,
   style: string,
   voice: string,
-  captionData: any
+  captionData: any,
+  contextDirection?: string
 ): Promise<Array<{ prompt: string; alt_text: string }>> {
   const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
   
@@ -285,11 +330,38 @@ async function generateImagePrompts(
   let prompt = template
     .replace(/\{\{platform\}\}/g, platform)
     .replace(/\{\{style\}\}/g, style)
-    .replace(/\{\{voice\}\}/g, voice)
-    .replace(/\{\{concept\}\}/g, JSON.stringify(concept));
+    .replace(/\{\{voice\}\}/g, voice);
 
+  // Replace individual concept fields
+  if (concept) {
+    prompt = prompt
+      .replace(/\{\{concept\.title\}\}/g, concept.title || '')
+      .replace(/\{\{concept\.targetAudience\}\}/g, concept.targetAudience || '')
+      .replace(/\{\{concept\.angle\}\}/g, concept.angle || '')
+      .replace(/\{\{concept\.keyMessages\}\}/g, Array.isArray(concept.keyMessages) ? concept.keyMessages.join(', ') : '')
+      .replace(/\{\{concept\.callToAction\}\}/g, concept.callToAction || '')
+      .replace(/\{\{concept\}\}/g, JSON.stringify(concept));
+  }
+
+  // Replace caption data fields
+  if (captionData) {
+    prompt = prompt.replace(/\{\{captionData\.caption\}\}/g, captionData.caption || '');
+  }
+
+  // Handle context_direction conditionals
+  if (contextDirection) {
+    prompt = prompt
+      .replace(/\{\{#if context_direction\}\}(.*?)\{\{\/if\}\}/gs, '$1')
+      .replace(/\{\{context_direction\}\}/g, contextDirection);
+  } else {
+    prompt = prompt.replace(/\{\{#if context_direction\}\}(.*?)\{\{\/if\}\}/gs, '');
+  }
+
+  // Handle source_content conditionals
   if (sourceContent) {
-    prompt = prompt.replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '$1').replace(/\{\{source_content\}\}/g, sourceContent);
+    prompt = prompt
+      .replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '$1')
+      .replace(/\{\{source_content\}\}/g, sourceContent);
   } else {
     prompt = prompt.replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '');
   }
