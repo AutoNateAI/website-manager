@@ -96,7 +96,7 @@ const SocialMediaImageGallery = ({ images }: SocialMediaImageGalleryProps) => {
         <div className="flex-1 flex flex-col px-6 pb-6 overflow-hidden">
           {/* Fixed Image Container */}
           <div className="relative flex-shrink-0 mb-4">
-            <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+            <div className="aspect-[16/6] bg-muted rounded-lg overflow-hidden">
               <img
                 src={images[currentIndex]?.image_url}
                 alt={images[currentIndex]?.alt_text || `Image ${currentIndex + 1}`}
