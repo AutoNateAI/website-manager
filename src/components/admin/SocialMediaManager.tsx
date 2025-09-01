@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { SocialMediaProgressTracker } from './SocialMediaProgressTracker';
+import { SocialMediaImagePlaceholders } from './SocialMediaImagePlaceholders';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
@@ -786,7 +787,11 @@ const SocialMediaManager = () => {
               <div>
                 <h4 className="font-medium mb-2">Images (9 images per post)</h4>
                 <p className="text-xs text-muted-foreground mb-3">Click on any image to edit it</p>
-                {renderCarouselPreview(post.id)}
+                {post.status && ['pending', 'generating_caption', 'generating_images'].includes(post.status) ? (
+                  <SocialMediaImagePlaceholders postId={post.id} totalImages={9} />
+                ) : (
+                  renderCarouselPreview(post.id)
+                )}
               </div>
             </CardContent>
           </Card>

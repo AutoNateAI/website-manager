@@ -425,32 +425,35 @@ async function generateImageCarousel(
             alt_text: prompt.alt_text
           });
 
-        // Atomic progress update (avoid race conditions)
-        await supabase.rpc('increment_image_progress', {
+        // Atomic progress update with proper error handling
+        const { error: rpcError } = await supabase.rpc('increment_image_progress', {
           post_id_param: postId,
-          carousel_index_param: carouselIndex
-        }).catch(() => {
-          // Fallback: manual progress update if RPC doesn't exist
-          return supabase
+          carousel_index_param: actualImageIndex
+        });
+        
+        if (rpcError) {
+          console.error('RPC error, using fallback update:', rpcError);
+          // Fallback: manual progress update
+          const { data: currentPost } = await supabase
             .from('social_media_posts')
             .select('generation_progress')
             .eq('id', postId)
-            .single()
-            .then(({ data }) => {
-              const current = data?.generation_progress?.images_completed || 0;
-              return supabase
-                .from('social_media_posts')
-                .update({ 
-                  generation_progress: {
-                    ...data?.generation_progress,
-                    step: 'generating_images',
-                    images_completed: current + 1,
-                    last_completed_image: actualImageIndex
-                  }
-                })
-                .eq('id', postId);
-            });
-        });
+            .single();
+            
+          const current = currentPost?.generation_progress?.images_completed || 0;
+          await supabase
+            .from('social_media_posts')
+            .update({ 
+              generation_progress: {
+                ...currentPost?.generation_progress,
+                step: 'generating_images',
+                images_completed: current + 1,
+                last_completed_image: actualImageIndex,
+                updated_at: new Date().toISOString()
+              }
+            })
+            .eq('id', postId);
+        }
         
         console.log(`Completed image ${actualImageIndex}/9 for carousel ${carouselIndex}`);
         return { success: true, imageIndex: actualImageIndex };
@@ -507,7 +510,7 @@ async function generateImagePrompts(
   captionData: any
 ): Promise<Array<{ prompt: string; alt_text: string }>> {
   
-  const prompt = `Create 9 distinct image prompts for a ${platform} carousel that tells a cohesive STORY. This is a visual narrative that users will swipe through, so each image should flow naturally to the next while building on the previous ones.
+  const prompt = `Create 9 animated visual story slides for ${platform} that tell a cohesive narrative. Each image MUST be consistently ANIMATED/ILLUSTRATED style with bold text overlays that advance the story.
 
 STORY CONCEPT:
 Title: ${concept.title}
@@ -518,30 +521,39 @@ Caption: ${captionData.caption}
 
 ${sourceContent ? `Source Content:\n${sourceContent}\n` : ''}
 
-CRITICAL: Create a 9-slide visual story that follows this narrative structure:
-Slide 1: Hook/Problem introduction - grab attention with the main challenge
-Slide 2: Emotional connection - show the pain/frustration of the problem
-Slide 3: The "aha" moment - introduce the solution concept
-Slide 4: Benefits visualization - show positive outcomes
-Slide 5: Process/How it works - demonstrate the solution in action
-Slide 6: Transformation - before vs after or results
-Slide 7: Social proof/credibility - trust signals
-Slide 8: Call to action setup - create urgency/desire
-Slide 9: Strong CTA - direct next step with clear value
+CRITICAL STORY STRUCTURE - Each slide builds on the previous:
 
-Each image should:
-- Build on the previous image's narrative
-- Use consistent visual style (${style})
-- Be optimized for ${platform} carousel format
-- Have clear visual hierarchy and readability
-- Include subtle text overlays where appropriate for context
+Slide 1 (SCROLL STOPPER): Bold animated illustration with attention-grabbing hook text overlay. Show the main problem/challenge dramatically. Use bright colors and dynamic composition.
+
+Slide 2: Animated illustration showing emotional pain/frustration. Text overlay reveals deeper problem impact. Same art style as slide 1.
+
+Slide 3: "Aha moment" animated illustration. Text overlay introduces the breakthrough/solution concept. Visual transition from problem to solution.
+
+Slide 4: Animated illustration of positive outcomes/benefits. Text overlay highlights key advantages. Show transformation beginning.
+
+Slide 5: Process/how-it-works animated diagram. Text overlay explains simple steps. Maintain consistent animated style.
+
+Slide 6: Before/after animated comparison. Text overlay emphasizes dramatic transformation. Show clear results.
+
+Slide 7: Social proof animated illustration. Text overlay with credibility/trust signals. Use testimonial-style visual elements.
+
+Slide 8: Urgency/desire building animated illustration. Text overlay creates FOMO/scarcity. Prepare for final CTA.
+
+Slide 9 (STRONG CTA): Compelling animated illustration with clear next-step text overlay. Bold call-to-action that drives immediate action.
+
+VISUAL REQUIREMENTS:
+- ALL images must be consistent animated/illustrated style (no photos, no realistic humans)
+- Bold, readable text overlays on each slide that push the story forward
+- Bright, engaging colors with high contrast
+- Simple, clean composition optimized for mobile viewing
+- Each slide must visually connect to the next in the narrative flow
 
 Return in JSON format:
 {
   "images": [
     {
-      "prompt": "detailed image generation prompt with story context and slide position",
-      "alt_text": "accessibility description"
+      "prompt": "animated illustration style with bold text overlay, specific visual description",
+      "alt_text": "accessibility description of the animated illustration and text"
     }
   ]
 }`;
