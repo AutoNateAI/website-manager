@@ -1835,6 +1835,7 @@ export type Database = {
           caption: string
           context_direction: string | null
           created_at: string
+          generation_progress: Json | null
           hashtags: string[]
           id: string
           image_seed_instructions: string | null
@@ -1844,6 +1845,7 @@ export type Database = {
           platform: string
           platform_type: string | null
           source_items: Json
+          status: string | null
           style: string
           title: string
           updated_at: string
@@ -1853,6 +1855,7 @@ export type Database = {
           caption: string
           context_direction?: string | null
           created_at?: string
+          generation_progress?: Json | null
           hashtags?: string[]
           id?: string
           image_seed_instructions?: string | null
@@ -1862,6 +1865,7 @@ export type Database = {
           platform: string
           platform_type?: string | null
           source_items?: Json
+          status?: string | null
           style: string
           title: string
           updated_at?: string
@@ -1871,6 +1875,7 @@ export type Database = {
           caption?: string
           context_direction?: string | null
           created_at?: string
+          generation_progress?: Json | null
           hashtags?: string[]
           id?: string
           image_seed_instructions?: string | null
@@ -1880,6 +1885,7 @@ export type Database = {
           platform?: string
           platform_type?: string | null
           source_items?: Json
+          status?: string | null
           style?: string
           title?: string
           updated_at?: string

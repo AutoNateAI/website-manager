@@ -56,7 +56,7 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
     };
   }, [onUpdate]);
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status?: string) => {
     switch (status) {
       case 'completed':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
@@ -69,7 +69,7 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: string) => {
     switch (status) {
       case 'completed':
         return 'bg-green-100 text-green-800';
@@ -148,7 +148,7 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
                   {post.title}
                 </span>
                 <Badge variant="secondary" className={getStatusColor(post.status)}>
-                  {post.status.replace('_', ' ')}
+                  {(post.status || 'pending').replace('_', ' ')}
                 </Badge>
               </div>
               <span className="text-sm text-muted-foreground">
