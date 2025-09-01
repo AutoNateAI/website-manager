@@ -93,7 +93,7 @@ const SocialMediaImageGallery = ({ images }: SocialMediaImageGalleryProps) => {
         </ScrollArea>
       ) : (
         // Single View - Fixed Image, Scrollable Details
-        <div className="flex-1 flex flex-col px-6 pb-6">
+        <div className="flex-1 flex flex-col px-6 pb-6 overflow-hidden">
           {/* Fixed Image Container */}
           <div className="relative flex-shrink-0 mb-4">
             <div className="aspect-video bg-muted rounded-lg overflow-hidden">
@@ -144,61 +144,63 @@ const SocialMediaImageGallery = ({ images }: SocialMediaImageGalleryProps) => {
           </div>
 
           {/* Scrollable Details Section */}
-          <ScrollArea className="flex-1 min-h-0">
-            <div className="space-y-4">
-              {/* Image Details */}
-              <div className="bg-muted/30 rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Image {currentIndex + 1}</span>
-                  <Badge variant="outline">
-                    Carousel {images[currentIndex]?.carousel_index + 1}
-                  </Badge>
-                </div>
-                {images[currentIndex]?.image_prompt && (
-                  <div>
-                    <span className="text-sm font-medium">Prompt:</span>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {images[currentIndex].image_prompt}
-                    </p>
+          <div className="flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="space-y-4 pr-4">
+                {/* Image Details */}
+                <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">Image {currentIndex + 1}</span>
+                    <Badge variant="outline">
+                      Carousel {images[currentIndex]?.carousel_index + 1}
+                    </Badge>
                   </div>
-                )}
-                {images[currentIndex]?.alt_text && (
-                  <div>
-                    <span className="text-sm font-medium">Alt Text:</span>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {images[currentIndex].alt_text}
-                    </p>
+                  {images[currentIndex]?.image_prompt && (
+                    <div>
+                      <span className="text-sm font-medium">Prompt:</span>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {images[currentIndex].image_prompt}
+                      </p>
+                    </div>
+                  )}
+                  {images[currentIndex]?.alt_text && (
+                    <div>
+                      <span className="text-sm font-medium">Alt Text:</span>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {images[currentIndex].alt_text}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Thumbnail Navigation */}
+                {images.length > 1 && (
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium">Navigate Images:</span>
+                    <div className="grid grid-cols-4 gap-2">
+                      {images.map((image, index) => (
+                        <button
+                          key={image.id}
+                          className={`aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
+                            index === currentIndex
+                              ? 'border-primary'
+                              : 'border-transparent hover:border-muted-foreground'
+                          }`}
+                          onClick={() => setCurrentIndex(index)}
+                        >
+                          <img
+                            src={image.image_url}
+                            alt={image.alt_text || `Thumbnail ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
-
-              {/* Thumbnail Navigation */}
-              {images.length > 1 && (
-                <div className="space-y-2">
-                  <span className="text-sm font-medium">Navigate Images:</span>
-                  <div className="grid grid-cols-4 gap-2">
-                    {images.map((image, index) => (
-                      <button
-                        key={image.id}
-                        className={`aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
-                          index === currentIndex
-                            ? 'border-primary'
-                            : 'border-transparent hover:border-muted-foreground'
-                        }`}
-                        onClick={() => setCurrentIndex(index)}
-                      >
-                        <img
-                          src={image.image_url}
-                          alt={image.alt_text || `Thumbnail ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+            </ScrollArea>
+          </div>
         </div>
       )}
 
