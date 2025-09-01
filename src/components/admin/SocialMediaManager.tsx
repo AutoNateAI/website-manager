@@ -694,7 +694,10 @@ const SocialMediaManager = () => {
         posts={posts.filter(post => 
           ['pending', 'generating_caption', 'generating_images'].includes(post.status || 'completed')
         )}
-        onUpdate={fetchData}
+        onUpdate={() => {
+          // Refresh data when progress updates
+          fetchData();
+        }}
       />
 
       {/* Filters */}

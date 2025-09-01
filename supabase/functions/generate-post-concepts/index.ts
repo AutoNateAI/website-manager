@@ -133,8 +133,8 @@ async function generatePostConcepts(
 ) {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   
-  // Try to get template from database
-  const { data: templateData } = await supabase
+  // Get template from database - NO FALLBACK
+  const { data: templateData, error: templateError } = await supabase
     .from('prompt_templates')
     .select('template')
     .eq('type', 'concept')
@@ -143,50 +143,12 @@ async function generatePostConcepts(
     .eq('is_default', true)
     .single();
 
-  // Fallback template if no DB template found
-  const fallbackTemplate = `You are a social media marketing expert specializing in {{platform}} content creation.
+  if (templateError || !templateData?.template) {
+    console.error('PROMPT_TEMPLATE_NOT_FOUND:', templateError);
+    throw new Error(`PROMPT_TEMPLATE_NOT_FOUND: No concept template found for platform=${platform}, media_type=${mediaType}. Please check your prompt_templates table.`);
+  }
 
-Generate **3 distinct and engaging post concepts** for {{platform}} based on the following:
-- **Post Title**: {{title}}
-- **Platform**: {{platform}}
-- **Style**: {{style}}
-- **Voice**: {{voice}}
-- **Media Type**: {{media_type}}
-{{#if context_direction}}
-- **Context Direction**: {{context_direction}}
-{{/if}}
-
-{{#if source_content}}
-**Source Content Summary:**
-{{source_content}}
-{{/if}}
-
-**Requirements:**
-1. Each concept should be **unique and creative**
-2. Optimize for {{platform}} best practices and engagement
-3. Match the specified **{{style}} style** and **{{voice}} voice**
-{{#if media_type}}
-4. Consider this is **{{media_type}}** content
-{{/if}}
-5. Include relevant hashtags and call-to-actions
-6. Make concepts shareable and discussion-worthy
-
-**Response Format (JSON):**
-\`\`\`json
-{
-  "concepts": [
-    {
-      "hook": "Attention-grabbing opening line",
-      "main_message": "Core message or value proposition", 
-      "call_to_action": "What you want readers to do",
-      "target_audience": "Who this resonates with most",
-      "engagement_strategy": "Why this will generate comments/shares"
-    }
-  ]
-}
-\`\`\``;
-
-  const template = templateData?.template || fallbackTemplate;
+  const template = templateData.template;
   
   // Simple template variable replacement
   const contentSummary = sourceContent.map(item => {

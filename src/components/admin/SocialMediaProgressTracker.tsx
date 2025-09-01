@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Clock, AlertCircle, ImageIcon, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 
 interface SocialMediaPost {
   id: string;
@@ -25,6 +25,7 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
   onUpdate 
 }) => {
   const [realtimePosts, setRealtimePosts] = useState<SocialMediaPost[]>(posts);
+  const { toast } = useToast();
 
   useEffect(() => {
     setRealtimePosts(posts);
@@ -65,6 +66,34 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
       supabase.removeChannel(channel);
     };
   }, [onUpdate]);
+
+  // Handle error toast notifications
+  useEffect(() => {
+    const failedPosts = realtimePosts.filter(post => 
+      post.status === 'failed' && post.generation_progress?.error
+    );
+    
+    failedPosts.forEach(post => {
+      const error = post.generation_progress.error;
+      let errorTitle = 'Post Generation Failed';
+      let errorMessage = error;
+      
+      if (error.includes('PROMPT_TEMPLATE_NOT_FOUND')) {
+        errorTitle = 'Missing Prompt Template';
+        errorMessage = `Database connection issue: ${error.split(':')[1]?.trim() || error}`;
+      } else if (error.includes('INCOMPLETE_IMAGE_PROMPTS')) {
+        errorTitle = 'Template Configuration Error';
+        errorMessage = `Template problem: ${error.split(':')[1]?.trim() || error}`;
+      }
+      
+      toast({ 
+        title: errorTitle, 
+        description: errorMessage,
+        variant: 'destructive',
+        duration: 12000 
+      });
+    });
+  }, [realtimePosts, toast]);
 
   const getStatusIcon = (status?: string) => {
     switch (status) {
@@ -157,11 +186,14 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
 
       if (error) throw error;
       
-      toast.success('Generation cancelled');
+      toast({ title: 'Generation cancelled' });
       onUpdate();
     } catch (error) {
       console.error('Error cancelling generation:', error);
-      toast.error('Failed to cancel generation');
+      toast({ 
+        title: 'Error cancelling generation', 
+        variant: 'destructive' 
+      });
     }
   };
 
@@ -208,6 +240,30 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
                 </Button>
               </div>
             </div>
+            
+            {/* Show error details for failed posts */}
+            {post.status === 'failed' && post.generation_progress?.error && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-destructive">Database Connection Error</p>
+                    <p className="text-xs text-destructive/80">
+                      {post.generation_progress.error.includes('PROMPT_TEMPLATE_NOT_FOUND') 
+                        ? `Missing template in database: ${post.generation_progress.error.split(':')[1]?.trim()}`
+                        : post.generation_progress.error.includes('INCOMPLETE_IMAGE_PROMPTS')
+                        ? `Template configuration error: ${post.generation_progress.error.split(':')[1]?.trim()}`
+                        : post.generation_progress.error
+                      }
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Check your prompt_templates table or database connection.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <Progress value={getProgressPercentage(post)} className="h-2" />
             <p className="text-sm text-muted-foreground">
               {getProgressText(post)}

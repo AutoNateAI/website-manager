@@ -202,8 +202,8 @@ async function generateCaptionAndHashtags(
 
   const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
   
-  // Get template from database
-  const { data: templateData } = await supabase
+  // Get template from database - NO FALLBACK
+  const { data: templateData, error: templateError } = await supabase
     .from('prompt_templates')
     .select('template')
     .eq('type', 'caption')
@@ -211,41 +211,12 @@ async function generateCaptionAndHashtags(
     .eq('is_default', true)
     .single();
 
-  const fallbackTemplate = `You are a social media copywriter expert creating engaging {{platform}} content.
+  if (templateError || !templateData?.template) {
+    console.error('PROMPT_TEMPLATE_NOT_FOUND:', templateError);
+    throw new Error(`PROMPT_TEMPLATE_NOT_FOUND: No caption template found for platform=${platform}. Please check your prompt_templates table.`);
+  }
 
-Create a compelling caption and hashtags for:
-- **Platform**: {{platform}}
-- **Style**: {{style}}
-- **Voice**: {{voice}}
-- **Post Concept**: {{concept}}
-
-{{#if source_content}}
-**Source Content:**
-{{source_content}}
-{{/if}}
-
-**Caption Requirements:**
-- Hook readers in the first line
-- Use {{voice}} tone throughout
-- Match {{style}} style guidelines  
-- Include strategic line breaks for readability
-- Add compelling call-to-action
-- Optimize for {{platform}} algorithm
-
-**Hashtag Strategy:**
-- Mix of trending and niche hashtags
-- 5-10 relevant hashtags for {{platform}}
-- Include industry-specific tags
-
-**Response Format (JSON):**
-\`\`\`json
-{
-  "caption": "Your engaging caption with proper formatting and line breaks",
-  "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
-}
-\`\`\``;
-
-  const template = templateData?.template || fallbackTemplate;
+  const template = templateData.template;
   
   let prompt = template
     .replace(/\{\{platform\}\}/g, platform)
@@ -295,8 +266,8 @@ async function generateImagePrompts(
 ): Promise<Array<{ prompt: string; alt_text: string }>> {
   const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
   
-  // Get template from database
-  const { data: templateData } = await supabase
+  // Get template from database - NO FALLBACK
+  const { data: templateData, error: templateError } = await supabase
     .from('prompt_templates')
     .select('template')
     .eq('type', 'image_prompts')
@@ -304,50 +275,12 @@ async function generateImagePrompts(
     .eq('is_default', true)
     .single();
 
-  const fallbackTemplate = `You are an expert visual content creator specializing in {{platform}} carousel posts.
+  if (templateError || !templateData?.template) {
+    console.error('PROMPT_TEMPLATE_NOT_FOUND:', templateError);
+    throw new Error(`PROMPT_TEMPLATE_NOT_FOUND: No image_prompts template found for platform=${platform}. Please check your prompt_templates table.`);
+  }
 
-Create **9 detailed image prompts** for a carousel post about:
-- **Platform**: {{platform}}
-- **Style**: {{style}}  
-- **Voice**: {{voice}}
-- **Post Content**: {{concept}}
-
-{{#if source_content}}
-**Source Material:**
-{{source_content}}
-{{/if}}
-
-**Visual Guidelines:**
-- Professional, engaging visuals optimized for {{platform}}
-- Consistent visual style across all 9 images
-- Clear, readable text overlays
-- Strong visual hierarchy and flow
-- Colors and design matching {{style}} aesthetic
-
-**Carousel Structure:**
-1. **Hook Image** - Grab attention immediately
-2-8. **Value/Content Images** - Deliver core information
-9. **Call-to-Action Image** - Drive engagement
-
-**Response Format (JSON):**
-\`\`\`json
-{
-  "images": [
-    {
-      "prompt": "Detailed visual description for DALL-E generation",
-      "alt_text": "Accessibility description of the image content"
-    }
-  ]
-}
-\`\`\`
-
-**Each prompt should be:**
-- Specific and detailed for AI image generation
-- Consistent in style and branding
-- Optimized for {{platform}} carousel format
-- Professional and visually appealing`;
-
-  const template = templateData?.template || fallbackTemplate;
+  const template = templateData.template;
   
   let prompt = template
     .replace(/\{\{platform\}\}/g, platform)
@@ -384,24 +317,17 @@ Create **9 detailed image prompts** for a carousel post about:
   const data = await response.json();
   const result = parseJSONSafe(data.choices?.[0]?.message?.content ?? '{}');
 
-  // Ensure exactly 9 prompts
+  // Ensure exactly 9 prompts - NO FALLBACK GENERATION
   let images = Array.isArray(result.images) ? result.images : [];
   images = images
     .map((it: any) => ({ prompt: String(it?.prompt ?? '').trim(), alt_text: String(it?.alt_text ?? '').trim() }))
     .filter((it: any) => it.prompt.length > 0);
 
-  if (images.length > 9) {
-    images = images.slice(0, 9);
+  if (images.length !== 9) {
+    console.error('INCOMPLETE_IMAGE_PROMPTS:', { received: images.length, expected: 9 });
+    throw new Error(`INCOMPLETE_IMAGE_PROMPTS: Expected 9 image prompts but got ${images.length}. Check your image_prompts template and OpenAI response.`);
   }
-  if (images.length < 9) {
-    const base = concept?.title || 'Social media carousel';
-    for (let i = images.length; i < 9; i++) {
-      images.push({
-        prompt: `${base} — Slide ${i + 1}. Consistent animated/illustrated style, bold readable text overlay, high contrast, mobile-first composition.`,
-        alt_text: `Slide ${i + 1} — ${base}`,
-      });
-    }
-  }
+  
   return images;
 }
 
