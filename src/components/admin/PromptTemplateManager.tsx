@@ -45,10 +45,10 @@ export default function PromptTemplateManager() {
 
   const [formData, setFormData] = useState({
     type: 'concept' as 'concept' | 'caption' | 'image_prompts',
-    platform: '',
-    style: '',
-    voice: '',
-    media_type: '',
+    platform: 'any',
+    style: 'any',
+    voice: 'any',
+    media_type: 'any',
     template: '',
     is_default: false,
   });
@@ -143,10 +143,10 @@ export default function PromptTemplateManager() {
   const handleClone = (template: PromptTemplate) => {
     setFormData({
       type: template.type,
-      platform: template.platform || '',
-      style: template.style || '',
-      voice: template.voice || '',
-      media_type: template.media_type || '',
+      platform: template.platform || 'any',
+      style: template.style || 'any',
+      voice: template.voice || 'any',
+      media_type: template.media_type || 'any',
       template: template.template,
       is_default: false,
     });
@@ -157,10 +157,10 @@ export default function PromptTemplateManager() {
   const handleEdit = (template: PromptTemplate) => {
     setFormData({
       type: template.type,
-      platform: template.platform || '',
-      style: template.style || '',
-      voice: template.voice || '',
-      media_type: template.media_type || '',
+      platform: template.platform || 'any',
+      style: template.style || 'any',
+      voice: template.voice || 'any',
+      media_type: template.media_type || 'any',
       template: template.template,
       is_default: template.is_default,
     });
@@ -171,10 +171,10 @@ export default function PromptTemplateManager() {
   const resetForm = () => {
     setFormData({
       type: 'concept',
-      platform: '',
-      style: '',
-      voice: '',
-      media_type: '',
+      platform: 'any',
+      style: 'any',
+      voice: 'any',
+      media_type: 'any',
       template: '',
       is_default: false,
     });
@@ -245,12 +245,12 @@ export default function PromptTemplateManager() {
                 </div>
                 <div>
                   <Label htmlFor="platform">Platform (optional)</Label>
-                  <Select value={formData.platform} onValueChange={(value) => setFormData(prev => ({ ...prev, platform: value }))}>
+                  <Select value={formData.platform} onValueChange={(value) => setFormData(prev => ({ ...prev, platform: value === 'any' ? '' : value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Any platform" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Any platform</SelectItem>
+                      <SelectItem value="any">Any platform</SelectItem>
                       {PLATFORMS.map(platform => (
                         <SelectItem key={platform} value={platform}>
                           {platform}
@@ -264,12 +264,12 @@ export default function PromptTemplateManager() {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="style">Style (optional)</Label>
-                  <Select value={formData.style} onValueChange={(value) => setFormData(prev => ({ ...prev, style: value }))}>
+                  <Select value={formData.style} onValueChange={(value) => setFormData(prev => ({ ...prev, style: value === 'any' ? '' : value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Any style" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Any style</SelectItem>
+                      <SelectItem value="any">Any style</SelectItem>
                       {STYLES.map(style => (
                         <SelectItem key={style} value={style}>
                           {style}
@@ -280,12 +280,12 @@ export default function PromptTemplateManager() {
                 </div>
                 <div>
                   <Label htmlFor="voice">Voice (optional)</Label>
-                  <Select value={formData.voice} onValueChange={(value) => setFormData(prev => ({ ...prev, voice: value }))}>
+                  <Select value={formData.voice} onValueChange={(value) => setFormData(prev => ({ ...prev, voice: value === 'any' ? '' : value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Any voice" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Any voice</SelectItem>
+                      <SelectItem value="any">Any voice</SelectItem>
                       {VOICES.map(voice => (
                         <SelectItem key={voice} value={voice}>
                           {voice}
@@ -296,12 +296,12 @@ export default function PromptTemplateManager() {
                 </div>
                 <div>
                   <Label htmlFor="media_type">Media Type (optional)</Label>
-                  <Select value={formData.media_type} onValueChange={(value) => setFormData(prev => ({ ...prev, media_type: value }))}>
+                  <Select value={formData.media_type} onValueChange={(value) => setFormData(prev => ({ ...prev, media_type: value === 'any' ? '' : value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Any media type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Any media type</SelectItem>
+                      <SelectItem value="any">Any media type</SelectItem>
                       {MEDIA_TYPES.map(type => (
                         <SelectItem key={type} value={type}>
                           {type}
