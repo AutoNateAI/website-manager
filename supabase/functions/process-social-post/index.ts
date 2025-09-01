@@ -104,71 +104,29 @@ async function processPost({ supabase, openAIApiKey, postId, concept, platform, 
       })
       .eq('id', postId);
 
-    // 5) Generate images (9 in parallel with retries + progress)
-    const successCount = await generateImageCarousel(supabase, openAIApiKey, postId, 1, captionData, concept, platform, style, voice, sourceContent, imagePrompts);
-
-    // 6) Completion with recovery pass for any missing indices
-    let finalCount = successCount;
-
-    if (finalCount < 9) {
-      // Determine which indices are missing
-      const { data: existingImgs } = await supabase
-        .from('social_media_images')
-        .select('image_index')
-        .eq('post_id', postId)
-        .eq('carousel_index', 1);
-      const present = new Set<number>((existingImgs || []).map((r: any) => r.image_index));
-      const missingIndices = Array.from({ length: 9 }, (_, i) => i + 1).filter((i) => !present.has(i));
-
-      console.log(`[process-social-post] Recovery: missing indices for ${postId}: ${missingIndices.join(', ') || 'none'}`);
-
-      // Sequential recovery to reduce CPU pressure
-      const recovered = await recoverMissingImages(supabase, openAIApiKey, postId, 1, imagePrompts, missingIndices);
-      finalCount = present.size + recovered;
+    // 5) Fan out per-image generation via dedicated Edge Function (non-blocking)
+    try {
+      const invokePromises = imagePrompts.map((p, idx) =>
+        supabase.functions.invoke('generate-social-image', {
+          body: {
+            postId,
+            carouselIndex: 1,
+            imageIndex: idx + 1,
+            prompt: p.prompt,
+            alt_text: p.alt_text,
+          },
+        }).then(({ error }) => {
+          if (error) console.error('[process-social-post] invoke generate-social-image error:', error);
+        }).catch((e) => console.error('[process-social-post] invoke fetch error:', e))
+      );
+      await Promise.all(invokePromises);
+      console.log(`[process-social-post] Dispatched ${imagePrompts.length} image jobs for ${postId}`);
+    } catch (e) {
+      console.error('[process-social-post] Error dispatching image jobs:', e);
     }
 
-    // 7) Finalize status strictly when all 9 images exist
-    if (finalCount === 9) {
-      await supabase
-        .from('social_media_posts')
-        .update({
-          status: 'completed',
-          generation_progress: {
-            step: 'completed',
-            images_total: 9,
-            images_completed: 9,
-            completed_at: new Date().toISOString(),
-          },
-        })
-        .eq('id', postId);
+    // Image workers will update progress and finalize completion when all 9 images are present.
 
-      console.log(`[process-social-post] Finished ${postId} with 9/9 images`);
-    } else {
-      // Compute final failed list for clarity
-      const { data: finalImgs } = await supabase
-        .from('social_media_images')
-        .select('image_index')
-        .eq('post_id', postId)
-        .eq('carousel_index', 1);
-      const present = new Set<number>((finalImgs || []).map((r: any) => r.image_index));
-      const failedImages = Array.from({ length: 9 }, (_, i) => i + 1).filter((i) => !present.has(i));
-
-      await supabase
-        .from('social_media_posts')
-        .update({
-          status: 'failed',
-          generation_progress: {
-            step: 'failed',
-            images_total: 9,
-            images_completed: present.size,
-            failed_images: failedImages,
-            failed_at: new Date().toISOString(),
-          },
-        })
-        .eq('id', postId);
-
-      console.log(`[process-social-post] ${postId} incomplete after recovery: ${present.size}/9 images`);
-    }
   } catch (err) {
     console.error(`[process-social-post] Error for ${postId}:`, err);
     await supabase
