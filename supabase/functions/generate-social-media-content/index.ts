@@ -88,10 +88,27 @@ serve(async (req) => {
       }
     );
 
-    // Start background processing
-    EdgeRuntime.waitUntil(
-      processPostsInBackground(supabase, openAIApiKey, createdPostIds, postConcepts, platform, style, voice, sourceItems)
-    );
+    // Start per-post processing by invoking a lightweight function for each post (non-blocking)
+    EdgeRuntime.waitUntil((async () => {
+      try {
+        const invokePromises = createdPostIds.map((postId, idx) =>
+          supabase.functions.invoke('process-social-post', {
+            body: {
+              postId,
+              concept: postConcepts[idx],
+              platform,
+              style,
+              voice,
+            },
+          }).then(({ error }) => {
+            if (error) console.error('Invoke error for process-social-post:', error);
+          }).catch((err) => console.error('Invoke fetch error:', err))
+        );
+        await Promise.all(invokePromises);
+      } catch (e) {
+        console.error('Error scheduling per-post processing:', e);
+      }
+    })());
 
     return response;
   } catch (error) {
