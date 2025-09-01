@@ -107,18 +107,68 @@ async function processPost({ supabase, openAIApiKey, postId, concept, platform, 
     // 5) Generate images (9 in parallel with retries + progress)
     const successCount = await generateImageCarousel(supabase, openAIApiKey, postId, 1, captionData, concept, platform, style, voice, sourceContent, imagePrompts);
 
-    // 6) Completion state
-    const status = successCount > 0 ? 'completed' : 'failed';
-    const generation_progress: any = successCount > 0
-      ? { step: 'completed', images_total: 9, images_completed: successCount, completed_at: new Date().toISOString() }
-      : { step: 'failed', error: 'All image generation attempts failed', failed_at: new Date().toISOString() };
+    // 6) Completion with recovery pass for any missing indices
+    let finalCount = successCount;
 
-    await supabase
-      .from('social_media_posts')
-      .update({ status, generation_progress })
-      .eq('id', postId);
+    if (finalCount < 9) {
+      // Determine which indices are missing
+      const { data: existingImgs } = await supabase
+        .from('social_media_images')
+        .select('image_index')
+        .eq('post_id', postId)
+        .eq('carousel_index', 1);
+      const present = new Set<number>((existingImgs || []).map((r: any) => r.image_index));
+      const missingIndices = Array.from({ length: 9 }, (_, i) => i + 1).filter((i) => !present.has(i));
 
-    console.log(`[process-social-post] Finished ${postId} with ${successCount}/9 images`);
+      console.log(`[process-social-post] Recovery: missing indices for ${postId}: ${missingIndices.join(', ') || 'none'}`);
+
+      // Sequential recovery to reduce CPU pressure
+      const recovered = await recoverMissingImages(supabase, openAIApiKey, postId, 1, imagePrompts, missingIndices);
+      finalCount = present.size + recovered;
+    }
+
+    // 7) Finalize status strictly when all 9 images exist
+    if (finalCount === 9) {
+      await supabase
+        .from('social_media_posts')
+        .update({
+          status: 'completed',
+          generation_progress: {
+            step: 'completed',
+            images_total: 9,
+            images_completed: 9,
+            completed_at: new Date().toISOString(),
+          },
+        })
+        .eq('id', postId);
+
+      console.log(`[process-social-post] Finished ${postId} with 9/9 images`);
+    } else {
+      // Compute final failed list for clarity
+      const { data: finalImgs } = await supabase
+        .from('social_media_images')
+        .select('image_index')
+        .eq('post_id', postId)
+        .eq('carousel_index', 1);
+      const present = new Set<number>((finalImgs || []).map((r: any) => r.image_index));
+      const failedImages = Array.from({ length: 9 }, (_, i) => i + 1).filter((i) => !present.has(i));
+
+      await supabase
+        .from('social_media_posts')
+        .update({
+          status: 'failed',
+          generation_progress: {
+            step: 'failed',
+            images_total: 9,
+            images_completed: present.size,
+            failed_images: failedImages,
+            failed_at: new Date().toISOString(),
+          },
+        })
+        .eq('id', postId);
+
+      console.log(`[process-social-post] ${postId} incomplete after recovery: ${present.size}/9 images`);
+    }
   } catch (err) {
     console.error(`[process-social-post] Error for ${postId}:`, err);
     await supabase
@@ -252,7 +302,26 @@ async function generateImagePrompts(
 
   const data = await response.json();
   const result = parseJSONSafe(data.choices?.[0]?.message?.content ?? '{}');
-  return result.images || [];
+
+  // Ensure exactly 9 prompts
+  let images = Array.isArray(result.images) ? result.images : [];
+  images = images
+    .map((it: any) => ({ prompt: String(it?.prompt ?? '').trim(), alt_text: String(it?.alt_text ?? '').trim() }))
+    .filter((it: any) => it.prompt.length > 0);
+
+  if (images.length > 9) {
+    images = images.slice(0, 9);
+  }
+  if (images.length < 9) {
+    const base = concept?.title || 'Social media carousel';
+    for (let i = images.length; i < 9; i++) {
+      images.push({
+        prompt: `${base} — Slide ${i + 1}. Consistent animated/illustrated style, bold readable text overlay, high contrast, mobile-first composition.`,
+        alt_text: `Slide ${i + 1} — ${base}`,
+      });
+    }
+  }
+  return images;
 }
 
 async function generateImageCarousel(
@@ -340,12 +409,16 @@ async function generateImage(
   supabase: any,
   openAIApiKey: string,
   prompt: string,
-  referenceImageUrl?: string
+  referenceImageUrl?: string,
+  options?: { size?: string; quality?: 'high' | 'standard' }
 ): Promise<string> {
+  const size = options?.size ?? '1024x1024';
+  const quality = options?.quality ?? 'high';
+
   const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${openAIApiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size: '1024x1024', quality: 'high', output_format: 'png' }),
+    body: JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size, quality, output_format: 'png' }),
   });
 
   if (!imageResponse.ok) {
@@ -364,6 +437,82 @@ async function generateImage(
 
   const { data: urlData } = supabase.storage.from('generated-images').getPublicUrl(fileName);
   return urlData.publicUrl;
+}
+
+async function recoverMissingImages(
+  supabase: any,
+  openAIApiKey: string,
+  postId: string,
+  carouselIndex: number,
+  imagePrompts: Array<{ prompt: string; alt_text: string }>,
+  missingIndices: number[]
+): Promise<number> {
+  let recovered = 0;
+  for (const imageIndex of missingIndices) {
+    // Skip if already exists (race safety)
+    const { data: exists } = await supabase
+      .from('social_media_images')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('carousel_index', carouselIndex)
+      .eq('image_index', imageIndex)
+      .limit(1);
+    if (Array.isArray(exists) && exists.length > 0) continue;
+
+    const promptObj = imagePrompts[imageIndex - 1] || { prompt: `Recovery slide ${imageIndex}`, alt_text: `Slide ${imageIndex}` };
+    for (let retry = 0; retry < 3; retry++) {
+      try {
+        // Cancellation check
+        const { data: postCheck } = await supabase
+          .from('social_media_posts')
+          .select('status')
+          .eq('id', postId)
+          .single();
+        if (postCheck?.status === 'cancelled') {
+          console.log(`[process-social-post] Recovery cancelled at image ${imageIndex}`);
+          return recovered;
+        }
+
+        const imageUrl = await generateImage(supabase, openAIApiKey, promptObj.prompt, undefined, { quality: 'standard' });
+
+        await supabase.from('social_media_images').insert({
+          post_id: postId,
+          carousel_index: carouselIndex,
+          image_index: imageIndex,
+          image_url: imageUrl,
+          image_prompt: promptObj.prompt,
+          alt_text: promptObj.alt_text,
+        });
+
+        const { error: rpcError } = await supabase.rpc('increment_image_progress', {
+          post_id_param: postId,
+          carousel_index_param: imageIndex,
+        });
+        if (rpcError) {
+          const { data: cur } = await supabase
+            .from('social_media_posts')
+            .select('generation_progress')
+            .eq('id', postId)
+            .single();
+          const current = cur?.generation_progress?.images_completed || 0;
+          await supabase
+            .from('social_media_posts')
+            .update({ generation_progress: { ...cur?.generation_progress, images_completed: current + 1, last_completed_image: imageIndex, updated_at: new Date().toISOString(), step: 'generating_images' } })
+            .eq('id', postId);
+        }
+
+        console.log(`[process-social-post] Recovery succeeded for image ${imageIndex}`);
+        recovered++;
+        break;
+      } catch (err) {
+        console.error(`[process-social-post] Recovery error for image ${imageIndex} (attempt ${retry + 1}):`, err);
+        if (retry < 2) {
+          await new Promise((r) => setTimeout(r, Math.pow(2, retry) * 1000));
+        }
+      }
+    }
+  }
+  return recovered;
 }
 
 function postIdSafe() {

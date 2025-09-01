@@ -212,8 +212,8 @@ async function processPostsInBackground(
         return;
       }
       
-      // Only mark completed if at least 1 image succeeded
-      if (successCount > 0) {
+      // Only mark completed if all 9 images succeeded
+      if (successCount === 9) {
         await supabase
           .from('social_media_posts')
           .update({ 
@@ -223,13 +223,13 @@ async function processPostsInBackground(
               concept_index: index + 1,
               total_concepts: postConcepts.length,
               images_total: 9,
-              images_completed: successCount,
+              images_completed: 9,
               completed_at: new Date().toISOString()
             }
           })
           .eq('id', postId);
 
-        console.log(`Completed processing post ${postId} with ${successCount}/9 images`);
+        console.log(`Completed processing post ${postId} with 9/9 images`);
       } else {
         // All images failed
         await supabase
