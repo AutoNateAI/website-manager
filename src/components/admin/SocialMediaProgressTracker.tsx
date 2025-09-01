@@ -5,16 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Clock, AlertCircle, ImageIcon } from 'lucide-react';
 
-interface PostProgress {
+interface SocialMediaPost {
   id: string;
   title: string;
-  status: string;
-  generation_progress: any;
+  status?: string;
+  generation_progress?: any;
   created_at: string;
 }
 
 interface SocialMediaProgressTrackerProps {
-  posts: PostProgress[];
+  posts: SocialMediaPost[];
   onUpdate: () => void;
 }
 
@@ -22,7 +22,7 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
   posts, 
   onUpdate 
 }) => {
-  const [realtimePosts, setRealtimePosts] = useState<PostProgress[]>(posts);
+  const [realtimePosts, setRealtimePosts] = useState<SocialMediaPost[]>(posts);
 
   useEffect(() => {
     setRealtimePosts(posts);
@@ -40,7 +40,7 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
           table: 'social_media_posts'
         },
         (payload) => {
-          const updatedPost = payload.new as PostProgress;
+          const updatedPost = payload.new as SocialMediaPost;
           setRealtimePosts(prev => 
             prev.map(post => 
               post.id === updatedPost.id ? updatedPost : post
@@ -84,7 +84,7 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
     }
   };
 
-  const getProgressPercentage = (post: PostProgress) => {
+  const getProgressPercentage = (post: SocialMediaPost) => {
     const progress = post.generation_progress || {};
     
     switch (post.status) {
@@ -103,7 +103,7 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
     }
   };
 
-  const getProgressText = (post: PostProgress) => {
+  const getProgressText = (post: SocialMediaPost) => {
     const progress = post.generation_progress || {};
     
     switch (post.status) {
@@ -123,7 +123,7 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
   };
 
   const activePosts = realtimePosts.filter(post => 
-    ['pending', 'generating_caption', 'generating_images'].includes(post.status)
+    ['pending', 'generating_caption', 'generating_images'].includes(post.status || '')
   );
 
   if (activePosts.length === 0) {
