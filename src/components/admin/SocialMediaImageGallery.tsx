@@ -144,7 +144,7 @@ const SocialMediaImageGallery = ({ images }: SocialMediaImageGalleryProps) => {
           </div>
 
           {/* Scrollable Details Section */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="space-y-4">
               {/* Image Details */}
               <div className="bg-muted/30 rounded-lg p-3 space-y-2">
