@@ -40,10 +40,10 @@ const SocialMediaPostDetailModal = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="glass-modal max-w-7xl max-h-[95vh] p-0">
-        <div className="flex h-full">
+        <div className="flex h-full max-h-[95vh]">
           {/* Left Side - Post Details */}
-          <div className="flex-1 max-w-md border-r border-border">
-            <DialogHeader className="p-6 border-b border-border">
+          <div className="flex-1 max-w-md border-r border-border flex flex-col">
+            <DialogHeader className="p-6 border-b border-border flex-shrink-0">
               <div className="flex items-start justify-between">
                 <DialogTitle className="text-xl font-bold line-clamp-2">
                   {post.title}
@@ -67,8 +67,8 @@ const SocialMediaPostDetailModal = ({
               </div>
             </DialogHeader>
 
-            <ScrollArea className="flex-1 p-6">
-              <div className="space-y-6">
+            <ScrollArea className="flex-1 overflow-hidden">
+              <div className="p-6 space-y-6">
                 {/* Platform & Style Info */}
                 <div className="space-y-3">
                   <div className="flex flex-wrap gap-2">
@@ -150,10 +150,8 @@ const SocialMediaPostDetailModal = ({
           </div>
 
           {/* Right Side - Image Gallery */}
-          <div className="flex-1 min-w-0">
-            <div className="h-full p-6">
-              <SocialMediaImageGallery images={images} />
-            </div>
+          <div className="flex-1 min-w-0 flex flex-col">
+            <SocialMediaImageGallery images={images} />
           </div>
         </div>
       </DialogContent>

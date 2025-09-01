@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChevronLeft, ChevronRight, Grid, Maximize, X } from 'lucide-react';
 import { SocialMediaImage } from './types';
 import ImageViewer from './ImageViewer';
@@ -37,9 +38,9 @@ const SocialMediaImageGallery = ({ images }: SocialMediaImageGalleryProps) => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="h-full flex flex-col">
       {/* View Toggle */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
         <h3 className="font-medium">Images ({images.length})</h3>
         <div className="flex items-center gap-2">
           <Button
@@ -62,36 +63,39 @@ const SocialMediaImageGallery = ({ images }: SocialMediaImageGalleryProps) => {
       </div>
 
       {viewMode === 'gallery' ? (
-        /* Gallery View */
-        <div className="grid grid-cols-3 gap-3">
-          {images.map((image, index) => (
-            <div
-              key={image.id}
-              className="group relative aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-              onClick={() => openImageViewer(image)}
-            >
-              <img
-                src={image.image_url}
-                alt={image.alt_text || `Image ${index + 1}`}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-              />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Maximize className="text-white" size={20} />
+        // Gallery View - Scrollable
+        <ScrollArea className="flex-1 px-6 pb-6">
+          <div className="grid grid-cols-3 gap-3">
+            {images.map((image, index) => (
+              <div
+                key={image.id}
+                className="group relative aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                onClick={() => openImageViewer(image)}
+              >
+                <img
+                  src={image.image_url}
+                  alt={image.alt_text || `Image ${index + 1}`}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Maximize className="text-white" size={20} />
+                  </div>
+                </div>
+                <div className="absolute top-2 left-2">
+                  <Badge variant="secondary" className="text-xs">
+                    {index + 1}
+                  </Badge>
                 </div>
               </div>
-              <div className="absolute top-2 left-2">
-                <Badge variant="secondary" className="text-xs">
-                  {index + 1}
-                </Badge>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </ScrollArea>
       ) : (
-        /* Single View */
-        <div className="space-y-4">
-          <div className="relative">
+        // Single View - Fixed Image, Scrollable Details
+        <div className="flex-1 flex flex-col px-6 pb-6">
+          {/* Fixed Image Container */}
+          <div className="relative flex-shrink-0 mb-4">
             <div className="aspect-video bg-muted rounded-lg overflow-hidden">
               <img
                 src={images[currentIndex]?.image_url}
@@ -139,54 +143,62 @@ const SocialMediaImageGallery = ({ images }: SocialMediaImageGalleryProps) => {
             </Button>
           </div>
 
-          {/* Image Details */}
-          <div className="bg-muted/30 rounded-lg p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-medium">Image {currentIndex + 1}</span>
-              <Badge variant="outline">
-                Carousel {images[currentIndex]?.carousel_index + 1}
-              </Badge>
-            </div>
-            {images[currentIndex]?.image_prompt && (
-              <div>
-                <span className="text-sm font-medium">Prompt:</span>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {images[currentIndex].image_prompt}
-                </p>
+          {/* Scrollable Details Section */}
+          <ScrollArea className="flex-1">
+            <div className="space-y-4">
+              {/* Image Details */}
+              <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Image {currentIndex + 1}</span>
+                  <Badge variant="outline">
+                    Carousel {images[currentIndex]?.carousel_index + 1}
+                  </Badge>
+                </div>
+                {images[currentIndex]?.image_prompt && (
+                  <div>
+                    <span className="text-sm font-medium">Prompt:</span>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {images[currentIndex].image_prompt}
+                    </p>
+                  </div>
+                )}
+                {images[currentIndex]?.alt_text && (
+                  <div>
+                    <span className="text-sm font-medium">Alt Text:</span>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {images[currentIndex].alt_text}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-            {images[currentIndex]?.alt_text && (
-              <div>
-                <span className="text-sm font-medium">Alt Text:</span>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {images[currentIndex].alt_text}
-                </p>
-              </div>
-            )}
-          </div>
 
-          {/* Thumbnail Navigation */}
-          {images.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {images.map((image, index) => (
-                <button
-                  key={image.id}
-                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
-                    index === currentIndex
-                      ? 'border-primary'
-                      : 'border-transparent hover:border-muted-foreground'
-                  }`}
-                  onClick={() => setCurrentIndex(index)}
-                >
-                  <img
-                    src={image.image_url}
-                    alt={image.alt_text || `Thumbnail ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              ))}
+              {/* Thumbnail Navigation */}
+              {images.length > 1 && (
+                <div className="space-y-2">
+                  <span className="text-sm font-medium">Navigate Images:</span>
+                  <div className="grid grid-cols-4 gap-2">
+                    {images.map((image, index) => (
+                      <button
+                        key={image.id}
+                        className={`aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
+                          index === currentIndex
+                            ? 'border-primary'
+                            : 'border-transparent hover:border-muted-foreground'
+                        }`}
+                        onClick={() => setCurrentIndex(index)}
+                      >
+                        <img
+                          src={image.image_url}
+                          alt={image.alt_text || `Thumbnail ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </ScrollArea>
         </div>
       )}
 
