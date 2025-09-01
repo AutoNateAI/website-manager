@@ -294,6 +294,14 @@ async function generateImagePrompts(
     prompt = prompt.replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '');
   }
 
+  // Debug logging: preview final prompt and any unreplaced tokens (max 10 shown)
+  const unreplaced = (prompt.match(/\{\{[^}]+\}\}/g) || []).filter(v => !v.startsWith('{{#') && !v.startsWith('{{/')).slice(0, 10);
+  console.log('[process-social-post] image_prompts prompt preview', {
+    platform, style, voice, hasSourceContent: Boolean(sourceContent),
+    unreplacedTokens: unreplaced,
+    preview: prompt.slice(0, 800)
+  });
+
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${openAIApiKey}`, 'Content-Type': 'application/json' },
@@ -322,6 +330,12 @@ async function generateImagePrompts(
   images = images
     .map((it: any) => ({ prompt: String(it?.prompt ?? '').trim(), alt_text: String(it?.alt_text ?? '').trim() }))
     .filter((it: any) => it.prompt.length > 0);
+
+  // Debug logging: summary of generated image prompts
+  console.log('[process-social-post] image_prompts result summary', {
+    count: images.length,
+    firstPrompt: images[0]?.prompt?.slice(0, 200)
+  });
 
   if (images.length !== 9) {
     console.error('INCOMPLETE_IMAGE_PROMPTS:', { received: images.length, expected: 9 });
