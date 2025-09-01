@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, Copy, RefreshCw } from 'lucide-react';
+import TemplateVariablesDocumentation from './TemplateVariablesDocumentation';
 
 interface PromptTemplate {
   id: string;
@@ -332,9 +333,9 @@ export default function PromptTemplateManager() {
                   placeholder="Enter your prompt template using {{variable}} syntax..."
                   className="font-mono text-sm"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Use variables like {`{{platform}}`}, {`{{style}}`}, {`{{voice}}`}, etc. Conditional sections: {`{{#if variable}}`}content{`{{/if}}`}
-                </p>
+                <div className="mt-3">
+                  <TemplateVariablesDocumentation templateType={formData.type} />
+                </div>
               </div>
 
               <div className="flex justify-end space-x-2">
