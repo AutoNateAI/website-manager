@@ -800,6 +800,11 @@ const SocialMediaManager = () => {
             setShowDetailModal(false);
           }
         }}
+        onEditImage={(image) => {
+          setEditingImage(image);
+          setShowImageEditor(true);
+        }}
+        onPostUpdate={fetchData}
       />
 
       {/* Image Editor Modal */}

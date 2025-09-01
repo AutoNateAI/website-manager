@@ -2,15 +2,16 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ChevronLeft, ChevronRight, Grid, Maximize, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit, Grid, Maximize } from 'lucide-react';
 import { SocialMediaImage } from './types';
 import ImageViewer from './ImageViewer';
 
 interface SocialMediaImageGalleryProps {
   images: SocialMediaImage[];
+  onEditImage?: (image: SocialMediaImage) => void;
 }
 
-const SocialMediaImageGallery = ({ images }: SocialMediaImageGalleryProps) => {
+const SocialMediaImageGallery = ({ images, onEditImage }: SocialMediaImageGalleryProps) => {
   const [viewMode, setViewMode] = useState<'gallery' | 'single'>('gallery');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedImage, setSelectedImage] = useState<SocialMediaImage | null>(null);
@@ -43,6 +44,16 @@ const SocialMediaImageGallery = ({ images }: SocialMediaImageGalleryProps) => {
       <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
         <h3 className="font-medium">Images ({images.length})</h3>
         <div className="flex items-center gap-2">
+          {onEditImage && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onEditImage(images[currentIndex])}
+            >
+              <Edit size={14} className="mr-1" />
+              Edit Image
+            </Button>
+          )}
           <Button
             variant={viewMode === 'gallery' ? 'default' : 'outline'}
             size="sm"

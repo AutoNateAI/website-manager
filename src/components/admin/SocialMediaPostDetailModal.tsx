@@ -2,9 +2,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Copy, Edit, Trash2, Calendar, Clock } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Copy, Edit, Trash2, Calendar, Clock, Save, X } from 'lucide-react';
 import { SocialMediaPost, SocialMediaImage } from './types';
 import SocialMediaImageGallery from './SocialMediaImageGallery';
+import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SocialMediaPostDetailModalProps {
   isOpen: boolean;
@@ -14,6 +18,8 @@ interface SocialMediaPostDetailModalProps {
   onCopy: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onEditImage?: (image: SocialMediaImage) => void;
+  onPostUpdate?: () => void;
 }
 
 const SocialMediaPostDetailModal = ({
@@ -23,8 +29,21 @@ const SocialMediaPostDetailModal = ({
   images,
   onCopy,
   onEdit,
-  onDelete
+  onDelete,
+  onEditImage,
+  onPostUpdate
 }: SocialMediaPostDetailModalProps) => {
+  const [editingCaption, setEditingCaption] = useState(false);
+  const [captionText, setCaptionText] = useState("");
+  const { toast } = useToast();
+
+  // Initialize caption text when post changes
+  useEffect(() => {
+    if (post) {
+      setCaptionText(post.caption);
+    }
+  }, [post]);
+
   if (!post) return null;
 
   const formatDate = (dateString: string) => {
@@ -35,6 +54,29 @@ const SocialMediaPostDetailModal = ({
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handleSaveCaption = async () => {
+    try {
+      const { error } = await supabase
+        .from('social_media_posts')
+        .update({ caption: captionText })
+        .eq('id', post.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Caption updated successfully!' });
+      setEditingCaption(false);
+      if (onPostUpdate) onPostUpdate();
+    } catch (error) {
+      console.error('Error updating caption:', error);
+      toast({ title: 'Error updating caption', variant: 'destructive' });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setCaptionText(post.caption);
+    setEditingCaption(false);
   };
 
   return (
@@ -87,17 +129,57 @@ const SocialMediaPostDetailModal = ({
                 <div>
                   <h4 className="font-medium mb-3 flex items-center gap-2">
                     Caption
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={onCopy}
-                      className="h-6 px-2"
-                    >
-                      <Copy size={12} />
-                    </Button>
+                    {!editingCaption ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingCaption(true)}
+                          className="h-6 px-2"
+                        >
+                          <Edit size={12} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={onCopy}
+                          className="h-6 px-2"
+                        >
+                          <Copy size={12} />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleSaveCaption}
+                          className="h-6 px-2 text-green-600 hover:text-green-700"
+                        >
+                          <Save size={12} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleCancelEdit}
+                          className="h-6 px-2"
+                        >
+                          <X size={12} />
+                        </Button>
+                      </>
+                    )}
                   </h4>
                   <div className="bg-muted/30 rounded-lg p-4">
-                    <p className="text-sm whitespace-pre-wrap">{post.caption}</p>
+                    {editingCaption ? (
+                      <Textarea
+                        value={captionText}
+                        onChange={(e) => setCaptionText(e.target.value)}
+                        className="min-h-32 text-sm"
+                        placeholder="Edit caption..."
+                      />
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap">{post.caption}</p>
+                    )}
                   </div>
                 </div>
 
@@ -151,7 +233,7 @@ const SocialMediaPostDetailModal = ({
 
           {/* Right Side - Image Gallery */}
           <div className="flex-1 min-w-0 flex flex-col">
-            <SocialMediaImageGallery images={images} />
+            <SocialMediaImageGallery images={images} onEditImage={onEditImage} />
           </div>
         </div>
       </DialogContent>
