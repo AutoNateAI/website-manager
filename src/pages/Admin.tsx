@@ -20,6 +20,7 @@ import { PersonalNetworkLeadsManager } from '@/components/admin/PersonalNetworkL
 import { CampaignManager } from '@/components/admin/CampaignManager';
 import { SlideManager } from '@/components/admin/SlideManager';
 import PersonNotesManager from '@/components/admin/PersonNotesManager';
+import PromptTemplateManager from '@/components/admin/PromptTemplateManager';
 
 const Admin = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
@@ -71,6 +72,8 @@ const Admin = () => {
         return <SlideManager />;
       case 'campaigns':
         return <CampaignManager />;
+      case 'prompt-templates':
+        return <PromptTemplateManager />;
       default:
         return <LeadManager />;
     }

@@ -200,7 +200,64 @@ async function generateCaptionAndHashtags(
 ): Promise<{ caption: string; hashtags: string[] }> {
   console.log(`[process-social-post] Generating caption`);
 
-  const prompt = `Create an engaging ${platform} ${style} post using a ${voice?.toLowerCase()} voice based on this concept:\n\nTitle/Hook: ${concept?.title}\nTarget Audience: ${concept?.targetAudience}\nContent Angle: ${concept?.angle}\nKey Messages: ${(concept?.keyMessages || []).join(', ')}\nCall to Action: ${concept?.callToAction}\n\n${sourceContent ? `Source Content:\n${sourceContent}\n` : ''}\n\nCreate:\n1. A compelling caption (optimized for ${platform})\n2. 8-15 relevant hashtags\n\nReturn in JSON format:\n{\n  "caption": "engaging caption text",\n  "hashtags": ["hashtag1", "hashtag2", "hashtag3"]\n}`;
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+  
+  // Get template from database
+  const { data: templateData } = await supabase
+    .from('prompt_templates')
+    .select('template')
+    .eq('type', 'caption')
+    .eq('platform', platform)
+    .eq('is_default', true)
+    .single();
+
+  const fallbackTemplate = `You are a social media copywriter expert creating engaging {{platform}} content.
+
+Create a compelling caption and hashtags for:
+- **Platform**: {{platform}}
+- **Style**: {{style}}
+- **Voice**: {{voice}}
+- **Post Concept**: {{concept}}
+
+{{#if source_content}}
+**Source Content:**
+{{source_content}}
+{{/if}}
+
+**Caption Requirements:**
+- Hook readers in the first line
+- Use {{voice}} tone throughout
+- Match {{style}} style guidelines  
+- Include strategic line breaks for readability
+- Add compelling call-to-action
+- Optimize for {{platform}} algorithm
+
+**Hashtag Strategy:**
+- Mix of trending and niche hashtags
+- 5-10 relevant hashtags for {{platform}}
+- Include industry-specific tags
+
+**Response Format (JSON):**
+\`\`\`json
+{
+  "caption": "Your engaging caption with proper formatting and line breaks",
+  "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
+}
+\`\`\``;
+
+  const template = templateData?.template || fallbackTemplate;
+  
+  let prompt = template
+    .replace(/\{\{platform\}\}/g, platform)
+    .replace(/\{\{style\}\}/g, style)
+    .replace(/\{\{voice\}\}/g, voice)
+    .replace(/\{\{concept\}\}/g, JSON.stringify(concept));
+
+  if (sourceContent) {
+    prompt = prompt.replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '$1').replace(/\{\{source_content\}\}/g, sourceContent);
+  } else {
+    prompt = prompt.replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '');
+  }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -236,7 +293,73 @@ async function generateImagePrompts(
   voice: string,
   captionData: any
 ): Promise<Array<{ prompt: string; alt_text: string }>> {
-  const prompt = `Create 9 animated visual story slides for ${platform} that tell a cohesive narrative. Each image MUST be consistently ANIMATED/ILLUSTRATED style with bold text overlays that advance the story.\n\nSTORY CONCEPT:\nTitle: ${concept?.title}\nTarget Audience: ${concept?.targetAudience}\nContent Angle: ${concept?.angle}\nKey Messages: ${(concept?.keyMessages || []).join(', ')}\nCaption: ${captionData?.caption}\n\n${sourceContent ? `Source Content:\n${sourceContent}\n` : ''}\n\nCRITICAL STORY STRUCTURE - Each slide builds on the previous:\nSlide 1 (SCROLL STOPPER): Bold animated illustration with attention-grabbing hook text overlay.\nSlide 2: Animated illustration showing emotional pain/frustration.\nSlide 3: \"Aha moment\" animated illustration introducing solution.\nSlide 4: Positive outcomes/benefits.\nSlide 5: Process/how-it-works diagram.\nSlide 6: Before/after comparison.\nSlide 7: Social proof.\nSlide 8: Urgency/desire building.\nSlide 9 (STRONG CTA): Clear next-step call-to-action.\n\nVISUAL REQUIREMENTS:\n- Consistent animated/illustrated style\n- Bold, readable text overlays\n- High contrast colors\n- Mobile-optimized composition\n\nReturn JSON: { "images": [{ "prompt": "...", "alt_text": "..." }] }`;
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+  
+  // Get template from database
+  const { data: templateData } = await supabase
+    .from('prompt_templates')
+    .select('template')
+    .eq('type', 'image_prompts')
+    .eq('platform', platform)
+    .eq('is_default', true)
+    .single();
+
+  const fallbackTemplate = `You are an expert visual content creator specializing in {{platform}} carousel posts.
+
+Create **9 detailed image prompts** for a carousel post about:
+- **Platform**: {{platform}}
+- **Style**: {{style}}  
+- **Voice**: {{voice}}
+- **Post Content**: {{concept}}
+
+{{#if source_content}}
+**Source Material:**
+{{source_content}}
+{{/if}}
+
+**Visual Guidelines:**
+- Professional, engaging visuals optimized for {{platform}}
+- Consistent visual style across all 9 images
+- Clear, readable text overlays
+- Strong visual hierarchy and flow
+- Colors and design matching {{style}} aesthetic
+
+**Carousel Structure:**
+1. **Hook Image** - Grab attention immediately
+2-8. **Value/Content Images** - Deliver core information
+9. **Call-to-Action Image** - Drive engagement
+
+**Response Format (JSON):**
+\`\`\`json
+{
+  "images": [
+    {
+      "prompt": "Detailed visual description for DALL-E generation",
+      "alt_text": "Accessibility description of the image content"
+    }
+  ]
+}
+\`\`\`
+
+**Each prompt should be:**
+- Specific and detailed for AI image generation
+- Consistent in style and branding
+- Optimized for {{platform}} carousel format
+- Professional and visually appealing`;
+
+  const template = templateData?.template || fallbackTemplate;
+  
+  let prompt = template
+    .replace(/\{\{platform\}\}/g, platform)
+    .replace(/\{\{style\}\}/g, style)
+    .replace(/\{\{voice\}\}/g, voice)
+    .replace(/\{\{concept\}\}/g, JSON.stringify(concept));
+
+  if (sourceContent) {
+    prompt = prompt.replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '$1').replace(/\{\{source_content\}\}/g, sourceContent);
+  } else {
+    prompt = prompt.replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '');
+  }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -389,7 +512,7 @@ async function generateImage(
   const base64Image = imageData.data[0].b64_json;
   const imageBuffer = Uint8Array.from(atob(base64Image), (c) => c.charCodeAt(0));
 
-  const fileName = `social-media-${postIdSafe()}-${crypto.randomUUID()}.png`;
+  const fileName = `social-media-${crypto.randomUUID()}-${Date.now()}.png`;
   const { error: uploadError } = await supabase.storage.from('generated-images').upload(fileName, imageBuffer, { contentType: 'image/png' });
   if (uploadError) throw uploadError;
 

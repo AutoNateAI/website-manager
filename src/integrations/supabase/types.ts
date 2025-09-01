@@ -1426,6 +1426,45 @@ export type Database = {
         }
         Relationships: []
       }
+      prompt_templates: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          media_type: string | null
+          platform: string | null
+          style: string | null
+          template: string
+          type: Database["public"]["Enums"]["prompt_template_type"]
+          updated_at: string
+          voice: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          media_type?: string | null
+          platform?: string | null
+          style?: string | null
+          template: string
+          type: Database["public"]["Enums"]["prompt_template_type"]
+          updated_at?: string
+          voice?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          media_type?: string | null
+          platform?: string | null
+          style?: string | null
+          template?: string
+          type?: Database["public"]["Enums"]["prompt_template_type"]
+          updated_at?: string
+          voice?: string | null
+        }
+        Relationships: []
+      }
       purchases: {
         Row: {
           amount: number
@@ -2040,7 +2079,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      prompt_template_type: "concept" | "caption" | "image_prompts"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2167,6 +2206,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      prompt_template_type: ["concept", "caption", "image_prompts"],
+    },
   },
 } as const

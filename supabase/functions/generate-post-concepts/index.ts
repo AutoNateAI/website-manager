@@ -131,6 +131,64 @@ async function generatePostConcepts(
   mediaType: string,
   contextDirection?: string
 ) {
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  
+  // Try to get template from database
+  const { data: templateData } = await supabase
+    .from('prompt_templates')
+    .select('template')
+    .eq('type', 'concept')
+    .eq('platform', platform)
+    .eq('media_type', mediaType)
+    .eq('is_default', true)
+    .single();
+
+  // Fallback template if no DB template found
+  const fallbackTemplate = `You are a social media marketing expert specializing in {{platform}} content creation.
+
+Generate **3 distinct and engaging post concepts** for {{platform}} based on the following:
+- **Post Title**: {{title}}
+- **Platform**: {{platform}}
+- **Style**: {{style}}
+- **Voice**: {{voice}}
+- **Media Type**: {{media_type}}
+{{#if context_direction}}
+- **Context Direction**: {{context_direction}}
+{{/if}}
+
+{{#if source_content}}
+**Source Content Summary:**
+{{source_content}}
+{{/if}}
+
+**Requirements:**
+1. Each concept should be **unique and creative**
+2. Optimize for {{platform}} best practices and engagement
+3. Match the specified **{{style}} style** and **{{voice}} voice**
+{{#if media_type}}
+4. Consider this is **{{media_type}}** content
+{{/if}}
+5. Include relevant hashtags and call-to-actions
+6. Make concepts shareable and discussion-worthy
+
+**Response Format (JSON):**
+\`\`\`json
+{
+  "concepts": [
+    {
+      "hook": "Attention-grabbing opening line",
+      "main_message": "Core message or value proposition", 
+      "call_to_action": "What you want readers to do",
+      "target_audience": "Who this resonates with most",
+      "engagement_strategy": "Why this will generate comments/shares"
+    }
+  ]
+}
+\`\`\``;
+
+  const template = templateData?.template || fallbackTemplate;
+  
+  // Simple template variable replacement
   const contentSummary = sourceContent.map(item => {
     if (item.type === 'blog') {
       return `Blog: ${item.title} - ${item.excerpt}\nCategory: ${item.category}`;
@@ -141,104 +199,24 @@ async function generatePostConcepts(
     }
   }).join('\n\n');
 
-  const contextText = contextDirection ? `\n\nAdditional Context: ${contextDirection}` : '';
+  let prompt = template
+    .replace(/\{\{platform\}\}/g, platform)
+    .replace(/\{\{title\}\}/g, title)
+    .replace(/\{\{style\}\}/g, style)
+    .replace(/\{\{voice\}\}/g, voice)
+    .replace(/\{\{media_type\}\}/g, mediaType);
 
-  // Build media-type specific prompts
-  const mediaTypePrompts = {
-    company_targeting: `Create 3 distinct B2B social media post concepts for ${platform} targeting decision-makers at companies. Use a ${style} style and ${voice.toLowerCase()} voice about "${title}".
+  if (contextDirection) {
+    prompt = prompt.replace(/\{\{#if context_direction\}\}(.*?)\{\{\/if\}\}/gs, '$1').replace(/\{\{context_direction\}\}/g, contextDirection);
+  } else {
+    prompt = prompt.replace(/\{\{#if context_direction\}\}(.*?)\{\{\/if\}\}/gs, '');
+  }
 
-Focus on:
-- B2B decision maker pain points and challenges
-- ROI and business value propositions  
-- Industry-specific insights and trends
-- Competitive advantages and differentiation
-- Strategic business outcomes
-
-Each concept should address different aspects of company targeting:
-1. **Problem-Focused**: Identify and address specific business challenges
-2. **Solution-Oriented**: Present clear value propositions and outcomes
-3. **Authority-Building**: Establish thought leadership and expertise`,
-
-    evergreen_content: `Create 3 distinct evergreen social media post concepts for ${platform} with a ${style} style and ${voice.toLowerCase()} voice about "${title}".
-
-Focus on:
-- Timeless educational value and insights
-- Broad applicability across audiences
-- Universal principles and best practices
-- Content that stays relevant over time
-- Educational frameworks and methodologies
-
-Each concept should offer different educational approaches:
-1. **Foundational Knowledge**: Core principles and fundamentals
-2. **Practical Application**: How-to guides and actionable steps
-3. **Strategic Thinking**: Higher-level insights and frameworks`,
-
-    advertisement: `Create 3 distinct promotional social media post concepts for ${platform} with a ${style} style and ${voice.toLowerCase()} voice about "${title}".
-
-Focus on:
-- Product features and unique benefits
-- Clear value propositions and outcomes
-- Conversion-focused messaging and CTAs
-- Social proof and credibility indicators
-- Urgency and compelling reasons to act now
-
-Each concept should use different promotional approaches:
-1. **Feature-Benefit**: Highlight key features and their benefits
-2. **Social Proof**: Use testimonials, case studies, or success stories
-3. **Urgency/Scarcity**: Create compelling reasons to act immediately`
-  };
-
-  let basePrompt = mediaTypePrompts[mediaType as keyof typeof mediaTypePrompts] || mediaTypePrompts.evergreen_content;
-
-  basePrompt += `
-
-${sourceContent.length > 0 ? `
-Based on this source content:
-${contentSummary}${contextText}
-
-Use the source content as the foundation for your concepts, but adapt and expand it for social media engagement.
-` : ''}
-
-Each concept should be substantial and provide:
-- **hook**: An attention-grabbing opening (1-2 sentences)  
-- **angle**: Detailed description of the approach and why this angle works
-- **targetAudience**: Specific description of who this targets
-- **keyMessages**: Array of 3 key messages that resonate with the target audience
-- **tone**: The specific tone for this concept (Educational/Strategic/Inspirational)
-- **callToAction**: Specific CTA relevant to this audience segment
-
-Return in JSON format:
-{
-  "concepts": [
-    {
-      "id": "concept-1",
-      "title": "Compelling hook/title for post 1",
-      "angle": "Detailed description of the approach and why this angle works",
-      "targetAudience": "Specific description of who this targets",
-      "keyMessages": ["message 1", "message 2", "message 3"],
-      "tone": "Educational",
-      "callToAction": "Specific CTA for this audience"
-    },
-    {
-      "id": "concept-2", 
-      "title": "Compelling hook/title for post 2",
-      "angle": "Detailed description of the approach and why this angle works",
-      "targetAudience": "Specific description of who this targets", 
-      "keyMessages": ["message 1", "message 2", "message 3"],
-      "tone": "Strategic",
-      "callToAction": "Specific CTA for this audience"
-    },
-    {
-      "id": "concept-3",
-      "title": "Compelling hook/title for post 3", 
-      "angle": "Detailed description of the approach and why this angle works",
-      "targetAudience": "Specific description of who this targets",
-      "keyMessages": ["message 1", "message 2", "message 3"], 
-      "tone": "Inspirational",
-      "callToAction": "Specific CTA for this audience"
-    }
-  ]
-}`;
+  if (contentSummary) {
+    prompt = prompt.replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '$1').replace(/\{\{source_content\}\}/g, contentSummary);
+  } else {
+    prompt = prompt.replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '');
+  }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -249,7 +227,7 @@ Return in JSON format:
     body: JSON.stringify({
       model: 'gpt-4o',
       messages: [
-        { role: 'user', content: basePrompt }
+        { role: 'user', content: prompt }
       ],
       temperature: 0.8,
       max_tokens: 2000
