@@ -118,6 +118,9 @@ async function processPostsInBackground(
 ) {
   console.log(`Starting background processing for ${postIds.length} posts`);
   
+  // Fetch source content once for all posts
+  const sourceContent = await fetchSourceContent(supabase, sourceItems);
+  
   // Process all posts in parallel
   const processingPromises = postIds.map(async (postId, index) => {
     const concept = postConcepts[index];
@@ -137,39 +140,43 @@ async function processPostsInBackground(
         })
         .eq('id', postId);
 
-      // Fetch source content details
-      const sourceContent = await fetchSourceContent(supabase, sourceItems);
+      // Start both caption generation and image generation in parallel
+      const [captionResult] = await Promise.allSettled([
+        generateCaptionAndHashtags(openAIApiKey, sourceContent, concept, platform, style, voice),
+        // Start image generation immediately in parallel
+        (async () => {
+          // Small delay to ensure caption generation has started
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          await supabase
+            .from('social_media_posts')
+            .update({ 
+              status: 'generating_images',
+              generation_progress: {
+                step: 'generating_images',
+                concept_index: index + 1,
+                total_concepts: postConcepts.length,
+                images_total: 9,
+                images_completed: 0,
+                started_at: new Date().toISOString()
+              }
+            })
+            .eq('id', postId);
+            
+          await generateImageCarousel(supabase, openAIApiKey, postId, index + 1, { caption: 'Generating...', hashtags: [] }, concept, platform, style, voice, sourceContent);
+        })()
+      ]);
 
-      // Generate caption and hashtags
-      const captionData = await generateCaptionAndHashtags(
-        openAIApiKey,
-        sourceContent,
-        concept,
-        platform,
-        style,
-        voice
-      );
-
-      // Update post with caption
-      await supabase
-        .from('social_media_posts')
-        .update({ 
-          caption: captionData.caption,
-          hashtags: captionData.hashtags,
-          status: 'generating_images',
-          generation_progress: {
-            step: 'generating_images',
-            concept_index: index + 1,
-            total_concepts: postConcepts.length,
-            images_total: 9,
-            images_completed: 0,
-            started_at: new Date().toISOString()
-          }
-        })
-        .eq('id', postId);
-
-      // Generate image carousel
-      await generateImageCarousel(supabase, openAIApiKey, postId, index + 1, captionData, concept, platform, style, voice, sourceContent);
+      // Update post with caption and hashtags if caption generation succeeded
+      if (captionResult.status === 'fulfilled') {
+        await supabase
+          .from('social_media_posts')
+          .update({ 
+            caption: captionResult.value.caption,
+            hashtags: captionResult.value.hashtags
+          })
+          .eq('id', postId);
+      }
       
       // Mark as completed
       await supabase
@@ -349,50 +356,54 @@ async function generateImageCarousel(
     captionData
   );
 
-  // Limit concurrency to prevent rate limiting
-  const MAX_CONCURRENT = 6;
-  for (let i = 0; i < imagePrompts.length; i += MAX_CONCURRENT) {
-    const batch = imagePrompts.slice(i, i + MAX_CONCURRENT);
-    const batchPromises = batch.map(async (prompt, batchIndex) => {
-      const imageIndex = i + batchIndex + 1;
-      console.log(`Generating image ${imageIndex}/9 for carousel ${carouselIndex}`);
-      
-      try {
-        const imageUrl = await generateImage(supabase, openAIApiKey, prompt.prompt);
-        
-        // Save image to database
-        await supabase
-          .from('social_media_images')
-          .insert({
-            post_id: postId,
-            carousel_index: carouselIndex,
-            image_index: imageIndex,
-            image_url: imageUrl,
-            image_prompt: prompt.prompt,
-            alt_text: prompt.alt_text
-          });
-
-        // Update progress
-        await supabase
-          .from('social_media_posts')
-          .update({ 
-            generation_progress: {
-              step: 'generating_images',
-              concept_index: carouselIndex,
-              total_concepts: 3,
-              images_total: 9,
-              images_completed: imageIndex
-            }
-          })
-          .eq('id', postId);
-          
-      } catch (error) {
-        console.error(`Error generating image ${imageIndex}:`, error);
-      }
-    });
+  // Generate all 9 images in parallel for maximum speed
+  const imagePromises = imagePrompts.map(async (prompt, imageIndex) => {
+    const actualImageIndex = imageIndex + 1;
+    console.log(`Generating image ${actualImageIndex}/9 for carousel ${carouselIndex}`);
     
-    await Promise.all(batchPromises);
-  }
+    try {
+      const imageUrl = await generateImage(supabase, openAIApiKey, prompt.prompt);
+      
+      // Save image to database
+      await supabase
+        .from('social_media_images')
+        .insert({
+          post_id: postId,
+          carousel_index: carouselIndex,
+          image_index: actualImageIndex,
+          image_url: imageUrl,
+          image_prompt: prompt.prompt,
+          alt_text: prompt.alt_text
+        });
+
+      // Update progress atomically
+      await supabase
+        .from('social_media_posts')
+        .update({ 
+          generation_progress: {
+            step: 'generating_images',
+            concept_index: carouselIndex,
+            total_concepts: 3,
+            images_total: 9,
+            images_completed: actualImageIndex
+          }
+        })
+        .eq('id', postId);
+        
+      console.log(`Completed image ${actualImageIndex}/9 for carousel ${carouselIndex}`);
+      return { success: true, imageIndex: actualImageIndex };
+        
+    } catch (error) {
+      console.error(`Error generating image ${actualImageIndex}:`, error);
+      return { success: false, imageIndex: actualImageIndex, error };
+    }
+  });
+  
+  // Wait for all images to complete
+  const results = await Promise.all(imagePromises);
+  const successCount = results.filter(r => r.success).length;
+  
+  console.log(`Completed carousel ${carouselIndex}: ${successCount}/${imagePrompts.length} images generated successfully`);
 }
 
 async function generateImagePrompts(
