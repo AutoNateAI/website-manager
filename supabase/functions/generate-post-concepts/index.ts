@@ -169,16 +169,35 @@ async function generatePostConcepts(
     .replace(/\{\{media_type\}\}/g, mediaType);
 
   if (contextDirection) {
-    prompt = prompt.replace(/\{\{#if context_direction\}\}(.*?)\{\{\/if\}\}/gs, '$1').replace(/\{\{context_direction\}\}/g, contextDirection);
+    prompt = prompt
+      .replace(/\{\{#if context_direction\}\}(.*?)\{\{\/if\}\}/gs, '$1')
+      .replace(/\{\{context_direction\}\}/g, contextDirection);
   } else {
     prompt = prompt.replace(/\{\{#if context_direction\}\}(.*?)\{\{\/if\}\}/gs, '');
   }
 
   if (contentSummary) {
-    prompt = prompt.replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '$1').replace(/\{\{source_content\}\}/g, contentSummary);
+    prompt = prompt
+      .replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '$1')
+      .replace(/\{\{source_content\}\}/g, contentSummary);
   } else {
     prompt = prompt.replace(/\{\{#if source_content\}\}(.*?)\{\{\/if\}\}/gs, '');
   }
+
+  // Safe debug logging: preview prompt and any unreplaced tokens (max 10 shown)
+  const unreplaced = (prompt.match(/\{\{[^}]+\}\}/g) || [])
+    .filter(v => !v.startsWith('{{#') && !v.startsWith('{{/'))
+    .slice(0, 10);
+  console.log('[generate-post-concepts] concept prompt preview', {
+    platform,
+    style,
+    voice,
+    mediaType,
+    sourceItemsCount: sourceContent.length,
+    hasContextDirection: Boolean(contextDirection),
+    unreplacedTokens: unreplaced,
+    preview: prompt.slice(0, 800),
+  });
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -202,6 +221,14 @@ async function generatePostConcepts(
     throw new Error(data.error?.message || 'Failed to generate concepts');
   }
   const result = parseJSONSafe(data.choices?.[0]?.message?.content ?? '{}');
+
+  // Safe debug logging: result summary (no full content)
+  const first = Array.isArray(result?.concepts) ? result.concepts[0] : undefined;
+  console.log('[generate-post-concepts] concepts result summary', {
+    count: Array.isArray(result?.concepts) ? result.concepts.length : 0,
+    firstKeys: first ? Object.keys(first).slice(0, 6) : [],
+    firstTitle: first?.title || first?.hook || first?.heading,
+  });
   
   return result.concepts;
 }
