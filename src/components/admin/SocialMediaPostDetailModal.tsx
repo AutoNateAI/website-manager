@@ -174,9 +174,7 @@ const SocialMediaPostDetailModal = ({
                       <Textarea
                         value={captionText}
                         onChange={(e) => setCaptionText(e.target.value)}
-                        className="text-sm resize-none border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                        style={{ minHeight: 'auto', height: 'auto' }}
-                        rows={Math.max(3, captionText.split('\n').length)}
+                        className="text-sm resize-none border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[120px]"
                         placeholder="Edit caption..."
                       />
                     ) : (
