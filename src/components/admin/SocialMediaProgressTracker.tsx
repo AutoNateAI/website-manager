@@ -3,7 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Clock, AlertCircle, ImageIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CheckCircle, Clock, AlertCircle, ImageIcon, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface SocialMediaPost {
   id: string;
@@ -122,6 +124,30 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
     }
   };
 
+  const handleCancelGeneration = async (postId: string) => {
+    try {
+      const { error } = await supabase
+        .from('social_media_posts')
+        .update({ 
+          status: 'cancelled',
+          generation_progress: {
+            ...realtimePosts.find(p => p.id === postId)?.generation_progress,
+            step: 'cancelled',
+            cancelled_at: new Date().toISOString()
+          }
+        })
+        .eq('id', postId);
+
+      if (error) throw error;
+      
+      toast.success('Generation cancelled');
+      onUpdate();
+    } catch (error) {
+      console.error('Error cancelling generation:', error);
+      toast.error('Failed to cancel generation');
+    }
+  };
+
   const activePosts = realtimePosts.filter(post => 
     ['pending', 'generating_caption', 'generating_images'].includes(post.status || '')
   );
@@ -151,9 +177,19 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
                   {(post.status || 'pending').replace('_', ' ')}
                 </Badge>
               </div>
-              <span className="text-sm text-muted-foreground">
-                {Math.round(getProgressPercentage(post))}%
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {Math.round(getProgressPercentage(post))}%
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleCancelGeneration(post.id)}
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <Progress value={getProgressPercentage(post)} className="h-2" />
             <p className="text-sm text-muted-foreground">

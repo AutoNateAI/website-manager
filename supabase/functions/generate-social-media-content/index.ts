@@ -140,42 +140,52 @@ async function processPostsInBackground(
         })
         .eq('id', postId);
 
-      // Start both caption generation and image generation in parallel
-      const [captionResult] = await Promise.allSettled([
-        generateCaptionAndHashtags(openAIApiKey, sourceContent, concept, platform, style, voice),
-        // Start image generation immediately in parallel
-        (async () => {
-          // Small delay to ensure caption generation has started
-          await new Promise(resolve => setTimeout(resolve, 200));
-          
-          await supabase
-            .from('social_media_posts')
-            .update({ 
-              status: 'generating_images',
-              generation_progress: {
-                step: 'generating_images',
-                concept_index: index + 1,
-                total_concepts: postConcepts.length,
-                images_total: 9,
-                images_completed: 0,
-                started_at: new Date().toISOString()
-              }
-            })
-            .eq('id', postId);
-            
-          await generateImageCarousel(supabase, openAIApiKey, postId, index + 1, { caption: 'Generating...', hashtags: [] }, concept, platform, style, voice, sourceContent);
-        })()
-      ]);
+      // Check if post was cancelled
+      const { data: currentPost } = await supabase
+        .from('social_media_posts')
+        .select('status')
+        .eq('id', postId)
+        .single();
+      
+      if (currentPost?.status === 'cancelled') {
+        console.log(`Post ${postId} was cancelled, skipping processing`);
+        return;
+      }
 
-      // Update post with caption and hashtags if caption generation succeeded
-      if (captionResult.status === 'fulfilled') {
-        await supabase
-          .from('social_media_posts')
-          .update({ 
-            caption: captionResult.value.caption,
-            hashtags: captionResult.value.hashtags
-          })
-          .eq('id', postId);
+      // Generate caption first
+      const captionResult = await generateCaptionAndHashtags(openAIApiKey, sourceContent, concept, platform, style, voice);
+      
+      // Update with generated caption immediately
+      await supabase
+        .from('social_media_posts')
+        .update({ 
+          caption: captionResult.caption,
+          hashtags: captionResult.hashtags,
+          status: 'generating_images',
+          generation_progress: {
+            step: 'generating_images',
+            concept_index: index + 1,
+            total_concepts: postConcepts.length,
+            images_total: 9,
+            images_completed: 0,
+            started_at: new Date().toISOString()
+          }
+        })
+        .eq('id', postId);
+        
+      // Generate images with story context
+      await generateImageCarousel(supabase, openAIApiKey, postId, index + 1, captionResult, concept, platform, style, voice, sourceContent);
+
+      // Check if cancelled before completion
+      const { data: finalPost } = await supabase
+        .from('social_media_posts')
+        .select('status')
+        .eq('id', postId)
+        .single();
+      
+      if (finalPost?.status === 'cancelled') {
+        console.log(`Post ${postId} was cancelled before completion`);
+        return;
       }
       
       // Mark as completed
@@ -280,6 +290,7 @@ async function generateCaptionAndHashtags(
   style: string,
   voice: string
 ): Promise<{ caption: string; hashtags: string[] }> {
+  console.log(`Generating caption for concept: ${concept.title}`);
   
   const prompt = `Create an engaging ${platform} ${style} post using a ${voice.toLowerCase()} voice based on this concept:
 
@@ -308,23 +319,23 @@ Return in JSON format:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o',
+      model: 'gpt-5-2025-08-07',
       messages: [
         { role: 'system', content: 'You are an expert social media content creator who writes viral, engaging posts.' },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.8,
-      max_tokens: 1000
+      max_completion_tokens: 1000
     }),
   });
 
   const data = await response.json();
   if (!response.ok) {
-    console.error('OpenAI error:', data);
+    console.error('OpenAI caption generation error:', data);
     throw new Error(data.error?.message || 'Failed to generate caption');
   }
   
   const result = parseJSONSafe(data.choices?.[0]?.message?.content ?? '{}');
+  console.log(`Caption generated successfully for: ${concept.title}`);
   return {
     caption: result.caption || 'Generated caption',
     hashtags: result.hashtags || []
@@ -362,6 +373,18 @@ async function generateImageCarousel(
     console.log(`Generating image ${actualImageIndex}/9 for carousel ${carouselIndex}`);
     
     try {
+      // Check if generation was cancelled
+      const { data: postCheck } = await supabase
+        .from('social_media_posts')
+        .select('status')
+        .eq('id', postId)
+        .single();
+      
+      if (postCheck?.status === 'cancelled') {
+        console.log(`Generation cancelled for image ${actualImageIndex}`);
+        return { success: false, imageIndex: actualImageIndex, cancelled: true };
+      }
+
       const imageUrl = await generateImage(supabase, openAIApiKey, prompt.prompt);
       
       // Save image to database
@@ -376,7 +399,15 @@ async function generateImageCarousel(
           alt_text: prompt.alt_text
         });
 
-      // Update progress atomically
+      // Update progress with current completed count
+      const { data: currentProgress } = await supabase
+        .from('social_media_posts')
+        .select('generation_progress')
+        .eq('id', postId)
+        .single();
+      
+      const currentCompleted = (currentProgress?.generation_progress?.images_completed || 0) + 1;
+      
       await supabase
         .from('social_media_posts')
         .update({ 
@@ -385,7 +416,7 @@ async function generateImageCarousel(
             concept_index: carouselIndex,
             total_concepts: 3,
             images_total: 9,
-            images_completed: actualImageIndex
+            images_completed: currentCompleted
           }
         })
         .eq('id', postId);
@@ -395,7 +426,23 @@ async function generateImageCarousel(
         
     } catch (error) {
       console.error(`Error generating image ${actualImageIndex}:`, error);
-      return { success: false, imageIndex: actualImageIndex, error };
+      
+      // Mark this specific image as failed in progress
+      await supabase
+        .from('social_media_posts')
+        .update({ 
+          generation_progress: {
+            step: 'generating_images',
+            concept_index: carouselIndex,
+            total_concepts: 3,
+            images_total: 9,
+            images_completed: imageIndex, // Don't increment for failed image
+            failed_images: [...((await supabase.from('social_media_posts').select('generation_progress').eq('id', postId).single()).data?.generation_progress?.failed_images || []), actualImageIndex]
+          }
+        })
+        .eq('id', postId);
+        
+      return { success: false, imageIndex: actualImageIndex, error: error.message };
     }
   });
   
@@ -416,8 +463,9 @@ async function generateImagePrompts(
   captionData: any
 ): Promise<Array<{ prompt: string; alt_text: string }>> {
   
-  const prompt = `Create 9 distinct image prompts for a ${platform} carousel based on this concept:
+  const prompt = `Create 9 distinct image prompts for a ${platform} carousel that tells a cohesive STORY. This is a visual narrative that users will swipe through, so each image should flow naturally to the next while building on the previous ones.
 
+STORY CONCEPT:
 Title: ${concept.title}
 Target Audience: ${concept.targetAudience}
 Content Angle: ${concept.angle}
@@ -426,17 +474,29 @@ Caption: ${captionData.caption}
 
 ${sourceContent ? `Source Content:\n${sourceContent}\n` : ''}
 
-Create 9 visually distinct prompts that:
-1. Support the key messages
-2. Are visually appealing for ${platform}
-3. Tell a cohesive story as a carousel
-4. Use ${style} aesthetic
+CRITICAL: Create a 9-slide visual story that follows this narrative structure:
+Slide 1: Hook/Problem introduction - grab attention with the main challenge
+Slide 2: Emotional connection - show the pain/frustration of the problem
+Slide 3: The "aha" moment - introduce the solution concept
+Slide 4: Benefits visualization - show positive outcomes
+Slide 5: Process/How it works - demonstrate the solution in action
+Slide 6: Transformation - before vs after or results
+Slide 7: Social proof/credibility - trust signals
+Slide 8: Call to action setup - create urgency/desire
+Slide 9: Strong CTA - direct next step with clear value
+
+Each image should:
+- Build on the previous image's narrative
+- Use consistent visual style (${style})
+- Be optimized for ${platform} carousel format
+- Have clear visual hierarchy and readability
+- Include subtle text overlays where appropriate for context
 
 Return in JSON format:
 {
   "images": [
     {
-      "prompt": "detailed image generation prompt",
+      "prompt": "detailed image generation prompt with story context and slide position",
       "alt_text": "accessibility description"
     }
   ]
@@ -449,13 +509,12 @@ Return in JSON format:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o',
+      model: 'gpt-5-2025-08-07',
       messages: [
-        { role: 'system', content: 'You are an expert visual designer who creates compelling image prompts for social media carousels.' },
+        { role: 'system', content: 'You are an expert visual storyteller who creates compelling narrative-driven image prompts for social media carousels that tell cohesive stories.' },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.8,
-      max_tokens: 2000
+      max_completion_tokens: 2500
     }),
   });
 
