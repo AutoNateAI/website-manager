@@ -3,8 +3,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.52.0';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,94 +16,84 @@ interface SourceItem {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { 
-      title,
-      platform,
-      style,
-      voice,
-      sourceItems,
-      imageSeedUrl,
-      imageSeedInstructions,
-      contextDirection,
-      postConcepts
-    } = await req.json();
-
-    console.log('Starting social media content generation for 3 separate posts with refined concepts');
-
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
+    console.log('Starting non-blocking social media content generation');
+    
+    const { postConcepts, platform, style, voice, mediaType, sourceItems = [] } = await req.json();
+    
+    if (!postConcepts || !Array.isArray(postConcepts) || postConcepts.length !== 3) {
+      throw new Error('Invalid postConcepts: must be an array of exactly 3 concepts');
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not found');
+    }
 
-    // Normalize optional source items (can be empty)
-    const normalizedSourceItems = Array.isArray(sourceItems) ? sourceItems : [];
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
-    // Fetch source content details
-    const sourceContent = await fetchSourceContent(supabase, normalizedSourceItems);
-    
-    // Create 3 separate posts using the refined concepts
-    const createdPosts = [];
-    
-    for (let postIndex = 1; postIndex <= 3; postIndex++) {
-      const concept = postConcepts[postIndex - 1];
+    // Create post records immediately with pending status
+    const createdPostIds: string[] = [];
+    for (let i = 0; i < postConcepts.length; i++) {
+      const concept = postConcepts[i];
       
-      // Generate caption and hashtags for this specific concept
-      const { caption, hashtags } = await generateCaptionAndHashtags(
-        sourceContent, platform, style, voice, concept, contextDirection
-      );
-
-      // Create post
       const { data: postData, error: postError } = await supabase
         .from('social_media_posts')
         .insert({
-          title: `${title} - ${concept.title}`,
-          platform,
-          style,
-          voice,
+          title: concept.title || `Generated Post ${i + 1}`,
+          platform: platform,
+          style: style,
+          voice: voice,
+          media_type: mediaType || 'evergreen_content',
+          status: 'pending',
+          generation_progress: {
+            step: 'initialized',
+            concept_index: i + 1,
+            total_concepts: postConcepts.length,
+            started_at: new Date().toISOString()
+          },
+          caption: 'Generating...',
+          hashtags: [],
           source_items: sourceItems,
-          caption,
-          hashtags,
-          image_seed_url: imageSeedUrl || null,
-          image_seed_instructions: imageSeedInstructions || null,
-          context_direction: contextDirection || null
+          is_published: false
         })
         .select()
         .single();
 
-      if (postError) throw postError;
-      
-      createdPosts.push(postData);
+      if (postError) {
+        console.error('Error creating post:', postError);
+        throw postError;
+      }
 
-      // Generate 1 carousel of 9 images for this post
-      await generateImageCarousel(
-        supabase, 
-        postData.id, 
-        sourceContent, 
-        platform, 
-        style, 
-        voice,
-        imageSeedUrl,
-        imageSeedInstructions,
-        concept,
-        postIndex
-      );
+      createdPostIds.push(postData.id);
     }
 
-    console.log('Social media content generation completed for 3 posts');
+    // Return immediately with post IDs
+    const response = new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'Social media posts created and generation started',
+        postIds: createdPostIds
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      }
+    );
 
-    return new Response(JSON.stringify({
-      success: true,
-      postsCreated: createdPosts.length,
-      postIds: createdPosts.map(p => p.id)
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // Start background processing
+    EdgeRuntime.waitUntil(
+      processPostsInBackground(supabase, openAIApiKey, createdPostIds, postConcepts, platform, style, voice, sourceItems)
+    );
+
+    return response;
   } catch (error) {
     console.error('Error in generate-social-media-content function:', error);
     return new Response(JSON.stringify({ 
@@ -117,12 +105,123 @@ serve(async (req) => {
   }
 });
 
+// Background processing function
+async function processPostsInBackground(
+  supabase: any,
+  openAIApiKey: string,
+  postIds: string[],
+  postConcepts: any[],
+  platform: string,
+  style: string,
+  voice: string,
+  sourceItems: any[]
+) {
+  console.log(`Starting background processing for ${postIds.length} posts`);
+  
+  // Process all posts in parallel
+  const processingPromises = postIds.map(async (postId, index) => {
+    const concept = postConcepts[index];
+    
+    try {
+      // Update status to generating caption
+      await supabase
+        .from('social_media_posts')  
+        .update({ 
+          status: 'generating_caption',
+          generation_progress: {
+            step: 'generating_caption',
+            concept_index: index + 1,
+            total_concepts: postConcepts.length,
+            started_at: new Date().toISOString()
+          }
+        })
+        .eq('id', postId);
+
+      // Fetch source content details
+      const sourceContent = await fetchSourceContent(supabase, sourceItems);
+
+      // Generate caption and hashtags
+      const captionData = await generateCaptionAndHashtags(
+        openAIApiKey,
+        sourceContent,
+        concept,
+        platform,
+        style,
+        voice
+      );
+
+      // Update post with caption
+      await supabase
+        .from('social_media_posts')
+        .update({ 
+          caption: captionData.caption,
+          hashtags: captionData.hashtags,
+          status: 'generating_images',
+          generation_progress: {
+            step: 'generating_images',
+            concept_index: index + 1,
+            total_concepts: postConcepts.length,
+            images_total: 9,
+            images_completed: 0,
+            started_at: new Date().toISOString()
+          }
+        })
+        .eq('id', postId);
+
+      // Generate image carousel
+      await generateImageCarousel(supabase, openAIApiKey, postId, index + 1, captionData, concept, platform, style, voice, sourceContent);
+      
+      // Mark as completed
+      await supabase
+        .from('social_media_posts')
+        .update({ 
+          status: 'completed',
+          generation_progress: {
+            step: 'completed',
+            concept_index: index + 1,
+            total_concepts: postConcepts.length,
+            images_total: 9,
+            images_completed: 9,
+            completed_at: new Date().toISOString()
+          }
+        })
+        .eq('id', postId);
+
+      console.log(`Completed processing post ${postId}`);
+      
+    } catch (error) {
+      console.error(`Error processing post ${postId}:`, error);
+      
+      // Mark as failed
+      await supabase
+        .from('social_media_posts')
+        .update({ 
+          status: 'failed',
+          generation_progress: {
+            step: 'failed',
+            concept_index: index + 1,
+            total_concepts: postConcepts.length,
+            error: error.message,
+            failed_at: new Date().toISOString()
+          }
+        })
+        .eq('id', postId);
+    }
+  });
+
+  // Wait for all posts to complete
+  await Promise.all(processingPromises);
+  console.log('Background processing completed for all posts');
+}
+
 // Robust JSON parser to handle code fences or extra text
 function parseJSONSafe(text: string) {
   let t = String(text ?? '').trim();
+  // Remove Markdown code fences if present
   if (t.startsWith('```')) {
     t = t.replace(/^```(?:json)?\n?/i, '').replace(/```$/i, '').trim();
   }
+  // Extract the first JSON object/array if extra prose exists
   const firstBrace = t.indexOf('{');
   const lastBrace = t.lastIndexOf('}');
   const firstBracket = t.indexOf('[');
@@ -163,57 +262,36 @@ async function fetchSourceContent(supabase: any, sourceItems: SourceItem[] = [])
     }
   }
   
-  return content;
+  return content.join('\n\n');
 }
 
 async function generateCaptionAndHashtags(
-  sourceContent: any[], 
-  platform: string, 
-  style: string, 
-  voice: string,
+  openAIApiKey: string,
+  sourceContent: string,
   concept: any,
-  contextDirection?: string
-) {
-  const contentSummary = sourceContent.map(item => {
-    if (item.type === 'blog') {
-      return `Blog: ${item.title} - ${item.excerpt}`;
-    } else if (item.type === 'live_build') {
-      return `Live Build: ${item.title} - ${item.description}`;
-    } else {
-      return `Ad: ${item.title}`;
-    }
-  }).join('\n');
+  platform: string,
+  style: string,
+  voice: string
+): Promise<{ caption: string; hashtags: string[] }> {
+  
+  const prompt = `Create an engaging ${platform} ${style} post using a ${voice.toLowerCase()} voice based on this concept:
 
-  const contextText = contextDirection ? `\n\nAdditional Context: ${contextDirection}` : '';
+Title/Hook: ${concept.title}
+Target Audience: ${concept.targetAudience}
+Content Angle: ${concept.angle}
+Key Messages: ${concept.keyMessages.join(', ')}
+Call to Action: ${concept.callToAction}
 
-  const prompt = `Create an engaging ${platform} ${style.toLowerCase()} post with a ${voice.toLowerCase()} voice based on this specific concept:
+${sourceContent ? `Source Content:\n${sourceContent}\n` : ''}
 
-Post Concept:
-- Title/Hook: ${concept.title}
-- Content Angle: ${concept.angle}
-- Target Audience: ${concept.targetAudience}
-- Key Messages: ${concept.keyMessages.join(', ')}
-- Tone: ${concept.tone}
-- Call to Action: ${concept.callToAction}
-
-Source Content:
-${contentSummary}${contextText}
-
-Generate:
-1. A captivating caption that follows the concept's angle and targets the specified audience (150-300 words for LinkedIn, 100-150 for Instagram)
-2. 10-15 relevant hashtags that align with the target audience and content angle
-
-The content should:
-- Strictly follow the concept's angle and tone
-- Target the specified audience with appropriate language and examples
-- Include the key messages naturally within the flow
-- End with the specified call-to-action
-- Be engaging enough to encourage sharing and comments
+Create:
+1. A compelling caption (optimized for ${platform})
+2. 8-15 relevant hashtags
 
 Return in JSON format:
 {
-  "caption": "...",
-  "hashtags": ["hashtag1", "hashtag2", ...]
+  "caption": "engaging caption text",
+  "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
 }`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -225,7 +303,7 @@ Return in JSON format:
     body: JSON.stringify({
       model: 'gpt-4o',
       messages: [
-        { role: 'system', content: 'You are an expert social media content creator who creates viral, engaging posts.' },
+        { role: 'system', content: 'You are an expert social media content creator who writes viral, engaging posts.' },
         { role: 'user', content: prompt }
       ],
       temperature: 0.8,
@@ -235,113 +313,123 @@ Return in JSON format:
 
   const data = await response.json();
   if (!response.ok) {
-    console.error('OpenAI caption API error:', data);
+    console.error('OpenAI error:', data);
     throw new Error(data.error?.message || 'Failed to generate caption');
   }
-  const result = parseJSONSafe(data.choices?.[0]?.message?.content ?? '{}');
   
+  const result = parseJSONSafe(data.choices?.[0]?.message?.content ?? '{}');
   return {
-    caption: result.caption,
-    hashtags: result.hashtags
+    caption: result.caption || 'Generated caption',
+    hashtags: result.hashtags || []
   };
 }
 
 async function generateImageCarousel(
   supabase: any,
+  openAIApiKey: string,
   postId: string,
-  sourceContent: any[],
+  carouselIndex: number,
+  captionData: any,
+  concept: any,
   platform: string,
   style: string,
   voice: string,
-  imageSeedUrl?: string,
-  imageSeedInstructions?: string,
-  concept?: any,
-  carouselNumber?: number
+  sourceContent: string
 ) {
+  console.log(`Generating image carousel ${carouselIndex} for post ${postId}`);
+  
+  // Generate 9 image prompts for the carousel
   const imagePrompts = await generateImagePrompts(
-    sourceContent, platform, style, voice, imageSeedUrl, imageSeedInstructions, concept, carouselNumber
+    openAIApiKey,
+    sourceContent,
+    concept,
+    platform,
+    style,
+    voice,
+    captionData
   );
 
-  // Generate 9 images for this carousel
-  const imagePromises = imagePrompts.map(async (prompt, imageIndex) => {
-    const actualImageIndex = imageIndex + 1;
-    console.log(`Generating image ${actualImageIndex}/9 for carousel ${carouselNumber || 1}`);
+  // Limit concurrency to prevent rate limiting
+  const MAX_CONCURRENT = 6;
+  for (let i = 0; i < imagePrompts.length; i += MAX_CONCURRENT) {
+    const batch = imagePrompts.slice(i, i + MAX_CONCURRENT);
+    const batchPromises = batch.map(async (prompt, batchIndex) => {
+      const imageIndex = i + batchIndex + 1;
+      console.log(`Generating image ${imageIndex}/9 for carousel ${carouselIndex}`);
+      
+      try {
+        const imageUrl = await generateImage(supabase, openAIApiKey, prompt.prompt);
+        
+        // Save image to database
+        await supabase
+          .from('social_media_images')
+          .insert({
+            post_id: postId,
+            carousel_index: carouselIndex,
+            image_index: imageIndex,
+            image_url: imageUrl,
+            image_prompt: prompt.prompt,
+            alt_text: prompt.alt_text
+          });
+
+        // Update progress
+        await supabase
+          .from('social_media_posts')
+          .update({ 
+            generation_progress: {
+              step: 'generating_images',
+              concept_index: carouselIndex,
+              total_concepts: 3,
+              images_total: 9,
+              images_completed: imageIndex
+            }
+          })
+          .eq('id', postId);
+          
+      } catch (error) {
+        console.error(`Error generating image ${imageIndex}:`, error);
+      }
+    });
     
-    const imageUrl = await generateImage(prompt, imageSeedUrl);
-    
-    // Save to database (carousel_index = 1 since each post has only one carousel now)
-    await supabase
-      .from('social_media_images')
-      .insert({
-        post_id: postId,
-        carousel_index: 1,
-        image_index: actualImageIndex,
-        image_url: imageUrl,
-        image_prompt: prompt,
-        alt_text: `Carousel ${carouselNumber || 1} Image ${actualImageIndex}`
-      });
-    
-    return imageUrl;
-  });
-  
-  await Promise.all(imagePromises);
-  console.log(`Completed carousel ${carouselNumber || 1}`);
+    await Promise.all(batchPromises);
+  }
 }
 
 async function generateImagePrompts(
-  sourceContent: any[],
+  openAIApiKey: string,
+  sourceContent: string,
+  concept: any,
   platform: string,
   style: string,
   voice: string,
-  imageSeedUrl?: string,
-  imageSeedInstructions?: string,
-  concept?: any,
-  carouselNumber?: number
-) {
-  const contentSummary = sourceContent.map(item => {
-    if (item.type === 'blog') {
-      return `Blog: ${item.title} - ${item.excerpt}`;
-    } else if (item.type === 'live_build') {
-      return `Live Build: ${item.title} - ${item.description}`;
-    } else {
-      return `Ad: ${item.title}`;
-    }
-  }).join('\n');
-
-  const seedContext = imageSeedUrl ? `\n\nReference Image Context: ${imageSeedInstructions || 'Use this image as style/composition reference'}` : '';
+  captionData: any
+): Promise<Array<{ prompt: string; alt_text: string }>> {
   
-  const conceptContext = concept ? `\n\nPost Concept to Follow:
-- Title/Hook: ${concept.title}
-- Content Angle: ${concept.angle}
-- Target Audience: ${concept.targetAudience}
-- Key Messages: ${concept.keyMessages.join(', ')}
-- Tone: ${concept.tone}
-- Call to Action: ${concept.callToAction}` : '';
+  const prompt = `Create 9 distinct image prompts for a ${platform} carousel based on this concept:
 
-  const prompt = `Create 9 image prompts for a social media carousel for ${platform} that follows this specific concept.
+Title: ${concept.title}
+Target Audience: ${concept.targetAudience}
+Content Angle: ${concept.angle}
+Key Messages: ${concept.keyMessages.join(', ')}
+Caption: ${captionData.caption}
 
-Source Content:
-${contentSummary}
+${sourceContent ? `Source Content:\n${sourceContent}\n` : ''}
 
-Style: ${style}
-Voice: ${voice}${seedContext}${conceptContext}
+Create 9 visually distinct prompts that:
+1. Support the key messages
+2. Are visually appealing for ${platform}
+3. Tell a cohesive story as a carousel
+4. Use ${style} aesthetic
 
-The carousel should have:
-- Image 1: Captivating hook with bold text overlay that stops scrolling - should match the concept's title/hook
-- Images 2-8: Detail images with great graphics, building climactic engagement - focus on the key messages from the concept
-- Image 9: Strong CTA image that aligns with the concept's call-to-action
-
-Requirements:
-- Square 1:1 aspect ratio
-- Modern, professional design that matches the concept's tone (${concept?.tone || 'engaging'})
-- Include text overlays where appropriate
-- Target the specified audience: ${concept?.targetAudience || 'general audience'}
-- Be engaging, shareable, and informative
-- Build energy and momentum through the sequence
-- Stay true to the concept's angle and approach
-
-Return as JSON array of 9 prompts:
-["prompt 1", "prompt 2", ..., "prompt 9"]`;
+Return in JSON format:
+{
+  "images": [
+    {
+      "prompt": "detailed image generation prompt",
+      "alt_text": "accessibility description"
+    }
+  ]
+}`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -352,73 +440,71 @@ Return as JSON array of 9 prompts:
     body: JSON.stringify({
       model: 'gpt-4o',
       messages: [
-        { role: 'system', content: 'You are an expert visual content creator who designs viral social media carousels.' },
+        { role: 'system', content: 'You are an expert visual designer who creates compelling image prompts for social media carousels.' },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.9,
+      temperature: 0.8,
       max_tokens: 2000
     }),
   });
 
   const data = await response.json();
   if (!response.ok) {
-    console.error('OpenAI prompt API error:', data);
+    console.error('OpenAI error:', data);
     throw new Error(data.error?.message || 'Failed to generate image prompts');
   }
-  return parseJSONSafe(data.choices?.[0]?.message?.content ?? '[]');
+  
+  const result = parseJSONSafe(data.choices?.[0]?.message?.content ?? '{}');
+  return result.images || [];
 }
 
-async function generateImage(prompt: string, referenceImageUrl?: string): Promise<string> {
-  const enhancedPrompt = referenceImageUrl 
-    ? `${prompt}. Use this reference image for style and composition: ${referenceImageUrl}. Square aspect ratio, social media optimized.`
-    : `${prompt}. Square aspect ratio, social media optimized, high quality, modern design.`;
-
-  const requestBody = {
-    model: 'gpt-image-1',
-    prompt: enhancedPrompt,
-    n: 1,
-    size: "1024x1024",
-    quality: "high",
-    output_format: 'png'
-  };
-
-  const response = await fetch('https://api.openai.com/v1/images/generations', {
+async function generateImage(
+  supabase: any,
+  openAIApiKey: string,
+  prompt: string,
+  referenceImageUrl?: string
+): Promise<string> {
+  
+  const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${openAIApiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(requestBody),
+    body: JSON.stringify({
+      model: 'gpt-image-1',
+      prompt: prompt,
+      n: 1,
+      size: '1024x1024',
+      quality: 'high',
+      output_format: 'png'
+    }),
   });
 
-  const data = await response.json();
-  
-  if (!response.ok) {
-    console.error('OpenAI Image API error:', data);
-    throw new Error(data.error?.message || 'Failed to generate image');
+  const imageData = await imageResponse.json();
+  if (!imageResponse.ok) {
+    console.error('OpenAI image generation error:', imageData);
+    throw new Error(imageData.error?.message || 'Failed to generate image');
   }
 
-  // gpt-image-1 returns base64 by default
-  const imageData = data.data[0].b64_json;
+  // OpenAI gpt-image-1 returns base64 encoded image
+  const base64Image = imageData.data[0].b64_json;
+  const imageBuffer = Uint8Array.from(atob(base64Image), c => c.charCodeAt(0));
   
   // Upload to Supabase Storage
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const imageBuffer = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
-  const fileName = `social-media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.png`;
-  
+  const fileName = `social-media-${Date.now()}-${Math.random().toString(36).substring(2, 15)}.png`;
   const { data: uploadData, error: uploadError } = await supabase.storage
     .from('generated-images')
     .upload(fileName, imageBuffer, {
       contentType: 'image/png',
-      upsert: false
     });
 
   if (uploadError) {
     console.error('Storage upload error:', uploadError);
-    throw uploadError;
+    throw new Error('Failed to upload generated image');
   }
 
-  // Get public URL for the uploaded image
+  // Get public URL
   const { data: urlData } = supabase.storage
     .from('generated-images')
     .getPublicUrl(fileName);

@@ -28,6 +28,7 @@ serve(async (req) => {
       platform,
       style,
       voice,
+      mediaType,
       sourceItems,
       contextDirection
     } = await req.json();
@@ -48,7 +49,7 @@ serve(async (req) => {
     
     // Generate 3 distinct post concepts
     const concepts = await generatePostConcepts(
-      sourceContent, platform, style, voice, title, contextDirection
+      sourceContent, platform, style, voice, title, mediaType, contextDirection
     );
 
     console.log('Post concept generation completed');
@@ -127,6 +128,7 @@ async function generatePostConcepts(
   style: string, 
   voice: string,
   title: string,
+  mediaType: string,
   contextDirection?: string
 ) {
   const contentSummary = sourceContent.map(item => {
@@ -141,35 +143,69 @@ async function generatePostConcepts(
 
   const contextText = contextDirection ? `\n\nAdditional Context: ${contextDirection}` : '';
 
-  const prompt = `Analyze the source content and create 3 distinct post concepts for ${platform} ${style} posts with a ${voice.toLowerCase()} voice.
+  // Build media-type specific prompts
+  const mediaTypePrompts = {
+    company_targeting: `Create 3 distinct B2B social media post concepts for ${platform} targeting decision-makers at companies. Use a ${style} style and ${voice.toLowerCase()} voice about "${title}".
 
-Title: ${title}
-Source Content:
+Focus on:
+- B2B decision maker pain points and challenges
+- ROI and business value propositions  
+- Industry-specific insights and trends
+- Competitive advantages and differentiation
+- Strategic business outcomes
+
+Each concept should address different aspects of company targeting:
+1. **Problem-Focused**: Identify and address specific business challenges
+2. **Solution-Oriented**: Present clear value propositions and outcomes
+3. **Authority-Building**: Establish thought leadership and expertise`,
+
+    evergreen_content: `Create 3 distinct evergreen social media post concepts for ${platform} with a ${style} style and ${voice.toLowerCase()} voice about "${title}".
+
+Focus on:
+- Timeless educational value and insights
+- Broad applicability across audiences
+- Universal principles and best practices
+- Content that stays relevant over time
+- Educational frameworks and methodologies
+
+Each concept should offer different educational approaches:
+1. **Foundational Knowledge**: Core principles and fundamentals
+2. **Practical Application**: How-to guides and actionable steps
+3. **Strategic Thinking**: Higher-level insights and frameworks`,
+
+    advertisement: `Create 3 distinct promotional social media post concepts for ${platform} with a ${style} style and ${voice.toLowerCase()} voice about "${title}".
+
+Focus on:
+- Product features and unique benefits
+- Clear value propositions and outcomes
+- Conversion-focused messaging and CTAs
+- Social proof and credibility indicators
+- Urgency and compelling reasons to act now
+
+Each concept should use different promotional approaches:
+1. **Feature-Benefit**: Highlight key features and their benefits
+2. **Social Proof**: Use testimonials, case studies, or success stories
+3. **Urgency/Scarcity**: Create compelling reasons to act immediately`
+  };
+
+  let basePrompt = mediaTypePrompts[mediaType as keyof typeof mediaTypePrompts] || mediaTypePrompts.evergreen_content;
+
+  basePrompt += `
+
+${sourceContent.length > 0 ? `
+Based on this source content:
 ${contentSummary}${contextText}
 
-Create 3 completely different approaches to the same source material:
+Use the source content as the foundation for your concepts, but adapt and expand it for social media engagement.
+` : ''}
 
-POST 1: Educational/How-to focus
-- Target audience: Beginners or those wanting to learn
-- Angle: Break down complex concepts into digestible steps
-- Tone: Helpful, encouraging, accessible
-
-POST 2: Strategic/Thought Leadership focus  
-- Target audience: Professionals and decision-makers
-- Angle: Industry insights, trends, and strategic implications
-- Tone: Authoritative, analytical, forward-thinking
-
-POST 3: Inspirational/Story-driven focus
-- Target audience: Broader audience seeking motivation
-- Angle: Personal journey, transformation, or behind-the-scenes
-- Tone: Motivational, relatable, engaging
-
-Each concept should:
-- Be genuinely different in approach and target audience
-- Leverage the source content from a unique angle
-- Include specific key messages that would resonate with that audience
-- Have a clear call-to-action relevant to that audience segment
-- Build energy and encourage sharing/engagement
+Each concept should be substantial and provide:
+- **hook**: An attention-grabbing opening (1-2 sentences)  
+- **angle**: Detailed description of the approach and why this angle works
+- **targetAudience**: Specific description of who this targets
+- **keyMessages**: Array of 3 key messages that resonate with the target audience
+- **tone**: The specific tone for this concept (Educational/Strategic/Inspirational)
+- **callToAction**: Specific CTA relevant to this audience segment
 
 Return in JSON format:
 {
@@ -213,8 +249,7 @@ Return in JSON format:
     body: JSON.stringify({
       model: 'gpt-4o',
       messages: [
-        { role: 'system', content: 'You are an expert social media strategist who creates viral, engaging content concepts that target different audience segments effectively.' },
-        { role: 'user', content: prompt }
+        { role: 'user', content: basePrompt }
       ],
       temperature: 0.8,
       max_tokens: 2000

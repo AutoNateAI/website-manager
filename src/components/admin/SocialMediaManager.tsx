@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { SocialMediaProgressTracker } from './SocialMediaProgressTracker';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
@@ -34,6 +35,8 @@ interface SocialMediaPost {
   image_seed_url?: string;
   image_seed_instructions?: string;
   is_published: boolean;
+  status?: string;
+  generation_progress?: any;
   created_at: string;
   updated_at: string;
 }
@@ -80,6 +83,24 @@ const VOICE_OPTIONS = [
   'Creative Visionary'
 ];
 
+const MEDIA_TYPE_OPTIONS = [
+  {
+    value: "company_targeting",
+    label: "Company Targeting",
+    description: "B2B focused posts targeting decision-makers at companies"
+  },
+  {
+    value: "evergreen_content", 
+    label: "Evergreen Content",
+    description: "Timeless educational content with broad appeal"
+  },
+  {
+    value: "advertisement",
+    label: "Advertisement", 
+    description: "Promotional content focused on conversion and sales"
+  }
+];
+
 const SocialMediaManager = () => {
   const [posts, setPosts] = useState<SocialMediaPost[]>([]);
   const [images, setImages] = useState<Record<string, SocialMediaImage[]>>({});
@@ -102,6 +123,7 @@ const SocialMediaManager = () => {
     platform: 'instagram' as 'instagram' | 'linkedin',
     style: '',
     voice: VOICE_OPTIONS[0],
+    mediaType: 'evergreen_content',
     sourceItems: [] as SourceItem[],
     imageSeedUrl: '',
     imageSeedInstructions: '',
@@ -249,6 +271,7 @@ const SocialMediaManager = () => {
       platform: 'instagram',
       style: '',
       voice: VOICE_OPTIONS[0],
+      mediaType: 'evergreen_content',
       sourceItems: [],
       imageSeedUrl: '',
       imageSeedInstructions: '',
@@ -338,7 +361,7 @@ const SocialMediaManager = () => {
               </DialogHeader>
               <div className="space-y-6">
                 {/* Basic Info */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="title">Title *</Label>
                     <Input
@@ -348,58 +371,81 @@ const SocialMediaManager = () => {
                       placeholder="Enter post title"
                     />
                   </div>
+                  
                   <div className="space-y-2">
-                    <Label htmlFor="platform">Platform *</Label>
+                    <Label htmlFor="mediaType">Content Type *</Label>
                     <Select
-                      value={formData.platform}
-                      onValueChange={(value: 'instagram' | 'linkedin') => {
-                        setFormData({ ...formData, platform: value, style: '' });
-                      }}
+                      value={formData.mediaType}
+                      onValueChange={(value) => setFormData({ ...formData, mediaType: value })}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="instagram">Instagram</SelectItem>
-                        <SelectItem value="linkedin">LinkedIn</SelectItem>
+                        {MEDIA_TYPE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{option.label}</span>
+                              <span className="text-xs text-muted-foreground">{option.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="platform">Platform *</Label>
+                      <Select
+                        value={formData.platform}
+                        onValueChange={(value: 'instagram' | 'linkedin') => {
+                          setFormData({ ...formData, platform: value, style: '' });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="instagram">Instagram</SelectItem>
+                          <SelectItem value="linkedin">LinkedIn</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="voice">Voice</Label>
+                      <Select
+                        value={formData.voice}
+                        onValueChange={(value) => setFormData({ ...formData, voice: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {VOICE_OPTIONS.map(voice => (
+                            <SelectItem key={voice} value={voice}>{voice}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="style">Style *</Label>
-                    <Select
-                      value={formData.style}
-                      onValueChange={(value) => setFormData({ ...formData, style: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select style" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PLATFORM_STYLES[formData.platform].map(style => (
-                          <SelectItem key={style} value={style}>{style}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="voice">Voice</Label>
-                    <Select
-                      value={formData.voice}
-                      onValueChange={(value) => setFormData({ ...formData, voice: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {VOICE_OPTIONS.map(voice => (
-                          <SelectItem key={voice} value={voice}>{voice}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="style">Style *</Label>
+                  <Select
+                    value={formData.style}
+                    onValueChange={(value) => setFormData({ ...formData, style: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select style" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PLATFORM_STYLES[formData.platform].map(style => (
+                        <SelectItem key={style} value={style}>{style}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Source Items Selection */}
@@ -641,6 +687,14 @@ const SocialMediaManager = () => {
           </Dialog>
         </div>
       </div>
+
+      {/* Progress Tracker */}
+      <SocialMediaProgressTracker 
+        posts={posts.filter(post => 
+          ['pending', 'generating_caption', 'generating_images'].includes(post.status || 'completed')
+        )}
+        onUpdate={fetchData}
+      />
 
       {/* Filters */}
       <div className="glass-card p-4">
