@@ -1,0 +1,164 @@
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Copy, Edit, Trash2, Calendar, Clock } from 'lucide-react';
+import { SocialMediaPost, SocialMediaImage } from './types';
+import SocialMediaImageGallery from './SocialMediaImageGallery';
+
+interface SocialMediaPostDetailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  post: SocialMediaPost | null;
+  images: SocialMediaImage[];
+  onCopy: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+const SocialMediaPostDetailModal = ({
+  isOpen,
+  onClose,
+  post,
+  images,
+  onCopy,
+  onEdit,
+  onDelete
+}: SocialMediaPostDetailModalProps) => {
+  if (!post) return null;
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="glass-modal max-w-7xl max-h-[95vh] p-0">
+        <div className="flex h-full">
+          {/* Left Side - Post Details */}
+          <div className="flex-1 max-w-md border-r border-border">
+            <DialogHeader className="p-6 border-b border-border">
+              <div className="flex items-start justify-between">
+                <DialogTitle className="text-xl font-bold line-clamp-2">
+                  {post.title}
+                </DialogTitle>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={onCopy}>
+                    <Copy size={16} />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={onEdit}>
+                    <Edit size={16} />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={onDelete}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <ScrollArea className="flex-1 p-6">
+              <div className="space-y-6">
+                {/* Platform & Style Info */}
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">{post.platform}</Badge>
+                    <Badge variant="secondary">{post.style}</Badge>
+                    <Badge variant="secondary">{post.voice}</Badge>
+                    {post.status && (
+                      <Badge variant={post.status === 'completed' ? 'default' : 'destructive'}>
+                        {post.status}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Caption */}
+                <div>
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    Caption
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onCopy}
+                      className="h-6 px-2"
+                    >
+                      <Copy size={12} />
+                    </Button>
+                  </h4>
+                  <div className="bg-muted/30 rounded-lg p-4">
+                    <p className="text-sm whitespace-pre-wrap">{post.caption}</p>
+                  </div>
+                </div>
+
+                {/* Hashtags */}
+                {post.hashtags.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-3">Hashtags ({post.hashtags.length})</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {post.hashtags.map((tag, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          #{tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Source Items */}
+                {Array.isArray(post.source_items) && post.source_items.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-3">Source Content</h4>
+                    <div className="space-y-2">
+                      {post.source_items.map((item: any, index: number) => (
+                        <div key={index} className="bg-muted/30 rounded-lg p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-sm">{item.title}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {item.type}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Metadata */}
+                <div className="space-y-3 border-t border-border pt-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar size={14} />
+                    Created: {formatDate(post.created_at)}
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock size={14} />
+                    Updated: {formatDate(post.updated_at)}
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Right Side - Image Gallery */}
+          <div className="flex-1 min-w-0">
+            <div className="h-full p-6">
+              <SocialMediaImageGallery images={images} />
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default SocialMediaPostDetailModal;

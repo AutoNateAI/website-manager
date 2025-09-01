@@ -7,16 +7,20 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { SocialMediaProgressTracker } from './SocialMediaProgressTracker';
 import { SocialMediaImagePlaceholders } from './SocialMediaImagePlaceholders';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, Search, Edit, Copy, Trash2, Upload, Wand2, Eye, Save } from 'lucide-react';
+import { Plus, Search, Edit, Copy, Trash2, Upload, Wand2, Eye, Save, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import SocialImageEditor from './SocialImageEditor';
+import SocialMediaPostCard from './SocialMediaPostCard';
+import SocialMediaPostDetailModal from './SocialMediaPostDetailModal';
+import { SocialMediaPost, SocialMediaImage } from './types';
 
 interface SourceItem {
   type: 'blog' | 'live_build' | 'ad';
@@ -24,33 +28,7 @@ interface SourceItem {
   title: string;
 }
 
-interface SocialMediaPost {
-  id: string;
-  title: string;
-  platform: string;
-  style: string;
-  voice: string;
-  source_items: any[];
-  caption: string;
-  hashtags: string[];
-  image_seed_url?: string;
-  image_seed_instructions?: string;
-  is_published: boolean;
-  status?: string;
-  generation_progress?: any;
-  created_at: string;
-  updated_at: string;
-}
-
-interface SocialMediaImage {
-  id: string;
-  post_id: string;
-  carousel_index: number;
-  image_index: number;
-  image_url: string;
-  image_prompt: string;
-  alt_text?: string;
-}
+// Types are now imported from ./types
 
 interface PostConcept {
   id: string;
@@ -119,6 +97,14 @@ const SocialMediaManager = () => {
   const [generating, setGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress | null>(null);
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [postsPerPage] = useState(9);
+  
+  // Detail modal state
+  const [selectedPost, setSelectedPost] = useState<SocialMediaPost | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  
   const [formData, setFormData] = useState({
     title: '',
     platform: 'instagram' as 'instagram' | 'linkedin',
@@ -140,6 +126,11 @@ const SocialMediaManager = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Reset current page when search term or platform filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedPlatform]);
 
   const fetchData = async () => {
     try {
@@ -305,29 +296,27 @@ const SocialMediaManager = () => {
     return matchesSearch && matchesPlatform;
   });
 
-  const renderCarouselPreview = (postId: string) => {
-    const postImages = images[postId] || [];
+  // Pagination logic
+  const totalPages = Math.ceil(filteredPosts.length / postsPerPage);
+  const startIndex = (currentPage - 1) * postsPerPage;
+  const paginatedPosts = filteredPosts.slice(startIndex, startIndex + postsPerPage);
 
-    return (
-      <div className="grid grid-cols-3 gap-2">
-        {postImages.map((image, imgIndex) => (
-          <div 
-            key={image.id} 
-            className="aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-            onClick={() => {
-              setEditingImage(image);
-              setShowImageEditor(true);
-            }}
-          >
-            <img
-              src={image.image_url}
-              alt={image.alt_text || `Image ${imgIndex + 1}`}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        ))}
-      </div>
-    );
+  const handlePostView = (post: SocialMediaPost) => {
+    setSelectedPost(post);
+    setShowDetailModal(true);
+  };
+
+  const handlePostCopy = (post: SocialMediaPost) => {
+    copyToClipboard(post.caption);
+  };
+
+  const handlePostEdit = (post: SocialMediaPost) => {
+    setEditingPost(post);
+    setShowEditDialog(true);
+  };
+
+  const handlePostDelete = (post: SocialMediaPost) => {
+    deletePost(post.id);
   };
 
   if (loading) {
@@ -728,77 +717,67 @@ const SocialMediaManager = () => {
       </div>
 
       {/* Posts Grid */}
-      <div className="grid gap-6">
-        {filteredPosts.map(post => (
-          <Card key={post.id} className="glass-card">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">{post.title}</CardTitle>
-                  <div className="flex gap-2 mt-2">
-                    <Badge variant="outline">{post.platform}</Badge>
-                    <Badge variant="secondary">{post.style}</Badge>
-                    <Badge variant="secondary">{post.voice}</Badge>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => copyToClipboard(post.caption)}>
-                    <Copy size={16} />
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => {
-                    setEditingPost(post);
-                    setShowEditDialog(true);
-                  }}>
-                    <Edit size={16} />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => deletePost(post.id)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 size={16} />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h4 className="font-medium mb-2">Caption</h4>
-                <p className="text-sm text-muted-foreground">{post.caption}</p>
-              </div>
-              <div>
-                <h4 className="font-medium mb-2">Hashtags</h4>
-                <div className="flex flex-wrap gap-1">
-                  {post.hashtags.map((tag, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
-                      #{tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <h4 className="font-medium mb-2">Source Items</h4>
-                <div className="flex flex-wrap gap-2">
-                  {Array.isArray(post.source_items) && post.source_items.map((item: any, index: number) => (
-                    <Badge key={index} variant="secondary">
-                      {item.type}: {item.title}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <h4 className="font-medium mb-2">Images (9 images per post)</h4>
-                <p className="text-xs text-muted-foreground mb-3">Click on any image to edit it</p>
-                {post.status && ['pending', 'generating_caption', 'generating_images'].includes(post.status) ? (
-                  <SocialMediaImagePlaceholders postId={post.id} totalImages={9} />
-                ) : (
-                  renderCarouselPreview(post.id)
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {paginatedPosts.map(post => (
+            <SocialMediaPostCard
+              key={post.id}
+              post={post}
+              images={images[post.id] || []}
+              onView={() => handlePostView(post)}
+              onCopy={() => handlePostCopy(post)}
+              onEdit={() => handlePostEdit(post)}
+              onDelete={() => handlePostDelete(post)}
+            />
+          ))}
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    href="#" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (currentPage > 1) setCurrentPage(currentPage - 1);
+                    }}
+                    className={currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <PaginationItem key={page}>
+                    <PaginationLink
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setCurrentPage(page);
+                      }}
+                      isActive={currentPage === page}
+                      className="cursor-pointer"
+                    >
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                
+                <PaginationItem>
+                  <PaginationNext 
+                    href="#" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                    }}
+                    className={currentPage >= totalPages ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
       </div>
 
       {filteredPosts.length === 0 && (
@@ -806,6 +785,22 @@ const SocialMediaManager = () => {
           <p className="text-muted-foreground">No social media posts found</p>
         </div>
       )}
+
+      {/* Post Detail Modal */}
+      <SocialMediaPostDetailModal
+        isOpen={showDetailModal}
+        onClose={() => setShowDetailModal(false)}
+        post={selectedPost}
+        images={selectedPost ? images[selectedPost.id] || [] : []}
+        onCopy={() => selectedPost && handlePostCopy(selectedPost)}
+        onEdit={() => selectedPost && handlePostEdit(selectedPost)}
+        onDelete={() => {
+          if (selectedPost) {
+            handlePostDelete(selectedPost);
+            setShowDetailModal(false);
+          }
+        }}
+      />
 
       {/* Image Editor Modal */}
       <SocialImageEditor
