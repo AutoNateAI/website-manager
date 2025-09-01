@@ -266,6 +266,8 @@ async function generateCaptionAndHashtags(
     unreplacedTokens: unreplaced,
     preview: prompt.slice(0, 800),
   });
+  // Full prompt logging (no truncation)
+  console.log('[process-social-post] caption prompt FULL', { full_prompt: prompt });
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -373,6 +375,8 @@ async function generateImagePrompts(
     unreplacedTokens: unreplaced,
     preview: prompt.slice(0, 800)
   });
+  // Full prompt logging (no truncation)
+  console.log('[process-social-post] image_prompts prompt FULL', { full_prompt: prompt });
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
