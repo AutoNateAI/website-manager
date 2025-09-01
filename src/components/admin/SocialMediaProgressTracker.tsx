@@ -31,13 +31,11 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
   }, [posts]);
 
   useEffect(() => {
-    // Create unique channel name to avoid conflicts
-    const channelName = `social-media-progress-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    console.log('Setting up real-time subscription for social media progress:', channelName);
+    console.log('Setting up real-time subscription for social media progress updates');
     
     // Subscribe to real-time updates for social media posts
     const channel = supabase
-      .channel(channelName)
+      .channel('social-media-progress-tracker')
       .on(
         'postgres_changes',
         {
@@ -46,37 +44,24 @@ export const SocialMediaProgressTracker: React.FC<SocialMediaProgressTrackerProp
           table: 'social_media_posts'
         },
         (payload) => {
-          console.log('Real-time update received for social media post:', payload.new);
+          console.log('✅ Real-time UPDATE received for social media post:', payload.new.id, payload.new.status);
           const updatedPost = payload.new as SocialMediaPost;
-          setRealtimePosts(prev => 
-            prev.map(post => 
+          setRealtimePosts(prev => {
+            const updated = prev.map(post => 
               post.id === updatedPost.id ? updatedPost : post
-            )
-          );
+            );
+            console.log('Updated realtime posts array with new data');
+            return updated;
+          });
           onUpdate();
         }
       )
       .subscribe((status) => {
-        console.log('Social media progress subscription status:', status);
+        console.log('📡 Social media progress subscription status:', status);
       });
 
-    // Handle visibility change to re-establish connection if needed
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('Tab became visible, checking subscription status');
-        // Re-subscribe if connection was lost
-        if (channel.state !== 'joined') {
-          console.log('Re-establishing subscription');
-          channel.subscribe();
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
-      console.log('Cleaning up social media progress subscription');
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      console.log('🧹 Cleaning up social media progress subscription');
       supabase.removeChannel(channel);
     };
   }, [onUpdate]);

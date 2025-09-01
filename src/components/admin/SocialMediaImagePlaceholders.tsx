@@ -55,13 +55,11 @@ export const SocialMediaImagePlaceholders: React.FC<ImagePlaceholdersProps> = ({
 
     fetchImages();
 
-    // Create unique channel name to avoid conflicts
-    const channelName = `social-images-${postId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    console.log('Setting up real-time subscription for images:', channelName, 'postId:', postId);
+    console.log('🖼️ Setting up real-time subscription for images, postId:', postId);
 
     // Subscribe to real-time image updates
     const channel = supabase
-      .channel(channelName)
+      .channel(`social-images-${postId}`)
       .on(
         'postgres_changes',
         {
@@ -71,13 +69,16 @@ export const SocialMediaImagePlaceholders: React.FC<ImagePlaceholdersProps> = ({
           filter: `post_id=eq.${postId}`
         },
         (payload) => {
-          console.log('Real-time image insert received:', payload.new);
+          console.log('✅ Real-time image INSERT received for post', postId, ':', payload.new);
           const newImage = payload.new as SocialMediaImage;
           setImages(prev => {
             // Avoid duplicates
-            if (prev.some(img => img.id === newImage.id)) return prev;
+            if (prev.some(img => img.id === newImage.id)) {
+              console.log('⚠️ Duplicate image ignored:', newImage.id);
+              return prev;
+            }
             const updated = [...prev, newImage].sort((a, b) => a.image_index - b.image_index);
-            console.log('Updated images array:', updated);
+            console.log('📸 Updated images array length:', updated.length);
             return updated;
           });
           
@@ -85,32 +86,17 @@ export const SocialMediaImagePlaceholders: React.FC<ImagePlaceholdersProps> = ({
           setLoadingIndices(prev => {
             const newSet = new Set(prev);
             newSet.delete(newImage.image_index);
-            console.log('Updated loading indices:', Array.from(newSet));
+            console.log('⏳ Remaining loading indices:', Array.from(newSet));
             return newSet;
           });
         }
       )
       .subscribe((status) => {
-        console.log('Social media images subscription status:', status, 'for post:', postId);
+        console.log('📡 Social media images subscription status:', status, 'for post:', postId);
       });
 
-    // Handle visibility change to re-establish connection if needed
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('Tab became visible, checking image subscription status for post:', postId);
-        // Re-subscribe if connection was lost
-        if (channel.state !== 'joined') {
-          console.log('Re-establishing image subscription for post:', postId);
-          channel.subscribe();
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
-      console.log('Cleaning up image subscription for post:', postId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      console.log('🧹 Cleaning up image subscription for post:', postId);
       supabase.removeChannel(channel);
     };
   }, [postId]);
