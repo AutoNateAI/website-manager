@@ -2026,6 +2026,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      increment_image_progress: {
+        Args: { carousel_index_param: number; post_id_param: string }
+        Returns: undefined
+      }
       is_admin: {
         Args: { _user_id: string }
         Returns: boolean
