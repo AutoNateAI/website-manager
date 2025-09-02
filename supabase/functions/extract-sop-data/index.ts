@@ -109,21 +109,24 @@ SOP Context: ${JSON.stringify(sopDoc)}`;
       .map((msg: any) => `${msg.role}: ${msg.content}`)
       .join('\n\n');
 
+    const payload = {
+      model: 'gpt-4.1-2025-04-14',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Extract structured data from this conversation:\n\n${conversationText}` }
+      ],
+      max_completion_tokens: 2000
+    } as const;
+
+    console.log('extract-sop-data OpenAI payload:', JSON.stringify(payload));
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Extract structured data from this conversation:\n\n${conversationText}` }
-        ],
-        max_tokens: 2000,
-        temperature: 0.3,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await response.json();
