@@ -59,7 +59,7 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
     try {
       const { data, error } = await supabase
         .from('social_media_comments')
-        .select('*')
+        .select('*, caused_dm')
         .eq('post_id', postId)
         .order('comment_timestamp', { ascending: true });
 
@@ -360,6 +360,41 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
     }
   };
 
+  const toggleCausedDM = async (commentId: string) => {
+    try {
+      // Get current caused_dm status
+      const { data: currentComment } = await supabase
+        .from('social_media_comments')
+        .select('caused_dm')
+        .eq('id', commentId)
+        .single();
+      
+      const newStatus = !currentComment?.caused_dm;
+
+      // Update caused_dm status
+      const { error } = await supabase
+        .from('social_media_comments')
+        .update({ caused_dm: newStatus })
+        .eq('id', commentId);
+
+      if (error) throw error;
+
+      await fetchComments();
+      
+      toast({
+        title: "Success",
+        description: newStatus ? "Comment marked as caused DM" : "Comment unmarked as caused DM",
+      });
+    } catch (error) {
+      console.error('Error updating DM status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update DM status",
+        variant: "destructive",
+      });
+    }
+  };
+
   const buildCommentThreadText = (comment: SocialMediaComment): string => {
     let threadText = `${comment.commenter_display_name}: ${comment.comment_text}\n`;
     
@@ -445,6 +480,19 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
                   {comment.like_count}
                 </Button>
               )}
+              <Button
+                variant={comment.caused_dm ? "default" : "ghost"}
+                size="sm"
+                onClick={() => toggleCausedDM(comment.id)}
+                className={`h-6 px-2 text-xs flex items-center gap-1 ${
+                  comment.caused_dm 
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                    : "hover:bg-accent"
+                }`}
+                title="Mark as caused DM"
+              >
+                📩 Caused a DM
+              </Button>
             </div>
           </div>
           

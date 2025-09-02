@@ -32,6 +32,7 @@ export interface SocialMediaComment {
   status?: string;
   scheduled_for?: string;
   notification_sent?: boolean;
+  caused_dm?: boolean;
   created_at: string;
   updated_at: string;
   replies?: SocialMediaComment[];

@@ -2606,6 +2606,7 @@ export type Database = {
       }
       social_media_comments: {
         Row: {
+          caused_dm: boolean | null
           comment_text: string
           comment_timestamp: string
           commenter_display_name: string | null
@@ -2625,6 +2626,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          caused_dm?: boolean | null
           comment_text: string
           comment_timestamp: string
           commenter_display_name?: string | null
@@ -2644,6 +2646,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          caused_dm?: boolean | null
           comment_text?: string
           comment_timestamp?: string
           commenter_display_name?: string | null
