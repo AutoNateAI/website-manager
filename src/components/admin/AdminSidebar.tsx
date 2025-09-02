@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Users, Map, PenTool, Image, Megaphone, Video, Share2, 
   Calendar, Package, ChevronDown, ChevronRight, Building,
-  Users2, MessageSquare, StickyNote, Target, Presentation, Settings, FileText
+  Users2, MessageSquare, StickyNote, Target, Presentation, Settings, FileText, Home
 } from 'lucide-react';
 import {
   Sidebar,
@@ -27,6 +27,11 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
+  {
+    title: "Dashboard",
+    value: "dashboard",
+    icon: Home,
+  },
   {
     title: "Lead Management",
     value: "leads",

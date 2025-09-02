@@ -30,7 +30,7 @@ import { SOPManager } from '@/components/admin/SOPManager';
 const Admin = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [notificationCount, setNotificationCount] = useState(3); // This will be dynamic later
+  const [notificationCount, setNotificationCount] = useState(0);
 
   if (loading) {
     return (
