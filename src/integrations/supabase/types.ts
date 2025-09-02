@@ -1291,56 +1291,77 @@ export type Database = {
       instagram_target_posts: {
         Row: {
           analysis_status: string | null
+          attention_score: number | null
+          authenticity_score: number | null
           comment_count: number | null
           created_at: string
           hashtags: string[] | null
           id: string
+          last_scored_at: string | null
           like_count: number | null
           location_tag: string | null
+          market_fit_score: number | null
           mention_count: number | null
+          network_value_score: number | null
           notes: string | null
+          overall_attention_score: number | null
           post_content: string | null
           post_id: string | null
           post_timestamp: string | null
           post_url: string
           poster_user_id: string | null
           poster_username: string | null
+          scoring_metadata: Json | null
           updated_at: string
         }
         Insert: {
           analysis_status?: string | null
+          attention_score?: number | null
+          authenticity_score?: number | null
           comment_count?: number | null
           created_at?: string
           hashtags?: string[] | null
           id?: string
+          last_scored_at?: string | null
           like_count?: number | null
           location_tag?: string | null
+          market_fit_score?: number | null
           mention_count?: number | null
+          network_value_score?: number | null
           notes?: string | null
+          overall_attention_score?: number | null
           post_content?: string | null
           post_id?: string | null
           post_timestamp?: string | null
           post_url: string
           poster_user_id?: string | null
           poster_username?: string | null
+          scoring_metadata?: Json | null
           updated_at?: string
         }
         Update: {
           analysis_status?: string | null
+          attention_score?: number | null
+          authenticity_score?: number | null
           comment_count?: number | null
           created_at?: string
           hashtags?: string[] | null
           id?: string
+          last_scored_at?: string | null
           like_count?: number | null
           location_tag?: string | null
+          market_fit_score?: number | null
           mention_count?: number | null
+          network_value_score?: number | null
           notes?: string | null
+          overall_attention_score?: number | null
           post_content?: string | null
           post_id?: string | null
           post_timestamp?: string | null
           post_url?: string
           poster_user_id?: string | null
           poster_username?: string | null
+          scoring_metadata?: Json | null
           updated_at?: string
         }
         Relationships: [
@@ -1729,6 +1750,45 @@ export type Database = {
           },
         ]
       }
+      post_search_queries: {
+        Row: {
+          discovery_date: string | null
+          id: string
+          post_id: string | null
+          relevance_score: number | null
+          search_query_id: string | null
+        }
+        Insert: {
+          discovery_date?: string | null
+          id?: string
+          post_id?: string | null
+          relevance_score?: number | null
+          search_query_id?: string | null
+        }
+        Update: {
+          discovery_date?: string | null
+          id?: string
+          post_id?: string | null
+          relevance_score?: number | null
+          search_query_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_search_queries_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_target_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_search_queries_search_query_id_fkey"
+            columns: ["search_query_id"]
+            isOneToOne: false
+            referencedRelation: "search_queries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_access: {
         Row: {
           access_url: string
@@ -2057,6 +2117,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      scoring_algorithms: {
+        Row: {
+          algorithm_type: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          thresholds: Json | null
+          updated_at: string
+          weights: Json
+        }
+        Insert: {
+          algorithm_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          thresholds?: Json | null
+          updated_at?: string
+          weights?: Json
+        }
+        Update: {
+          algorithm_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          thresholds?: Json | null
+          updated_at?: string
+          weights?: Json
+        }
+        Relationships: []
+      }
+      search_queries: {
+        Row: {
+          created_at: string
+          description: string | null
+          engagement_thresholds: Json | null
+          hashtag_filters: Json | null
+          id: string
+          is_active: boolean | null
+          location_filters: Json | null
+          parameters: Json
+          title: string
+          updated_at: string
+          usage_count: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          engagement_thresholds?: Json | null
+          hashtag_filters?: Json | null
+          id?: string
+          is_active?: boolean | null
+          location_filters?: Json | null
+          parameters?: Json
+          title: string
+          updated_at?: string
+          usage_count?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          engagement_thresholds?: Json | null
+          hashtag_filters?: Json | null
+          id?: string
+          is_active?: boolean | null
+          location_filters?: Json | null
+          parameters?: Json
+          title?: string
+          updated_at?: string
+          usage_count?: number | null
+        }
+        Relationships: []
       }
       service_people: {
         Row: {
@@ -2520,6 +2658,83 @@ export type Database = {
           post_timestamp?: string | null
           post_url?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sop_conversations: {
+        Row: {
+          conversation_data: Json
+          created_at: string
+          extracted_data: Json | null
+          extraction_status: string | null
+          id: string
+          sop_document_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          conversation_data?: Json
+          created_at?: string
+          extracted_data?: Json | null
+          extraction_status?: string | null
+          id?: string
+          sop_document_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          conversation_data?: Json
+          created_at?: string
+          extracted_data?: Json | null
+          extraction_status?: string | null
+          id?: string
+          sop_document_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sop_conversations_sop_document_id_fkey"
+            columns: ["sop_document_id"]
+            isOneToOne: false
+            referencedRelation: "sop_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sop_documents: {
+        Row: {
+          category: string
+          content: string | null
+          created_at: string
+          description: string | null
+          id: string
+          status: string | null
+          structured_data: Json | null
+          title: string
+          updated_at: string
+          version: number | null
+        }
+        Insert: {
+          category?: string
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string | null
+          structured_data?: Json | null
+          title: string
+          updated_at?: string
+          version?: number | null
+        }
+        Update: {
+          category?: string
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string | null
+          structured_data?: Json | null
+          title?: string
+          updated_at?: string
+          version?: number | null
         }
         Relationships: []
       }

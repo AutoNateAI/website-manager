@@ -8,8 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
-import { Plus, ExternalLink, User, MessageSquare, Heart, Eye } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Plus, ExternalLink, User, MessageSquare, Heart, Eye, Search, Sparkles, TrendingUp, Target, Brain } from 'lucide-react';
+import { SearchQueryGenerator } from "../SearchQueryGenerator";
+import { AttentionScoreCard } from "../AttentionScoreCard";
 
 interface TargetPost {
   id: string;
@@ -57,24 +59,41 @@ export function InstagramAnalyticsTab() {
   const [targetPosts, setTargetPosts] = useState<TargetPost[]>([]);
   const [users, setUsers] = useState<InstagramUser[]>([]);
   const [activities, setActivities] = useState<EngagementActivity[]>([]);
+  const [searchQueries, setSearchQueries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newPostUrl, setNewPostUrl] = useState('');
   const [selectedPost, setSelectedPost] = useState<TargetPost | null>(null);
   const [selectedUser, setSelectedUser] = useState<InstagramUser | null>(null);
+  
+  // Search and filtering
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<string>('attention_score');
+  const [filterByQuery, setFilterByQuery] = useState<string>('all');
+  
+  // AI features
+  const [searchQueryDialog, setSearchQueryDialog] = useState(false);
+  const [isCalculatingScores, setIsCalculatingScores] = useState(false);
+  
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchData();
+    fetchSearchQueries();
   }, []);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       
-      // Fetch target posts
+      // Fetch target posts with enhanced data
       const { data: posts, error: postsError } = await supabase
         .from('instagram_target_posts')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select(`
+          *,
+          instagram_users!poster_user_id(*),
+          post_search_queries(search_queries(*))
+        `)
+        .order('overall_attention_score', { ascending: false, nullsFirst: false });
 
       if (postsError) throw postsError;
 
@@ -109,6 +128,20 @@ export function InstagramAnalyticsTab() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSearchQueries = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('search_queries')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSearchQueries(data || []);
+    } catch (error: any) {
+      console.error('Error fetching search queries:', error);
     }
   };
 
@@ -154,6 +187,59 @@ export function InstagramAnalyticsTab() {
     }
   };
 
+  const calculateAttentionScore = async (postId: string) => {
+    try {
+      setIsCalculatingScores(true);
+      const { data, error } = await supabase.functions.invoke('calculate-attention-score', {
+        body: { postId }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Attention score calculated successfully'
+      });
+
+      // Refresh the posts data to show updated scores
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Error calculating scores',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setIsCalculatingScores(false);
+    }
+  };
+
+  const filteredAndSortedPosts = targetPosts
+    .filter(post => {
+      const matchesSearch = !searchTerm || 
+        post.poster_username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        post.post_content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        post.hashtags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesQuery = filterByQuery === 'all' || 
+        post.post_search_queries?.some((pq: any) => pq.search_queries?.id === filterByQuery);
+      
+      return matchesSearch && matchesQuery;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'attention_score':
+          return (b.overall_attention_score || 0) - (a.overall_attention_score || 0);
+        case 'authenticity_score':
+          return (b.authenticity_score || 0) - (a.authenticity_score || 0);
+        case 'engagement':
+          return (b.like_count + b.comment_count) - (a.like_count + a.comment_count);
+        case 'created_at':
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+
   const addEngagementActivity = async (postId: string, activityType: string, content: string) => {
     try {
       const { data, error } = await supabase
@@ -194,32 +280,88 @@ export function InstagramAnalyticsTab() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Instagram Analytics</h2>
-          <p className="text-muted-foreground">Track posts, users, and engagement activities</p>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Brain className="h-6 w-6 text-primary" />
+            Instagram Intelligence Platform
+          </h2>
+          <p className="text-muted-foreground">
+            AI-powered attention sensing and market intelligence for Instagram
+          </p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Target Post
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Target Post</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Input
-                placeholder="Enter Instagram post URL..."
-                value={newPostUrl}
-                onChange={(e) => setNewPostUrl(e.target.value)}
-              />
-              <Button onClick={addTargetPost} className="w-full">
-                Add Post
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            onClick={() => setSearchQueryDialog(true)}
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            AI Search Generator
+          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Target Post
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Target Post</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <Input
+                  placeholder="Enter Instagram post URL..."
+                  value={newPostUrl}
+                  onChange={(e) => setNewPostUrl(e.target.value)}
+                />
+                <Button onClick={addTargetPost} className="w-full">
+                  Add Post
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Enhanced Search and Filters */}
+      <div className="flex gap-4 items-center flex-wrap">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search posts, users, hashtags..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="attention_score">
+              <TrendingUp className="h-4 w-4 mr-2 inline" />
+              Attention Score
+            </SelectItem>
+            <SelectItem value="authenticity_score">Authenticity Score</SelectItem>
+            <SelectItem value="engagement">Engagement Count</SelectItem>
+            <SelectItem value="created_at">Date Added</SelectItem>
+          </SelectContent>
+        </Select>
+        {searchQueries.length > 0 && (
+          <Select value={filterByQuery} onValueChange={setFilterByQuery}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by query" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Queries</SelectItem>
+              {searchQueries.map((query: any) => (
+                <SelectItem key={query.id} value={query.id}>
+                  {query.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <Tabs defaultValue="posts" className="space-y-4">
@@ -231,24 +373,65 @@ export function InstagramAnalyticsTab() {
 
         <TabsContent value="posts" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {targetPosts.map((post) => (
+            {filteredAndSortedPosts.map((post) => (
               <Card key={post.id} className="cursor-pointer hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm">
                       {post.poster_username ? `@${post.poster_username}` : 'Unknown User'}
                     </CardTitle>
-                    <Badge variant={post.analysis_status === 'completed' ? 'default' : 'secondary'}>
-                      {post.analysis_status}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <Badge variant={post.analysis_status === 'completed' ? 'default' : 'secondary'}>
+                        {post.analysis_status}
+                      </Badge>
+                      {post.overall_attention_score && (
+                        <Badge variant="outline" className="text-xs">
+                          {post.overall_attention_score.toFixed(1)}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {/* Attention Score Display */}
+                  {(post.attention_score || post.authenticity_score || post.market_fit_score || post.network_value_score) && (
+                    <AttentionScoreCard
+                      scores={{
+                        attention_score: post.attention_score || 0,
+                        authenticity_score: post.authenticity_score || 0,
+                        market_fit_score: post.market_fit_score || 0,
+                        network_value_score: post.network_value_score || 0,
+                        overall_attention_score: post.overall_attention_score || 0
+                      }}
+                      metadata={post.scoring_metadata}
+                      onRecalculate={() => calculateAttentionScore(post.id)}
+                      isCalculating={isCalculatingScores}
+                      compact={true}
+                    />
+                  )}
+
                   {post.post_content && (
                     <p className="text-sm text-muted-foreground line-clamp-3">
                       {post.post_content}
                     </p>
                   )}
+                  
+                  {/* Hashtags */}
+                  {post.hashtags && post.hashtags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {post.hashtags.slice(0, 3).map((tag, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                      {post.hashtags.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{post.hashtags.length - 3} more
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Heart className="h-3 w-3" />
@@ -258,7 +441,14 @@ export function InstagramAnalyticsTab() {
                       <MessageSquare className="h-3 w-3" />
                       {post.comment_count}
                     </div>
+                    {post.location_tag && (
+                      <div className="flex items-center gap-1">
+                        <Target className="h-3 w-3" />
+                        Location
+                      </div>
+                    )}
                   </div>
+
                   <div className="flex gap-2">
                     <Button 
                       size="sm" 
@@ -274,11 +464,28 @@ export function InstagramAnalyticsTab() {
                     >
                       Engage
                     </Button>
+                    {!post.overall_attention_score && (
+                      <Button 
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => calculateAttentionScore(post.id)}
+                        disabled={isCalculatingScores}
+                      >
+                        <Brain className="h-3 w-3 mr-1" />
+                        Score
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
+          {filteredAndSortedPosts.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <Target className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No posts match your current filters.</p>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="users" className="space-y-4">
@@ -359,6 +566,19 @@ export function InstagramAnalyticsTab() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Search Query Generator Dialog */}
+      <SearchQueryGenerator
+        open={searchQueryDialog}
+        onOpenChange={setSearchQueryDialog}
+        onQueryGenerated={(query) => {
+          fetchSearchQueries();
+          toast({
+            title: "Success",
+            description: `Search query "${query.title}" saved successfully`,
+          });
+        }}
+      />
 
       {/* Quick Engagement Dialog */}
       {selectedPost && (
