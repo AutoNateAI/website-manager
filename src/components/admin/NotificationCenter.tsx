@@ -7,15 +7,26 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Notification } from './types';
 
-export function NotificationCenter() {
+interface NotificationCenterProps {
+  onNotificationCountChange?: (count: number) => void;
+}
+
+export function NotificationCenter({ onNotificationCountChange }: NotificationCenterProps = {}) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchNotifications();
-    subscribeToNotifications();
+    const cleanup = subscribeToNotifications();
+    return cleanup;
   }, []);
+
+  // Update parent component with notification count
+  useEffect(() => {
+    const unreadCount = notifications.filter(n => !n.is_read).length;
+    onNotificationCountChange?.(unreadCount);
+  }, [notifications, onNotificationCountChange]);
 
   const fetchNotifications = async () => {
     try {
@@ -130,18 +141,18 @@ export function NotificationCenter() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Bell className="h-5 w-5" />
+    <div className="w-full max-w-md">
+      <div className="p-4 border-b">
+        <h3 className="font-semibold flex items-center gap-2">
+          <Bell className="h-4 w-4" />
           Notifications
           {unreadCount > 0 && (
             <Badge variant="destructive">{unreadCount}</Badge>
           )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
+        </h3>
+      </div>
+      <div className="max-h-96 overflow-y-auto">
+        <div className="p-4 space-y-3">
           {notifications.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Bell className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -193,7 +204,7 @@ export function NotificationCenter() {
             ))
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

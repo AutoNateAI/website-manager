@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { LogOut, Bell } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { Dashboard } from '@/components/admin/Dashboard';
+import { NotificationCenter } from '@/components/admin/NotificationCenter';
 import { LeadManager } from '@/components/admin/LeadManager';
 import { MapViews } from '@/components/admin/MapViews';
 import { EventManager } from '@/components/admin/EventManager';
@@ -27,6 +30,7 @@ import { SOPManager } from '@/components/admin/SOPManager';
 const Admin = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [notificationCount, setNotificationCount] = useState(3); // This will be dynamic later
 
   if (loading) {
     return (
@@ -102,15 +106,39 @@ const Admin = () => {
                 </p>
               </div>
             </div>
-            <Button 
-              onClick={signOut}
-              variant="outline"
-              className="glass-button flex-shrink-0"
-              size="sm"
-            >
-              <LogOut size={16} className="mr-2" />
-              Sign Out
-            </Button>
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="relative glass-button flex-shrink-0"
+                  >
+                    <Bell size={16} />
+                    {notificationCount > 0 && (
+                      <Badge 
+                        variant="destructive" 
+                        className="absolute -top-2 -right-2 h-5 w-5 text-xs p-0 flex items-center justify-center"
+                      >
+                        {notificationCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-96 p-0" align="end">
+                  <NotificationCenter onNotificationCountChange={setNotificationCount} />
+                </PopoverContent>
+              </Popover>
+              <Button 
+                onClick={signOut}
+                variant="outline"
+                className="glass-button flex-shrink-0"
+                size="sm"
+              >
+                <LogOut size={16} className="mr-2" />
+                Sign Out
+              </Button>
+            </div>
           </header>
 
           {/* Main Content */}
