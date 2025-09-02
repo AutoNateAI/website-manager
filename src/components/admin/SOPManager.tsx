@@ -449,16 +449,15 @@ export const SOPManager: React.FC = () => {
                     <MessageSquare className="mr-1 h-3 w-3" />
                     View Chat
                   </Button>
-                  {sop.structured_data && Object.keys(sop.structured_data).length > 0 && (
-                    <Button 
-                      variant="secondary" 
-                      size="sm"
-                      onClick={() => viewSOPContent(sop)}
-                    >
-                      <FileText className="mr-1 h-3 w-3" />
-                      View Content
-                    </Button>
-                  )}
+                  <Button 
+                    variant="secondary" 
+                    size="sm"
+                    onClick={() => viewSOPContent(sop)}
+                    className="flex-1"
+                  >
+                    <FileText className="mr-1 h-3 w-3" />
+                    View SOP
+                  </Button>
                 </div>
               </div>
             </CardContent>

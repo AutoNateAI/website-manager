@@ -16,6 +16,10 @@ verify_jwt = false
 [functions.sop-conversation-chat]
 verify_jwt = false
 
+# Make SOP data extraction function public for the web app
+[functions.extract-sop-data]
+verify_jwt = false
+
 # Make goal strategy assistant public for the web app
 [functions.goal-strategy-chat]
 verify_jwt = false
