@@ -69,6 +69,7 @@ export const SOPManager: React.FC = () => {
   }, []);
 
   const fetchSOPs = async () => {
+    console.log('Fetching SOPs...');
     try {
       const { data, error } = await supabase
         .from('sop_documents')
@@ -76,6 +77,7 @@ export const SOPManager: React.FC = () => {
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
+      console.log('SOPs fetched:', data);
       setSops(data || []);
     } catch (error) {
       console.error('Error fetching SOPs:', error);
