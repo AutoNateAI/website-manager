@@ -14,7 +14,7 @@ Guidelines:
 - Keep answers brief (2–5 sentences) unless the user asks for detail.
 - Progressively gather: purpose, scope, prerequisites, roles, tools, step-by-step process, decision points, edge cases, quality checks, time/cadence, and outputs.
 - When details are vague, propose concrete options to choose from.
-- Regularly summarize what we have and what’s missing.
+- Regularly summarize what we have and what's missing.
 - When enough info is gathered (≈2–4 turns), suggest next steps: Extract Structured Data or Create SOP using a template.
 - Never invent facts; always confirm assumptions with the user.
 `;
@@ -45,6 +45,8 @@ serve(async (req) => {
       max_completion_tokens: 600,
     } as const;
 
+    console.log('Calling OpenAI with payload:', JSON.stringify(payload, null, 2));
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -55,6 +57,7 @@ serve(async (req) => {
     });
 
     const data = await response.json();
+    console.log('OpenAI response:', JSON.stringify(data, null, 2));
 
     if (!response.ok) {
       console.error('OpenAI error:', data);
@@ -64,7 +67,12 @@ serve(async (req) => {
       });
     }
 
-    const reply = data.choices?.[0]?.message?.content ?? 'I’m here. What process would you like to document?';
+    const reply = data.choices?.[0]?.message?.content?.trim() || 'I'm here. What process would you like to document?';
+    
+    // Log if we got a blank response to help debug
+    if (!data.choices?.[0]?.message?.content?.trim()) {
+      console.error('OpenAI returned blank/empty response - using fallback');
+    }
 
     return new Response(JSON.stringify({ reply }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

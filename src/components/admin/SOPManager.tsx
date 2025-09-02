@@ -263,10 +263,12 @@ export const SOPManager: React.FC = () => {
   };
 
   const extractSOPData = async () => {
-    if (!selectedSop || currentConversation.length < 3) {
+    // Check if we have enough conversation content (at least 2 user messages)
+    const userMessages = currentConversation.filter(msg => msg.role === 'user');
+    if (userMessages.length < 2) {
       toast({
-        title: "Error",
-        description: "Need more conversation content to extract data",
+        title: "Error", 
+        description: "Need more conversation content to extract data (at least 2 exchanges)",
         variant: "destructive",
       });
       return;
@@ -274,11 +276,43 @@ export const SOPManager: React.FC = () => {
 
     setIsExtracting(true);
     try {
-      // Extract structured data directly from conversation
+      let sopDocId = selectedSop?.id;
+      
+      // If no existing SOP, create one first
+      if (!sopDocId) {
+        const { data: newSop, error: createError } = await supabase
+          .from('sop_documents')
+          .insert({
+            title: 'New SOP from Conversation',
+            description: 'Generated from AI conversation',
+            category: 'general',
+            status: 'draft'
+          })
+          .select()
+          .single();
+          
+        if (createError) throw createError;
+        sopDocId = newSop.id;
+      }
+
+      // Save conversation first
+      const { data: conversation, error: convError } = await supabase
+        .from('sop_conversations')
+        .insert({
+          sop_document_id: sopDocId,
+          conversation_data: currentConversation,
+          status: 'active'
+        })
+        .select()
+        .single();
+
+      if (convError) throw convError;
+
+      // Now extract structured data
       const { data, error } = await supabase.functions.invoke('extract-sop-data', {
         body: { 
-          conversation: currentConversation,
-          sopDocumentId: selectedSop.id 
+          conversationId: conversation.id,
+          sopDocumentId: sopDocId
         }
       });
 
