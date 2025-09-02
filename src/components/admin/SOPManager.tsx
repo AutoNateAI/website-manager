@@ -309,8 +309,7 @@ export const SOPManager: React.FC = () => {
         .from('sop_conversations')
         .insert({
           sop_document_id: sopDocId,
-          conversation_data: currentConversation,
-          status: 'active'
+          conversation_data: currentConversation
         })
         .select()
         .single();
