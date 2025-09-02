@@ -110,12 +110,12 @@ SOP Context: ${JSON.stringify(sopDoc)}`;
       .join('\n\n');
 
     const payload = {
-      model: 'gpt-4.1-2025-04-14',
+      model: 'gpt-5-mini-2025-08-07',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Extract structured data from this conversation:\n\n${conversationText}` }
       ],
-      max_completion_tokens: 2000
+      max_completion_tokens: 4096
     } as const;
 
     console.log('extract-sop-data OpenAI payload:', JSON.stringify(payload));

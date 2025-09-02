@@ -42,7 +42,7 @@ serve(async (req) => {
         { role: 'system', content: systemPrompt || SYSTEM_PROMPT },
         ...messages,
       ],
-      max_completion_tokens: 600,
+      max_completion_tokens: 1500,
     } as const;
 
     console.log('Calling OpenAI with payload:', JSON.stringify(payload, null, 2));
