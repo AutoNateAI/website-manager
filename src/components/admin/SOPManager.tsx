@@ -318,6 +318,7 @@ export const SOPManager: React.FC = () => {
       if (convError) throw convError;
 
       // Now extract structured data
+      console.log('Calling extract-sop-data with:', { conversationId: conversation.id, sopDocumentId: sopDocId });
       const { data, error } = await supabase.functions.invoke('extract-sop-data', {
         body: { 
           conversationId: conversation.id,
@@ -325,6 +326,7 @@ export const SOPManager: React.FC = () => {
         }
       });
 
+      console.log('Extract response:', { data, error });
       if (error) throw error;
 
       toast({
