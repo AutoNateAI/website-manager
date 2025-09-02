@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Loader2, Plus, MessageSquare, FileText, Brain, Search } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
 
 interface SOPDocument {
   id: string;
@@ -57,6 +58,17 @@ export const SOPManager: React.FC = () => {
   const [isProcessingMessage, setIsProcessingMessage] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
 
+  // Templates & generation
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [isGeneratingSOP, setIsGeneratingSOP] = useState(false);
+
+  // Template generator
+  const [newTemplateTitle, setNewTemplateTitle] = useState('');
+  const [newTemplateCategory, setNewTemplateCategory] = useState('general');
+  const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false);
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -99,6 +111,87 @@ export const SOPManager: React.FC = () => {
     }
   };
 
+  const fetchTemplates = async () => {
+    setTemplatesLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('sop_templates')
+        .select('id, title, category')
+        .eq('is_active', true)
+        .order('usage_count', { ascending: false });
+      if (error) throw error;
+      setTemplates(data || []);
+    } catch (e) {
+      console.error('Error fetching templates:', e);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (conversationDialog) {
+      fetchTemplates();
+    }
+  }, [conversationDialog]);
+
+  const minTurnsReached = () => {
+    const nonSystem = currentConversation.filter((m) => m.role !== 'system');
+    const turns = Math.floor(nonSystem.length / 2);
+    return turns >= 2; // at least 2 full turns
+  };
+
+  const handleGenerateSOP = async () => {
+    if (!selectedSop || !selectedTemplateId || !minTurnsReached()) return;
+    setIsGeneratingSOP(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-sop', {
+        body: {
+          sopDocumentId: selectedSop.id,
+          templateId: selectedTemplateId,
+          messages: currentConversation,
+        },
+      });
+      if (error) throw error;
+      toast({ title: 'SOP created', description: 'Your SOP was generated using the selected template.' });
+      setConversationDialog(false);
+      setCurrentConversation([]);
+      setSelectedTemplateId('');
+      fetchSOPs();
+    } catch (e) {
+      console.error('Generate SOP error:', e);
+      toast({ title: 'Generation failed', description: 'Could not generate SOP', variant: 'destructive' });
+    } finally {
+      setIsGeneratingSOP(false);
+    }
+  };
+
+  const handleGenerateTemplate = async () => {
+    if (!newTemplateTitle.trim()) {
+      toast({ title: 'Template title required', variant: 'destructive' });
+      return;
+    }
+    setIsGeneratingTemplate(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-sop-template', {
+        body: {
+          title: newTemplateTitle.trim(),
+          category: newTemplateCategory,
+          messages: currentConversation,
+        },
+      });
+      if (error) throw error;
+      toast({ title: 'Template created', description: 'Your template is now available.' });
+      setNewTemplateTitle('');
+      fetchTemplates();
+      // Preselect the created template if id returned
+      if ((data as any)?.templateId) setSelectedTemplateId((data as any).templateId);
+    } catch (e) {
+      console.error('Generate template error:', e);
+      toast({ title: 'Template generation failed', variant: 'destructive' });
+    } finally {
+      setIsGeneratingTemplate(false);
+    }
+  };
   const createSOP = async () => {
     if (!newSopForm.title.trim()) {
       toast({
@@ -450,26 +543,101 @@ export const SOPManager: React.FC = () => {
             </Button>
           </div>
 
-          <div className="flex justify-between pt-4 border-t">
-            <Button variant="outline" onClick={() => setConversationDialog(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={extractSOPData} 
-              disabled={isExtracting || currentConversation.length < 3}
-            >
-              {isExtracting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Extracting Data...
-                </>
-              ) : (
-                <>
-                  <Brain className="mr-2 h-4 w-4" />
-                  Extract Structured Data
-                </>
-              )}
-            </Button>
+          <div className="flex flex-col gap-4 pt-4 border-t">
+            <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setConversationDialog(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={extractSOPData} 
+                  disabled={isExtracting || currentConversation.length < 3}
+                  variant="secondary"
+                >
+                  {isExtracting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Extracting Data...
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="mr-2 h-4 w-4" />
+                      Extract Structured Data
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="flex-1 grid md:grid-cols-3 gap-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">Turns: {Math.floor(currentConversation.filter(m=>m.role!== 'system').length/2)}/2</Badge>
+                </div>
+
+                <div>
+                  <Label className="text-xs">Select Template</Label>
+                  <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={templatesLoading ? 'Loading...' : 'Choose a template'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>{t.title} ({t.category})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-end gap-2">
+                  <Button 
+                    onClick={handleGenerateSOP}
+                    disabled={!minTurnsReached() || !selectedTemplateId || isGeneratingSOP}
+                  >
+                    {isGeneratingSOP ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating SOP...
+                      </>
+                    ) : (
+                      'Create SOP'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">New Template Title</Label>
+                <Input value={newTemplateTitle} onChange={(e)=>setNewTemplateTitle(e.target.value)} placeholder="e.g., Onboarding Process Template" />
+              </div>
+              <div>
+                <Label className="text-xs">Category</Label>
+                <Select value={newTemplateCategory} onValueChange={setNewTemplateCategory}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="process">Process</SelectItem>
+                    <SelectItem value="training">Training</SelectItem>
+                    <SelectItem value="policy">Policy</SelectItem>
+                    <SelectItem value="operations">Operations</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end">
+                <Button onClick={handleGenerateTemplate} disabled={isGeneratingTemplate || !minTurnsReached()} variant="outline" className="w-full">
+                  {isGeneratingTemplate ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating Template...
+                    </>
+                  ) : (
+                    'Generate Template from Conversation'
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
