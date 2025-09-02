@@ -43,6 +43,8 @@ serve(async (req) => {
       .eq('is_active', true)
       .single();
 
+    let finalAlgorithm = algorithm;
+    
     if (algError || !algorithm) {
       // Use default algorithm
       const { data: defaultAlg } = await supabase
@@ -54,12 +56,11 @@ serve(async (req) => {
       if (!defaultAlg) {
         throw new Error('No scoring algorithm found');
       }
-      algorithm.weights = defaultAlg.weights;
-      algorithm.thresholds = defaultAlg.thresholds;
+      finalAlgorithm = defaultAlg;
     }
 
-    const weights: ScoringWeights = algorithm.weights as ScoringWeights;
-    const thresholds: ScoringThresholds = algorithm.thresholds as ScoringThresholds;
+    const weights: ScoringWeights = finalAlgorithm.weights as ScoringWeights;
+    const thresholds: ScoringThresholds = finalAlgorithm.thresholds as ScoringThresholds;
 
     // Get the post data
     const { data: post, error: postError } = await supabase

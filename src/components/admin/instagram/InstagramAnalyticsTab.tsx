@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, ExternalLink, User, MessageSquare, Heart, Eye, Search, Sparkles, TrendingUp, Target, Brain } from 'lucide-react';
 import { SearchQueryGenerator } from "../SearchQueryGenerator";
 import { AttentionScoreCard } from "../AttentionScoreCard";
+import { EnhancedAddPostModal } from "../EnhancedAddPostModal";
 
 interface TargetPost {
   id: string;
@@ -89,6 +90,7 @@ export function InstagramAnalyticsTab() {
   // AI features
   const [searchQueryDialog, setSearchQueryDialog] = useState(false);
   const [isCalculatingScores, setIsCalculatingScores] = useState(false);
+  const [showAddPostModal, setShowAddPostModal] = useState(false);
   
   const { toast } = useToast();
 
@@ -312,29 +314,10 @@ export function InstagramAnalyticsTab() {
             <Sparkles className="h-4 w-4 mr-2" />
             AI Search Generator
           </Button>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Target Post
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Target Post</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <Input
-                  placeholder="Enter Instagram post URL..."
-                  value={newPostUrl}
-                  onChange={(e) => setNewPostUrl(e.target.value)}
-                />
-                <Button onClick={addTargetPost} className="w-full">
-                  Add Post
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setShowAddPostModal(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Target Post
+          </Button>
         </div>
       </div>
 
@@ -593,6 +576,15 @@ export function InstagramAnalyticsTab() {
             title: "Success",
             description: `Search query "${query.title}" saved successfully`,
           });
+        }}
+      />
+
+      {/* Enhanced Add Post Modal */}
+      <EnhancedAddPostModal
+        open={showAddPostModal}
+        onOpenChange={setShowAddPostModal}
+        onPostAdded={(post) => {
+          setTargetPosts([post, ...targetPosts]);
         }}
       />
 
