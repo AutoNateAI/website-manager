@@ -33,7 +33,7 @@ const menuItems: MenuItem[] = [
     icon: Home,
   },
   {
-    title: "Lead Management",
+    title: "Entity Management",
     value: "leads",
     icon: Users,
     children: [
@@ -106,7 +106,7 @@ interface AdminSidebarProps {
 export const AdminSidebar = ({ activeTab, onTabChange }: AdminSidebarProps) => {
   const { state } = useSidebar();
   const location = useLocation();
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['leads']));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const toggleGroup = (groupValue: string) => {
     const newExpanded = new Set(expandedGroups);
