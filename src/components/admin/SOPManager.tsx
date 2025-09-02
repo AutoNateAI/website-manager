@@ -327,7 +327,16 @@ export const SOPManager: React.FC = () => {
       });
 
       console.log('Extract response:', { data, error });
-      if (error) throw error;
+      if (error) {
+        const errMsg = (error as any)?.message || (error as any)?.error?.message || 'Failed to extract SOP data';
+        console.error('extract-sop-data error:', error);
+        toast({
+          title: "Extraction failed",
+          description: errMsg,
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
         title: "Success",
@@ -338,11 +347,11 @@ export const SOPManager: React.FC = () => {
       fetchSOPs();
       setConversationDialog(false);
       setCurrentConversation([]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error extracting SOP data:', error);
       toast({
         title: "Error",
-        description: "Failed to extract SOP data",
+        description: error?.message || 'Failed to extract SOP data',
         variant: "destructive",
       });
     } finally {
