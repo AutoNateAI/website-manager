@@ -116,8 +116,10 @@ serve(async (req) => {
           }
 
           const tokenData = await tokenResp.json();
-          // For Web Connect, pass token and environment in the URL
-          const connectUrl = `https://connect.getphyllo.com/?environment=${env}&token=${tokenData.sdk_token}`;
+          console.log('Token created successfully:', { user_id: userId, token_exists: !!tokenData.sdk_token });
+          
+          // For Web Connect, use proper environment-specific URL and include required parameters
+          const connectUrl = `https://connect.getphyllo.com/?environment=${env}&token=${tokenData.sdk_token}&redirect_uri=${encodeURIComponent('https://connect.getphyllo.com/success')}&product=IDENTITY,ENGAGEMENT,PUBLISH.CONTENT`;
           return json({ connectUrl, phyllo_user_id: userId });
         } catch (error) {
           console.error('Error creating Phyllo token:', error);
