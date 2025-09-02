@@ -44,6 +44,10 @@ export const SOPManager: React.FC = () => {
     content: ''
   });
 
+  // SOP Content Viewer
+  const [sopContentDialog, setSopContentDialog] = useState(false);
+  const [viewingSop, setViewingSop] = useState<SOPDocument | null>(null);
+
   // Conversation Interface
   const [conversationDialog, setConversationDialog] = useState(false);
   const [currentConversation, setCurrentConversation] = useState<any[]>([]);
@@ -232,6 +236,11 @@ export const SOPManager: React.FC = () => {
       }
     ]);
     setConversationDialog(true);
+  };
+
+  const viewSOPContent = (sop: SOPDocument) => {
+    setViewingSop(sop);
+    setSopContentDialog(true);
   };
 
   const sendMessage = async () => {
@@ -439,7 +448,11 @@ export const SOPManager: React.FC = () => {
                     View Chat
                   </Button>
                   {sop.structured_data && Object.keys(sop.structured_data).length > 0 && (
-                    <Button variant="secondary" size="sm">
+                    <Button 
+                      variant="secondary" 
+                      size="sm"
+                      onClick={() => viewSOPContent(sop)}
+                    >
                       <FileText className="mr-1 h-3 w-3" />
                       View Content
                     </Button>
@@ -601,6 +614,96 @@ export const SOPManager: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* SOP Content Viewer Dialog */}
+      <Dialog open={sopContentDialog} onOpenChange={setSopContentDialog}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewingSop?.title}</DialogTitle>
+            <DialogDescription>
+              {viewingSop?.description}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {viewingSop?.content && (
+              <div>
+                <h3 className="font-semibold mb-2">SOP Content</h3>
+                <div className="bg-muted p-4 rounded-lg whitespace-pre-wrap">
+                  {viewingSop.content}
+                </div>
+              </div>
+            )}
+            
+            {viewingSop?.structured_data && Object.keys(viewingSop.structured_data).length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-2">Structured Data</h3>
+                <div className="space-y-4">
+                  {viewingSop.structured_data.processes && (
+                    <div>
+                      <h4 className="font-medium mb-2">Processes</h4>
+                      {viewingSop.structured_data.processes.map((process: any, idx: number) => (
+                        <Card key={idx} className="mb-2">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm">{process.name}</CardTitle>
+                            <CardDescription className="text-xs">{process.description}</CardDescription>
+                          </CardHeader>
+                          <CardContent className="pt-0">
+                            {process.steps && (
+                              <div className="mb-2">
+                                <span className="text-xs font-medium">Steps:</span>
+                                <ul className="text-xs list-disc ml-4 mt-1">
+                                  {process.steps.map((step: string, i: number) => (
+                                    <li key={i}>{step}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {process.tools && (
+                              <div>
+                                <span className="text-xs font-medium">Tools:</span>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {process.tools.map((tool: string, i: number) => (
+                                    <Badge key={i} variant="outline" className="text-xs">{tool}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {viewingSop.structured_data.best_practices && (
+                    <div>
+                      <h4 className="font-medium mb-2">Best Practices</h4>
+                      {viewingSop.structured_data.best_practices.map((practice: any, idx: number) => (
+                        <Card key={idx} className="mb-2">
+                          <CardContent className="pt-3">
+                            <div className="text-sm font-medium">{practice.category}</div>
+                            <div className="text-xs text-muted-foreground mt-1">{practice.practice}</div>
+                            {practice.rationale && (
+                              <div className="text-xs text-muted-foreground mt-1 italic">{practice.rationale}</div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div>
+                    <h4 className="font-medium mb-2">Raw Data</h4>
+                    <pre className="bg-muted p-4 rounded-lg text-xs overflow-x-auto">
+                      {JSON.stringify(viewingSop.structured_data, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
