@@ -19,13 +19,22 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Function called with environment variables:');
+    console.log('PHYLLO_CLIENT_ID exists:', !!Deno.env.get('PHYLLO_CLIENT_ID'));
+    console.log('PHYLLO_CLIENT_SECRET exists:', !!Deno.env.get('PHYLLO_CLIENT_SECRET'));
+    console.log('PHYLLO_ENVIRONMENT:', Deno.env.get('PHYLLO_ENVIRONMENT'));
+    
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
     const body = await req.json().catch(() => ({}));
+    console.log('Request body:', JSON.stringify(body, null, 2));
     const action = body?.action as string | undefined;
 
     if (!action) {
+      console.error('Missing action in request body');
       return json({ error: 'Missing action' }, 400);
     }
+    
+    console.log('Action requested:', action);
 
     switch (action) {
       case 'create_connect_token': {
