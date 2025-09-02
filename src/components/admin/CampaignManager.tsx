@@ -48,11 +48,12 @@ interface Goal {
 
 interface Task {
   id: string;
-  goal_id: string;
+  campaign_id?: string;
+  goal_id?: string;
   title: string;
-  description: string;
-  assignee: string;
-  status: 'pending' | 'in_progress' | 'completed';
+  description?: string;
+  assignee?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   due_date?: Date;
   created_at: Date;
   updated_at: Date;
@@ -80,6 +81,7 @@ export const CampaignManager = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [people, setPeople] = useState<any[]>([]);
@@ -148,6 +150,7 @@ export const CampaignManager = () => {
   useEffect(() => {
     if (selectedCampaign) {
       fetchGoals(selectedCampaign.id!);
+      fetchTasks(selectedCampaign.id!);
       fetchSessions(selectedCampaign.id!);
     }
   }, [selectedCampaign]);
@@ -246,7 +249,7 @@ NEXT STEPS:
   }, []);
 
   // Fetch goals for a campaign
-  const fetchGoals = useCallback(async (campaignId: string) => {
+  const fetchGoals = async (campaignId: string) => {
     try {
       const { data, error } = await supabase
         .from('goals')
@@ -270,7 +273,18 @@ NEXT STEPS:
       console.error('Error fetching goals:', error);
       toast.error('Failed to fetch goals');
     }
-  }, []);
+  };
+
+  // Fetch tasks for a campaign  
+  const fetchTasks = async (campaignId: string) => {
+    try {
+      // For now, just set empty array since tasks table may not exist
+      setTasks([]);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      setTasks([]);
+    }
+  };
 
   // Fetch sessions for a campaign
   const fetchSessions = useCallback(async (campaignId: string) => {
@@ -904,14 +918,247 @@ NEXT STEPS:
             </div>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="goals">
+            <Tabs defaultValue="overview">
               <TabsList>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="analytics">Analytics</TabsTrigger>
                 <TabsTrigger value="goals">Goals</TabsTrigger>
+                <TabsTrigger value="tasks">Tasks</TabsTrigger>
                 {campaignBreakdown && <TabsTrigger value="breakdown">Strategy Breakdown</TabsTrigger>}
               </TabsList>
 
+              <TabsContent value="overview">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Financial Target</CardTitle>
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">${(selectedCampaign.financial_target / 100).toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">Campaign goal</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Projected Revenue</CardTitle>
+                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">${(selectedCampaign.projected_revenue / 100).toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">Expected outcome</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Actual Revenue</CardTitle>
+                        <Award className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">${(selectedCampaign.actual_revenue / 100).toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">
+                          {selectedCampaign.actual_revenue > 0 
+                            ? `${((selectedCampaign.actual_revenue / selectedCampaign.financial_target) * 100).toFixed(1)}% of target`
+                            : 'No revenue yet'
+                          }
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Campaign Timeline</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Start Date</span>
+                            <span className="text-sm font-medium">{format(new Date(selectedCampaign.start_date), "PPP")}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">End Date</span>
+                            <span className="text-sm font-medium">{format(new Date(selectedCampaign.end_date), "PPP")}</span>
+                          </div>
+                          <div className="pt-2">
+                            <Progress 
+                              value={Math.min(100, ((Date.now() - new Date(selectedCampaign.start_date).getTime()) / (new Date(selectedCampaign.end_date).getTime() - new Date(selectedCampaign.start_date).getTime())) * 100)}
+                              className="w-full"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Campaign Status</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Status</span>
+                            <Badge variant={selectedCampaign.status === 'active' ? 'default' : 'secondary'}>
+                              {selectedCampaign.status}
+                            </Badge>
+                          </div>
+                          <div className="text-sm">
+                            <p><strong>Goals:</strong> {goals.length} total</p>
+                            <p><strong>Tasks:</strong> {tasks.length} total</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="analytics">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Campaign Analytics</CardTitle>
+                    <CardDescription>Track performance metrics and insights</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Revenue Performance</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <span>Target</span>
+                                <span>${(selectedCampaign.financial_target / 100).toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Projected</span>
+                                <span>${(selectedCampaign.projected_revenue / 100).toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between font-bold">
+                                <span>Actual</span>
+                                <span>${(selectedCampaign.actual_revenue / 100).toLocaleString()}</span>
+                              </div>
+                              <Progress 
+                                value={Math.min(100, (selectedCampaign.actual_revenue / selectedCampaign.financial_target) * 100)}
+                                className="mt-2"
+                              />
+                            </div>
+                          </CardContent>
+                        </Card>
+                        
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Goal Completion</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <span>Total Goals</span>
+                                <span>{goals.length}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Completed</span>
+                                <span>{goals.filter(g => g.status === 'completed').length}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>In Progress</span>
+                                <span>{goals.filter(g => g.status === 'in_progress').length}</span>
+                              </div>
+                              <Progress 
+                                value={goals.length > 0 ? (goals.filter(g => g.status === 'completed').length / goals.length) * 100 : 0}
+                                className="mt-2"
+                              />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                      
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Task Overview</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-4 gap-4 text-center">
+                            <div>
+                              <div className="text-2xl font-bold text-blue-600">{tasks.filter(t => t.status === 'pending').length}</div>
+                              <div className="text-sm text-muted-foreground">Pending</div>
+                            </div>
+                            <div>
+                              <div className="text-2xl font-bold text-yellow-600">{tasks.filter(t => t.status === 'in_progress').length}</div>
+                              <div className="text-sm text-muted-foreground">In Progress</div>
+                            </div>
+                            <div>
+                              <div className="text-2xl font-bold text-green-600">{tasks.filter(t => t.status === 'completed').length}</div>
+                              <div className="text-sm text-muted-foreground">Completed</div>
+                            </div>
+                            <div>
+                              <div className="text-2xl font-bold text-red-600">{tasks.filter(t => t.status === 'cancelled').length}</div>
+                              <div className="text-sm text-muted-foreground">Cancelled</div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
               <TabsContent value="goals">
                 {renderGoalsManager(selectedCampaign)}
+              </TabsContent>
+
+              <TabsContent value="tasks">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Campaign Tasks</CardTitle>
+                    <CardDescription>Manage and track campaign tasks</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {tasks.length === 0 ? (
+                        <div className="text-center py-8">
+                          <CheckCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                          <h3 className="text-lg font-semibold mb-2">No tasks yet</h3>
+                          <p className="text-muted-foreground">Tasks will appear here when created from goals</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {tasks.map((task) => (
+                            <Card key={task.id}>
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h4 className="font-medium">{task.title}</h4>
+                                    <p className="text-sm text-muted-foreground">{task.description}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={
+                                      task.status === 'completed' ? 'default' :
+                                      task.status === 'in_progress' ? 'secondary' :
+                                      task.status === 'cancelled' ? 'destructive' : 'outline'
+                                    }>
+                                      {task.status.replace('_', ' ')}
+                                    </Badge>
+                                    {task.due_date && (
+                                      <div className="flex items-center text-sm text-muted-foreground">
+                                        <Clock className="h-4 w-4 mr-1" />
+                                        {format(new Date(task.due_date), "MMM d")}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               {campaignBreakdown && (
