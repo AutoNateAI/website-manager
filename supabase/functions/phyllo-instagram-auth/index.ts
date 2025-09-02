@@ -118,8 +118,13 @@ serve(async (req) => {
           const tokenData = await tokenResp.json();
           console.log('Token created successfully:', { user_id: userId, token_exists: !!tokenData.sdk_token });
           
-          // Return token and user ID for SDK initialization
-          return json({ token: tokenData.sdk_token, phyllo_user_id: userId });
+          // Return token, user ID, and environment info for SDK initialization
+          return json({ 
+            token: tokenData.sdk_token, 
+            phyllo_user_id: userId,
+            environment: PHYLLO_ENVIRONMENT,
+            api_base: apiBase
+          });
         } catch (error) {
           console.error('Error creating Phyllo token:', error);
           return json({ error: 'Failed to create connect token' }, 500);

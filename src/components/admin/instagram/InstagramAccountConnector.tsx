@@ -29,6 +29,7 @@ export default function InstagramAccountConnector() {
   const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
   const [loading, setLoading] = useState(false);
   const [manual, setManual] = useState({ username: '', phyllo_profile_id: '', phyllo_account_id: '' });
+  const [currentEnvironment, setCurrentEnvironment] = useState<string>('sandbox');
   const { toast } = useToast();
 
   const fetchAccounts = async () => {
@@ -46,6 +47,12 @@ export default function InstagramAccountConnector() {
       });
       if (error) throw error;
       
+      // Update environment info from backend response
+      if (data.environment) {
+        setCurrentEnvironment(data.environment);
+        console.log('Current environment:', data.environment);
+      }
+      
       const { token, phyllo_user_id } = data;
       if (!token || !phyllo_user_id) {
         throw new Error('Missing token or user ID from server');
@@ -54,7 +61,7 @@ export default function InstagramAccountConnector() {
       // Initialize Phyllo Connect SDK
       const config = {
         clientDisplayName: 'AutoNate AI',
-        environment: 'sandbox', // matches our PHYLLO_ENVIRONMENT
+        environment: currentEnvironment || 'sandbox',
         userId: phyllo_user_id,
         token: token,
         redirect: false // Use popup flow - let users choose platform
@@ -81,8 +88,15 @@ export default function InstagramAccountConnector() {
       });
 
       phylloConnect.on('tokenExpired', (userId: string) => {
-        console.log('Token expired for user:', userId);
-        toast({ title: 'Session expired, please try again', variant: 'destructive' });
+        console.log('Token expired for user:', userId, 'Environment:', currentEnvironment);
+        let expiredMessage = 'Please reconnect your account';
+        
+        // Add environment-specific guidance
+        if (currentEnvironment === 'staging' || currentEnvironment === 'production') {
+          expiredMessage = 'Token expired quickly. This may be due to environment switching or credential issues. Please try again.';
+        }
+        
+        toast({ title: 'Session expired', description: expiredMessage, variant: 'destructive' });
         setLoading(false);
       });
 
@@ -90,9 +104,11 @@ export default function InstagramAccountConnector() {
         console.log('Connection failed:', { reason, workplatformId, userId });
         let errorMessage = reason;
         
-        // Handle specific sandbox mode issues
-        if (reason.includes('verification') || reason.includes('code')) {
+        // Handle environment-specific issues
+        if (currentEnvironment === 'sandbox' && (reason.includes('verification') || reason.includes('code'))) {
           errorMessage = 'In sandbox mode, Instagram verification codes are not sent. This is expected behavior for testing.';
+        } else if (currentEnvironment !== 'sandbox' && (reason.includes('verification') || reason.includes('code'))) {
+          errorMessage = 'Verification failed. Please ensure you have access to the verification code for this Instagram account.';
         }
         
         toast({ title: 'Connection failed', description: errorMessage, variant: 'destructive' });
@@ -153,13 +169,31 @@ export default function InstagramAccountConnector() {
           <CardTitle>Connect Instagram Account</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-            <h4 className="font-semibold text-yellow-800 mb-2">Sandbox Mode Notice</h4>
-            <p className="text-sm text-yellow-700">
-              You're in sandbox mode. Instagram verification codes won't be sent. 
-              If you get stuck at verification, this is expected behavior for testing.
-            </p>
-          </div>
+          {currentEnvironment === 'sandbox' && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <h4 className="font-semibold text-yellow-800 mb-2">Sandbox Mode Notice</h4>
+              <p className="text-sm text-yellow-700">
+                You're in sandbox mode. Instagram verification codes won't be sent. 
+                If you get stuck at verification, this is expected behavior for testing.
+              </p>
+            </div>
+          )}
+          {currentEnvironment === 'staging' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <h4 className="font-semibold text-blue-800 mb-2">Staging Environment</h4>
+              <p className="text-sm text-blue-700">
+                You're using the staging environment. Real Instagram verification codes will be sent.
+              </p>
+            </div>
+          )}
+          {currentEnvironment === 'production' && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <h4 className="font-semibold text-green-800 mb-2">Production Environment</h4>
+              <p className="text-sm text-green-700">
+                You're using the production environment with live Instagram connections.
+              </p>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-3">
             <Button onClick={startConnect} disabled={loading} className="w-full sm:w-auto">Start Phyllo Connect</Button>
           </div>
