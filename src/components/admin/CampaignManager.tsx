@@ -83,6 +83,13 @@ export const CampaignManager = () => {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  
+  // Campaign conversation state
+  const [campaignConversationOpen, setCampaignConversationOpen] = useState(false);
+  const [campaignMessages, setCampaignMessages] = useState<Array<{role: string, content: string}>>([]);
+  const [campaignConversationLoading, setCampaignConversationLoading] = useState(false);
+  const [conversationTurnCount, setConversationTurnCount] = useState(0);
+  const [conversationInput, setConversationInput] = useState('');
   const [companies, setCompanies] = useState<any[]>([]);
   const [people, setPeople] = useState<any[]>([]);
 
@@ -283,6 +290,78 @@ NEXT STEPS:
     } catch (error) {
       console.error('Error fetching tasks:', error);
       setTasks([]);
+    }
+  };
+
+  // Handle campaign creation conversation
+  const handleCampaignConversationMessage = async (message: string) => {
+    setCampaignConversationLoading(true);
+    const newMessages = [...campaignMessages, { role: 'user', content: message }];
+    setCampaignMessages(newMessages);
+    setConversationTurnCount(prev => prev + 1);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('goal-strategy-chat', {
+        body: { 
+          messages: newMessages,
+          linkedSOPs: availableSOPs,
+          action: 'chat'
+        }
+      });
+
+      if (error) throw error;
+
+      const assistantMessage = { role: 'assistant', content: data.message };
+      const updatedMessages = [...newMessages, assistantMessage];
+      setCampaignMessages(updatedMessages);
+    } catch (error) {
+      console.error('Error in campaign conversation:', error);
+      toast.error('Failed to get campaign assistance');
+    } finally {
+      setCampaignConversationLoading(false);
+    }
+  };
+
+  // Extract data and create campaign from conversation
+  const handleCreateCampaignFromConversation = async () => {
+    setCampaignConversationLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('goal-strategy-chat', {
+        body: { 
+          messages: campaignMessages,
+          linkedSOPs: availableSOPs,
+          action: 'extract_and_create'
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success(data.message);
+      setCampaignConversationOpen(false);
+      setCampaignMessages([]);
+      setConversationTurnCount(0);
+      setConversationInput('');
+      
+      // Set the breakdown and select the created campaign
+      if (data.campaign) {
+        setCampaignBreakdown(data.strategy_breakdown);
+        setSelectedCampaign({
+          ...data.campaign,
+          start_date: new Date(data.campaign.start_date),
+          end_date: new Date(data.campaign.end_date),
+          created_at: new Date(data.campaign.created_at),
+          updated_at: new Date(data.campaign.updated_at),
+        });
+        
+        // Refresh campaigns list
+        fetchCampaigns();
+      }
+    } catch (error) {
+      console.error('Error creating campaign from conversation:', error);
+      toast.error('Failed to create campaign from conversation');
+    } finally {
+      setCampaignConversationLoading(false);
     }
   };
 
@@ -739,11 +818,105 @@ NEXT STEPS:
           <p className="text-muted-foreground">Manage your outreach campaigns and track progress</p>
         </div>
         
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={campaignConversationOpen} onOpenChange={setCampaignConversationOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => resetForm()}>
+            <Button onClick={() => { setCampaignMessages([]); setConversationTurnCount(0); }}>
               <Plus className="h-4 w-4 mr-2" />
               New Campaign
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Campaign</DialogTitle>
+              <DialogDescription>
+                Let's discuss your campaign goals and strategy. I'll help you create a comprehensive campaign plan.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {campaignMessages.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Target className="mx-auto h-12 w-12 mb-4" />
+                  <p>Hi! I'm your Campaign Strategy Assistant. Let's create an amazing campaign together!</p>
+                  <p className="text-sm mt-2">Tell me about your campaign - what are you trying to achieve?</p>
+                </div>
+              ) : (
+                campaignMessages.map((msg, idx) => (
+                  <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] p-3 rounded-lg ${
+                      msg.role === 'user' 
+                        ? 'bg-primary text-primary-foreground ml-auto' 
+                        : 'bg-muted'
+                    }`}>
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+              {campaignConversationLoading && (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Type your message here..."
+                  value={conversationInput}
+                  onChange={(e) => setConversationInput(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !campaignConversationLoading && conversationInput.trim()) {
+                      handleCampaignConversationMessage(conversationInput);
+                      setConversationInput('');
+                    }
+                  }}
+                  disabled={campaignConversationLoading}
+                />
+                <Button
+                  onClick={() => {
+                    if (conversationInput.trim()) {
+                      handleCampaignConversationMessage(conversationInput);
+                      setConversationInput('');
+                    }
+                  }}
+                  disabled={campaignConversationLoading || !conversationInput.trim()}
+                  size="sm"
+                >
+                  Send
+                </Button>
+              </div>
+
+              {conversationTurnCount >= 2 && (
+                <div className="flex justify-center pt-4 border-t">
+                  <Button
+                    onClick={handleCreateCampaignFromConversation}
+                    disabled={campaignConversationLoading}
+                    className="w-full"
+                  >
+                    {campaignConversationLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Creating Campaign...
+                      </>
+                    ) : (
+                      <>
+                        <Target className="h-4 w-4 mr-2" />
+                        Create Campaign from Conversation
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+        
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" onClick={() => resetForm()}>
+              Manual Setup
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
