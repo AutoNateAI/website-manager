@@ -7,6 +7,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+// Declare PhylloConnect for TypeScript
+declare global {
+  interface Window {
+    PhylloConnect: {
+      initialize: (config: any) => any;
+    };
+  }
+}
+
 interface InstagramAccount {
   id: string;
   username: string | null;
@@ -36,13 +45,60 @@ export default function InstagramAccountConnector() {
         body: { action: 'create_connect_token' },
       });
       if (error) throw error;
-      const url = data?.connectUrl;
-      if (url) window.open(url, '_blank');
-      toast({ title: 'Phyllo Connect opened in a new tab' });
+      
+      const { token, phyllo_user_id } = data;
+      if (!token || !phyllo_user_id) {
+        throw new Error('Missing token or user ID from server');
+      }
+
+      // Initialize Phyllo Connect SDK
+      const config = {
+        clientDisplayName: 'AutoNate AI',
+        environment: 'sandbox', // matches our PHYLLO_ENVIRONMENT
+        userId: phyllo_user_id,
+        token: token,
+        redirect: false, // Use popup flow
+        workPlatformId: '642543c681da6001396b7f87' // Instagram's work platform ID
+      };
+
+      const phylloConnect = window.PhylloConnect.initialize(config);
+
+      // Set up event listeners
+      phylloConnect.on('accountConnected', async (accountId: string, workplatformId: string, userId: string) => {
+        console.log('Account connected:', { accountId, workplatformId, userId });
+        toast({ title: 'Instagram account connected successfully!' });
+        fetchAccounts(); // Refresh the accounts list
+      });
+
+      phylloConnect.on('accountDisconnected', (accountId: string, workplatformId: string, userId: string) => {
+        console.log('Account disconnected:', { accountId, workplatformId, userId });
+        toast({ title: 'Instagram account disconnected' });
+        fetchAccounts(); // Refresh the accounts list
+      });
+
+      phylloConnect.on('exit', (reason: string, userId: string) => {
+        console.log('Phyllo Connect exited:', { reason, userId });
+        setLoading(false);
+      });
+
+      phylloConnect.on('tokenExpired', (userId: string) => {
+        console.log('Token expired for user:', userId);
+        toast({ title: 'Session expired, please try again', variant: 'destructive' });
+        setLoading(false);
+      });
+
+      phylloConnect.on('connectionFailure', (reason: string, workplatformId: string, userId: string) => {
+        console.log('Connection failed:', { reason, workplatformId, userId });
+        toast({ title: 'Connection failed', description: reason, variant: 'destructive' });
+        setLoading(false);
+      });
+
+      // Open the connection flow
+      phylloConnect.open();
+      
     } catch (e: any) {
-      console.error(e);
+      console.error('Failed to start Phyllo Connect:', e);
       toast({ title: 'Failed to start connect', description: e.message, variant: 'destructive' });
-    } finally {
       setLoading(false);
     }
   };
