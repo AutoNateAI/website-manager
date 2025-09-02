@@ -30,37 +30,70 @@ serve(async (req) => {
     switch (action) {
       case 'create_connect_token': {
         if (!PHYLLO_CLIENT_ID || !PHYLLO_CLIENT_SECRET) {
-          return json({
-            error: 'PHYLLO credentials not configured',
-          }, 500);
+          return json({ error: 'PHYLLO credentials not configured' }, 500);
         }
 
-        // Create a proper Phyllo Connect token
         try {
-          const tokenResponse = await fetch(`https://api.getphyllo.com/v1/sdk-tokens`, {
+          const { phyllo_user_id, name, external_id } = body || {};
+          const env = (PHYLLO_ENVIRONMENT || 'sandbox').toLowerCase();
+          const apiBase = env === 'sandbox' ? 'https://api.sandbox.getphyllo.com' : 'https://api.getphyllo.com';
+
+          const basicAuth = `Basic ${btoa(`${PHYLLO_CLIENT_ID}:${PHYLLO_CLIENT_SECRET}`)}`;
+
+          // 1) Ensure a Phyllo user exists (create if not provided)
+          let userId = phyllo_user_id as string | undefined;
+          if (!userId) {
+            const userPayload = {
+              name: name || 'AutoNate User',
+              external_id: external_id || crypto.randomUUID(),
+            };
+
+            const createUserResp = await fetch(`${apiBase}/v1/users`, {
+              method: 'POST',
+              headers: {
+                Authorization: basicAuth,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(userPayload),
+            });
+
+            if (!createUserResp.ok) {
+              const errText = await createUserResp.text();
+              console.error('Phyllo create user failed:', errText);
+              return json({ error: 'Failed to create Phyllo user' }, 500);
+            }
+
+            const createdUser = await createUserResp.json();
+            userId = createdUser?.id;
+          }
+
+          if (!userId) {
+            return json({ error: 'Unable to determine phyllo_user_id' }, 500);
+          }
+
+          // 2) Create SDK token for that user
+          const tokenResp = await fetch(`${apiBase}/v1/sdk-tokens`, {
             method: 'POST',
             headers: {
-              'Authorization': `Basic ${btoa(`${PHYLLO_CLIENT_ID}:${PHYLLO_CLIENT_SECRET}`)}`,
+              Authorization: basicAuth,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              name: 'Instagram Account Connection',
-              products: ['IDENTITY', 'ENGAGEMENT'],
-              work_platforms: ['instagram'],
-              expire_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+              user_id: userId,
+              products: ['IDENTITY', 'ENGAGEMENT', 'PUBLISH.CONTENT'],
             }),
           });
 
-          if (!tokenResponse.ok) {
-            const errorText = await tokenResponse.text();
+          if (!tokenResp.ok) {
+            const errorText = await tokenResp.text();
             console.error('Phyllo token creation failed:', errorText);
             return json({ error: 'Failed to create connect token' }, 500);
           }
 
-          const tokenData = await tokenResponse.json();
-          const connectUrl = `https://connect.getphyllo.com/?env=${PHYLLO_ENVIRONMENT}&token=${tokenData.sdk_token}`;
-          
-          return json({ connectUrl });
+          const tokenData = await tokenResp.json();
+          // For Web Connect, pass token and environment in the URL
+          const connectUrl = `https://connect.getphyllo.com/?environment=${env}&token=${tokenData.sdk_token}`;
+          return json({ connectUrl, phyllo_user_id: userId });
         } catch (error) {
           console.error('Error creating Phyllo token:', error);
           return json({ error: 'Failed to create connect token' }, 500);
