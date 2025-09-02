@@ -103,15 +103,24 @@ export default function InstagramAccountConnector() {
       phylloConnect.on('connectionFailure', (reason: string, workplatformId: string, userId: string) => {
         console.log('Connection failed:', { reason, workplatformId, userId });
         let errorMessage = reason;
+        let errorTitle = 'Connection failed';
         
-        // Handle environment-specific issues
-        if (currentEnvironment === 'sandbox' && (reason.includes('verification') || reason.includes('code'))) {
+        // Handle specific error types
+        if (reason === 'INADEQUATE_PERMISSIONS') {
+          errorTitle = 'Insufficient Permissions';
+          errorMessage = 'Please grant ALL requested permissions when connecting your Instagram account. Make sure to:\n\n• Allow access to your Instagram profile\n• Allow access to your Instagram posts\n• Allow posting permissions\n• Select both Instagram AND Facebook accounts if prompted\n\nTry connecting again and accept all permissions.';
+        } else if (currentEnvironment === 'sandbox' && (reason.includes('verification') || reason.includes('code'))) {
           errorMessage = 'In sandbox mode, Instagram verification codes are not sent. This is expected behavior for testing.';
         } else if (currentEnvironment !== 'sandbox' && (reason.includes('verification') || reason.includes('code'))) {
           errorMessage = 'Verification failed. Please ensure you have access to the verification code for this Instagram account.';
         }
         
-        toast({ title: 'Connection failed', description: errorMessage, variant: 'destructive' });
+        toast({ 
+          title: errorTitle, 
+          description: errorMessage, 
+          variant: 'destructive',
+          duration: 8000 // Longer duration for permissions message
+        });
         setLoading(false);
       });
 
