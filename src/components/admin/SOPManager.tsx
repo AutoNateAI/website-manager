@@ -212,19 +212,30 @@ export const SOPManager: React.FC = () => {
     }
   };
 
-  const startConversation = (sop: SOPDocument) => {
+  const startNewSOPConversation = () => {
+    setSelectedSop(null);
+    setCurrentConversation([
+      {
+        role: 'system',
+        content: 'Starting conversation to create a new SOP. Please describe the process or procedure you want to document.'
+      }
+    ]);
+    setConversationDialog(true);
+  };
+
+  const viewSOPConversation = (sop: SOPDocument) => {
     setSelectedSop(sop);
     setCurrentConversation([
       {
         role: 'system',
-        content: `Starting conversation about SOP: ${sop.title}. This conversation will be analyzed to extract structured operational data.`
+        content: `Continuing conversation about SOP: ${sop.title}. You can continue the discussion or regenerate the SOP.`
       }
     ]);
     setConversationDialog(true);
   };
 
   const sendMessage = async () => {
-    if (!messageInput.trim() || !selectedSop) return;
+    if (!messageInput.trim()) return;
 
     const userMessage = { role: 'user', content: messageInput };
     const updatedConversation = [...currentConversation, userMessage];
@@ -317,74 +328,10 @@ export const SOPManager: React.FC = () => {
           </p>
         </div>
         
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New SOP
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New SOP Document</DialogTitle>
-              <DialogDescription>
-                Start documenting a new standard operating procedure
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Title</label>
-                <Input
-                  placeholder="SOP title..."
-                  value={newSopForm.title}
-                  onChange={(e) => setNewSopForm({ ...newSopForm, title: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Description</label>
-                <Textarea
-                  placeholder="Brief description of this SOP..."
-                  value={newSopForm.description}
-                  onChange={(e) => setNewSopForm({ ...newSopForm, description: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Category</label>
-                <Select value={newSopForm.category} onValueChange={(value) => setNewSopForm({ ...newSopForm, category: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="general">General</SelectItem>
-                    <SelectItem value="marketing">Marketing</SelectItem>
-                    <SelectItem value="sales">Sales</SelectItem>
-                    <SelectItem value="operations">Operations</SelectItem>
-                    <SelectItem value="instagram">Instagram Strategy</SelectItem>
-                    <SelectItem value="content">Content Creation</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Initial Content (Optional)</label>
-                <Textarea
-                  placeholder="Any initial content or notes..."
-                  value={newSopForm.content}
-                  onChange={(e) => setNewSopForm({ ...newSopForm, content: e.target.value })}
-                />
-              </div>
-              <Button onClick={createSOP} disabled={isCreating} className="w-full">
-                {isCreating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create SOP'
-                )}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => startNewSOPConversation()}>
+          <Plus className="mr-2 h-4 w-4" />
+          New SOP
+        </Button>
       </div>
 
       {/* Filters */}
@@ -447,16 +394,16 @@ export const SOPManager: React.FC = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => startConversation(sop)}
+                    onClick={() => viewSOPConversation(sop)}
                     className="flex-1"
                   >
                     <MessageSquare className="mr-1 h-3 w-3" />
-                    Discuss
+                    View Chat
                   </Button>
                   {sop.structured_data && Object.keys(sop.structured_data).length > 0 && (
                     <Button variant="secondary" size="sm">
-                      <Brain className="mr-1 h-3 w-3" />
-                      View Data
+                      <FileText className="mr-1 h-3 w-3" />
+                      View Content
                     </Button>
                   )}
                 </div>
@@ -470,9 +417,14 @@ export const SOPManager: React.FC = () => {
       <Dialog open={conversationDialog} onOpenChange={setConversationDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>SOP Conversation: {selectedSop?.title}</DialogTitle>
+            <DialogTitle>
+              {selectedSop ? `SOP Chat: ${selectedSop.title}` : 'Create New SOP'}
+            </DialogTitle>
             <DialogDescription>
-              Discuss the processes and procedures. The conversation will be analyzed to extract structured data.
+              {selectedSop 
+                ? 'Continue the conversation about this SOP or regenerate content.'
+                : 'Describe the process or procedure you want to document. The AI will help create a comprehensive SOP.'
+              }
             </DialogDescription>
           </DialogHeader>
 
