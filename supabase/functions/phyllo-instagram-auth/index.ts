@@ -108,11 +108,9 @@ serve(async (req) => {
               products: ['IDENTITY', 'ENGAGEMENT', 'PUBLISH.CONTENT'], 
               work_platform_id: 17, // Instagram Business ID
               permissions: [
-                'instagram_basic',
-                'instagram_content_publish', 
-                'pages_manage_posts',
-                'pages_show_list',
-                'business_management'
+                'instagram_basic',           // Base Instagram permission (required)
+                'instagram_content_publish', // Instagram posting permission
+                'pages_read_engagement'      // Read page data (required dependency)
               ]
             }),
           });
