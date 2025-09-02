@@ -76,8 +76,7 @@ Return ONLY the JSON object, no other text.`;
           messages: [
             { role: 'user', content: extractionPrompt }
           ],
-          max_tokens: 2000,
-          temperature: 0.3,
+          max_completion_tokens: 2000,
         }),
       });
 
@@ -196,8 +195,7 @@ Keep responses conversational and focused. Ask one key strategic question at a t
           { role: 'system', content: systemPrompt },
           ...messages
         ],
-        max_tokens: 800,
-        temperature: 0.7,
+        max_completion_tokens: 800,
       }),
     });
 
