@@ -2778,29 +2778,41 @@ export type Database = {
       sop_conversations: {
         Row: {
           conversation_data: Json
+          conversation_stage: string | null
           created_at: string
           extracted_data: Json | null
           extraction_status: string | null
+          generation_ready: boolean | null
           id: string
           sop_document_id: string | null
+          template_suggestions: Json | null
+          turn_count: number | null
           updated_at: string
         }
         Insert: {
           conversation_data?: Json
+          conversation_stage?: string | null
           created_at?: string
           extracted_data?: Json | null
           extraction_status?: string | null
+          generation_ready?: boolean | null
           id?: string
           sop_document_id?: string | null
+          template_suggestions?: Json | null
+          turn_count?: number | null
           updated_at?: string
         }
         Update: {
           conversation_data?: Json
+          conversation_stage?: string | null
           created_at?: string
           extracted_data?: Json | null
           extraction_status?: string | null
+          generation_ready?: boolean | null
           id?: string
           sop_document_id?: string | null
+          template_suggestions?: Json | null
+          turn_count?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -2818,10 +2830,14 @@ export type Database = {
           category: string
           content: string | null
           created_at: string
+          current_version: number | null
           description: string | null
+          generation_metadata: Json | null
           id: string
+          screenshots_count: number | null
           status: string | null
           structured_data: Json | null
+          template_id: string | null
           title: string
           updated_at: string
           version: number | null
@@ -2830,10 +2846,14 @@ export type Database = {
           category?: string
           content?: string | null
           created_at?: string
+          current_version?: number | null
           description?: string | null
+          generation_metadata?: Json | null
           id?: string
+          screenshots_count?: number | null
           status?: string | null
           structured_data?: Json | null
+          template_id?: string | null
           title: string
           updated_at?: string
           version?: number | null
@@ -2842,15 +2862,155 @@ export type Database = {
           category?: string
           content?: string | null
           created_at?: string
+          current_version?: number | null
           description?: string | null
+          generation_metadata?: Json | null
           id?: string
+          screenshots_count?: number | null
           status?: string | null
           structured_data?: Json | null
+          template_id?: string | null
           title?: string
           updated_at?: string
           version?: number | null
         }
         Relationships: []
+      }
+      sop_screenshots: {
+        Row: {
+          alt_text: string | null
+          caption: string | null
+          created_at: string
+          id: string
+          image_url: string
+          placeholder_id: string | null
+          position_order: number | null
+          position_section: string
+          sop_document_id: string
+          updated_at: string
+        }
+        Insert: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          id?: string
+          image_url: string
+          placeholder_id?: string | null
+          position_order?: number | null
+          position_section: string
+          sop_document_id: string
+          updated_at?: string
+        }
+        Update: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string
+          placeholder_id?: string | null
+          position_order?: number | null
+          position_section?: string
+          sop_document_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_sop_screenshots_document"
+            columns: ["sop_document_id"]
+            isOneToOne: false
+            referencedRelation: "sop_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sop_templates: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          formatting_rules: Json | null
+          id: string
+          is_active: boolean | null
+          screenshot_placeholders: Json | null
+          sections: Json
+          template_structure: Json
+          title: string
+          updated_at: string
+          usage_count: number | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          formatting_rules?: Json | null
+          id?: string
+          is_active?: boolean | null
+          screenshot_placeholders?: Json | null
+          sections?: Json
+          template_structure?: Json
+          title: string
+          updated_at?: string
+          usage_count?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          formatting_rules?: Json | null
+          id?: string
+          is_active?: boolean | null
+          screenshot_placeholders?: Json | null
+          sections?: Json
+          template_structure?: Json
+          title?: string
+          updated_at?: string
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
+      sop_versions: {
+        Row: {
+          change_description: string | null
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          sop_document_id: string
+          structured_data: Json | null
+          title: string
+          version_number: number
+        }
+        Insert: {
+          change_description?: string | null
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sop_document_id: string
+          structured_data?: Json | null
+          title: string
+          version_number?: number
+        }
+        Update: {
+          change_description?: string | null
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sop_document_id?: string
+          structured_data?: Json | null
+          title?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_sop_versions_document"
+            columns: ["sop_document_id"]
+            isOneToOne: false
+            referencedRelation: "sop_documents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tasks: {
         Row: {
