@@ -102,6 +102,32 @@ export const CampaignManager = () => {
   const [isProcessingGoalMessage, setIsProcessingGoalMessage] = useState(false);
   const [availableSOPs, setAvailableSOPs] = useState<any[]>([]);
   const [linkedSOPs, setLinkedSOPs] = useState<any[]>([]);
+  const [selectedCampaignSOPs, setSelectedCampaignSOPs] = useState<any[]>([]);
+  // Fetch linked SOPs for a campaign
+  const fetchCampaignSOPs = useCallback(async (campaignId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('campaign_sops')
+        .select(`
+          id,
+          sop_documents (
+            id,
+            title,
+            description,
+            category
+          )
+        `)
+        .eq('campaign_id', campaignId);
+
+      if (error) throw error;
+      return data?.map(item => item.sop_documents).filter(Boolean) || [];
+    } catch (error) {
+      console.error('Error fetching campaign SOPs:', error);
+      return [];
+    }
+  }, []);
+
+  const [campaignSOPs, setCampaignSOPs] = useState<any[]>([]);
   const [campaignBreakdown, setCampaignBreakdown] = useState<string>('');
 
   // Form data for new/edit campaign
@@ -161,8 +187,11 @@ export const CampaignManager = () => {
       fetchGoals(selectedCampaign.id!);
       fetchTasks(selectedCampaign.id!);
       fetchSessions(selectedCampaign.id!);
+      
+      // Fetch linked SOPs for the selected campaign
+      fetchCampaignSOPs(selectedCampaign.id!).then(setCampaignSOPs);
     }
-  }, [selectedCampaign]);
+  }, [selectedCampaign, fetchCampaignSOPs]);
 
   // Handle goal strategy message
   const handleGoalStrategyMessage = async () => {
@@ -1206,6 +1235,29 @@ NEXT STEPS:
                       </CardContent>
                     </Card>
                   </div>
+
+                  {/* Show linked SOPs if available */}
+                  {campaignSOPs.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Linked Strategies (SOPs)</CardTitle>
+                        <CardDescription>Strategic processes linked to this campaign</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {campaignSOPs.map((sop, index) => (
+                            <div key={sop.id || index} className="p-3 border rounded-lg">
+                              <div className="flex items-start justify-between mb-2">
+                                <h4 className="font-medium text-sm">{sop.title}</h4>
+                                <Badge variant="outline" className="text-xs">{sop.category}</Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{sop.description}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </TabsContent>
 

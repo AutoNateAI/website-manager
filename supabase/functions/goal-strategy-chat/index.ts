@@ -114,6 +114,23 @@ Return ONLY the JSON object, no other text.`;
         throw new Error('Failed to create campaign');
       }
 
+      // Link SOPs to the campaign if provided
+      if (linkedSOPs && linkedSOPs.length > 0) {
+        const sopLinks = linkedSOPs.map(sop => ({
+          campaign_id: campaign.id,
+          sop_document_id: sop.id
+        }));
+
+        const { error: sopLinkError } = await supabase
+          .from('campaign_sops')
+          .insert(sopLinks);
+
+        if (sopLinkError) {
+          console.error('SOP linking error:', sopLinkError);
+          // Don't fail the whole operation, just log the error
+        }
+      }
+
       // Create goals
       const goalsToInsert = extracted.goals.map(goal => ({
         campaign_id: campaign.id,

@@ -405,6 +405,27 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_sops: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          sop_document_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          sop_document_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          sop_document_id?: string
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           actual_revenue: number | null
