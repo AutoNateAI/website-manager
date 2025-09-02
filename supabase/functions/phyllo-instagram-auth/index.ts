@@ -19,10 +19,10 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Function called with environment variables:');
-    console.log('PHYLLO_CLIENT_ID exists:', !!Deno.env.get('PHYLLO_CLIENT_ID'));
-    console.log('PHYLLO_CLIENT_SECRET exists:', !!Deno.env.get('PHYLLO_CLIENT_SECRET'));
-    console.log('PHYLLO_ENVIRONMENT:', Deno.env.get('PHYLLO_ENVIRONMENT'));
+    console.log('Function started - checking environment variables:');
+    console.log('PHYLLO_CLIENT_ID exists:', !!PHYLLO_CLIENT_ID);
+    console.log('PHYLLO_CLIENT_SECRET exists:', !!PHYLLO_CLIENT_SECRET);
+    console.log('PHYLLO_ENVIRONMENT:', PHYLLO_ENVIRONMENT);
     
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
     const body = await req.json().catch(() => ({}));
