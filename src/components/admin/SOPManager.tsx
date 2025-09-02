@@ -25,18 +25,11 @@ interface SOPDocument {
   updated_at: string;
 }
 
-interface SOPConversation {
-  id: string;
-  sop_document_id: string;
-  conversation_data: any;
-  extraction_status: string;
-  extracted_data: any;
-  created_at: string;
-}
+// Conversation data will be stored directly in the component state
 
 export const SOPManager: React.FC = () => {
   const [sops, setSops] = useState<SOPDocument[]>([]);
-  const [conversations, setConversations] = useState<SOPConversation[]>([]);
+  // Conversations are handled in component state
   const [loading, setLoading] = useState(true);
   const [selectedSop, setSelectedSop] = useState<SOPDocument | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,7 +66,6 @@ export const SOPManager: React.FC = () => {
 
   useEffect(() => {
     fetchSOPs();
-    fetchConversations();
   }, []);
 
   const fetchSOPs = async () => {
@@ -97,19 +89,7 @@ export const SOPManager: React.FC = () => {
     }
   };
 
-  const fetchConversations = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('sop_conversations')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setConversations(data || []);
-    } catch (error) {
-      console.error('Error fetching conversations:', error);
-    }
-  };
+  // Conversations are handled in component state, no need to fetch from DB
 
   const fetchTemplates = async () => {
     setTemplatesLoading(true);
@@ -277,23 +257,10 @@ export const SOPManager: React.FC = () => {
 
     setIsExtracting(true);
     try {
-      // First save the conversation
-      const { data: conversation, error: convError } = await supabase
-        .from('sop_conversations')
-        .insert({
-          sop_document_id: selectedSop.id,
-          conversation_data: currentConversation,
-          extraction_status: 'processing'
-        })
-        .select()
-        .single();
-
-      if (convError) throw convError;
-
-      // Then extract structured data
+      // Extract structured data directly from conversation
       const { data, error } = await supabase.functions.invoke('extract-sop-data', {
         body: { 
-          conversationId: conversation.id,
+          conversation: currentConversation,
           sopDocumentId: selectedSop.id 
         }
       });
@@ -307,7 +274,6 @@ export const SOPManager: React.FC = () => {
 
       // Refresh data
       fetchSOPs();
-      fetchConversations();
       setConversationDialog(false);
       setCurrentConversation([]);
     } catch (error) {
