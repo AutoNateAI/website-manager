@@ -21,8 +21,9 @@ import SocialImageEditor from './SocialImageEditor';
 import SocialMediaPostCard from './SocialMediaPostCard';
 import SocialMediaPostDetailModal from './SocialMediaPostDetailModal';
 import { InstagramAnalyticsTab } from './instagram/InstagramAnalyticsTab';
-import { NetworkGraphTab } from './instagram/NetworkGraphTab';  
+import { NetworkGraphTab } from './instagram/NetworkGraphTab';
 import { InstagramEngagementTab } from './instagram/InstagramEngagementTab';
+import { SearchQueryManager } from './SearchQueryManager';
 import { SocialMediaPost, SocialMediaImage } from './types';
 
 interface SourceItem {
@@ -105,7 +106,7 @@ const SocialMediaManager = () => {
 const [postsPerPage] = useState(9);
   
   // Main tab state: analytics is first, then network, engagement, and content generation
-  const [activeMainTab, setActiveMainTab] = useState<'analytics' | 'network' | 'engagement' | 'content'>('analytics');
+  const [activeMainTab, setActiveMainTab] = useState<'queries' | 'analytics' | 'network' | 'engagement' | 'content'>('queries');
   
   // Detail modal state
   const [selectedPost, setSelectedPost] = useState<SocialMediaPost | null>(null);
@@ -344,8 +345,9 @@ const [postsPerPage] = useState(9);
   return (
     <div className="space-y-6">
       <div className="glass-card p-4">
-        <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as 'analytics' | 'network' | 'engagement' | 'content')}>
+        <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as 'queries' | 'analytics' | 'network' | 'engagement' | 'content')}>
           <TabsList>
+            <TabsTrigger value="queries">Search Queries</TabsTrigger>
             <TabsTrigger value="analytics">Instagram Analytics</TabsTrigger>
             <TabsTrigger value="network">Network Graph</TabsTrigger>
             <TabsTrigger value="engagement">Instagram Engagement</TabsTrigger>
@@ -354,6 +356,7 @@ const [postsPerPage] = useState(9);
         </Tabs>
       </div>
       
+      {activeMainTab === 'queries' && <SearchQueryManager />}
       {activeMainTab === 'analytics' && <InstagramAnalyticsTab />}
       {activeMainTab === 'network' && <NetworkGraphTab />}
       {activeMainTab === 'engagement' && <InstagramEngagementTab />}
