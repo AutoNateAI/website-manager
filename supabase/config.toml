@@ -15,3 +15,7 @@ verify_jwt = false
 # Make SOP conversational assistant public for the web app
 [functions.sop-conversation-chat]
 verify_jwt = false
+
+# Make goal strategy assistant public for the web app
+[functions.goal-strategy-chat]
+verify_jwt = false
