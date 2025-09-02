@@ -135,16 +135,20 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
       if (scheduledFor) {
         commentData.scheduled_for = scheduledFor;
         
-        // Create notification for scheduled comment
-        await supabase
-          .from('notifications')
-          .insert({
-            type: 'scheduled_comment',
-            title: 'Scheduled Comment Ready',
-            message: `Your scheduled comment is ready to post: "${newComment.substring(0, 50)}..."`,
-            data: { postId, commentText: newComment, scheduledFor },
-            is_read: false
-          });
+        // Try to create notification for scheduled comment
+        try {
+          await supabase
+            .from('notifications')
+            .insert({
+              type: 'scheduled_comment',
+              title: 'Scheduled Comment Ready',
+              message: `Your scheduled comment is ready to post: "${newComment.substring(0, 50)}..."`,
+              data: { postId, commentText: newComment, scheduledFor },
+              is_read: false
+            });
+        } catch (notificationError) {
+          console.log('Notification creation failed, continuing without notification:', notificationError);
+        }
       }
 
       const { error } = await supabase

@@ -29,9 +29,35 @@ export interface SocialMediaComment {
   is_my_comment: boolean;
   is_reply_to_my_comment: boolean;
   thread_depth: number;
+  status?: string;
+  scheduled_for?: string;
+  notification_sent?: boolean;
   created_at: string;
   updated_at: string;
   replies?: SocialMediaComment[];
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  data: any;
+  is_read: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Person {
+  id: string;
+  name: string;
+  instagram_username?: string;
+  instagram_profile_url?: string;
+  location?: string;
+  bio?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SocialMediaImage {

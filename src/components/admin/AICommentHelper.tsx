@@ -77,25 +77,10 @@ export function AICommentHelper({ postId, commentThread, onSuggestionAccept }: A
 
   const savePromptToLibrary = async (prompt: string) => {
     try {
-      const { error } = await supabase
-        .from('prompt_templates')
-        .insert({
-          title: promptTitle,
-          content: prompt,
-          category: 'comment_responses',
-          description: `AI comment helper prompt for ${responseType} responses`,
-          variables: JSON.stringify({
-            responseType,
-            customInstructions,
-            commentThread: '[COMMENT_THREAD]'
-          })
-        });
-
-      if (error) throw error;
-
+      // Prompt library functionality will be added later when the table structure is confirmed
       toast({
-        title: "Success",
-        description: "Prompt saved to library",
+        title: "Info",
+        description: "Prompt library feature will be available soon",
       });
     } catch (error) {
       console.error('Error saving prompt:', error);

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
+import { Dashboard } from '@/components/admin/Dashboard';
 import { LeadManager } from '@/components/admin/LeadManager';
 import { MapViews } from '@/components/admin/MapViews';
 import { EventManager } from '@/components/admin/EventManager';
@@ -25,7 +26,7 @@ import { SOPManager } from '@/components/admin/SOPManager';
 
 const Admin = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState('leads');
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   if (loading) {
     return (
@@ -43,6 +44,8 @@ const Admin = () => {
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'dashboard':
+        return <Dashboard />;
       case 'leads':
         return <LeadManager />;
       case 'personal-network-leads':
@@ -78,7 +81,7 @@ const Admin = () => {
       case 'sops':
         return <SOPManager />;
       default:
-        return <LeadManager />;
+        return <Dashboard />;
     }
   };
 

@@ -1641,6 +1641,39 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          data: Json | null
+          id: string
+          is_read: boolean | null
+          message: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          title: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       people: {
         Row: {
           chatgpt_links: Json | null
@@ -2526,9 +2559,12 @@ export type Database = {
           is_my_comment: boolean | null
           is_reply_to_my_comment: boolean | null
           like_count: number | null
+          notification_sent: boolean | null
           parent_comment_id: string | null
           post_id: string
           reply_count: number | null
+          scheduled_for: string | null
+          status: string | null
           thread_depth: number | null
           updated_at: string
         }
@@ -2542,9 +2578,12 @@ export type Database = {
           is_my_comment?: boolean | null
           is_reply_to_my_comment?: boolean | null
           like_count?: number | null
+          notification_sent?: boolean | null
           parent_comment_id?: string | null
           post_id: string
           reply_count?: number | null
+          scheduled_for?: string | null
+          status?: string | null
           thread_depth?: number | null
           updated_at?: string
         }
@@ -2558,9 +2597,12 @@ export type Database = {
           is_my_comment?: boolean | null
           is_reply_to_my_comment?: boolean | null
           like_count?: number | null
+          notification_sent?: boolean | null
           parent_comment_id?: string | null
           post_id?: string
           reply_count?: number | null
+          scheduled_for?: string | null
+          status?: string | null
           thread_depth?: number | null
           updated_at?: string
         }
@@ -2943,6 +2985,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_comment_cascade: {
+        Args: { comment_id: string }
+        Returns: undefined
+      }
       increment_image_progress: {
         Args: { carousel_index_param: number; post_id_param: string }
         Returns: undefined

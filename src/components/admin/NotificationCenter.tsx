@@ -5,16 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Bell, Calendar, MessageSquare, CheckCircle, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-interface Notification {
-  id: string;
-  type: string;
-  title: string;
-  message: string;
-  is_read: boolean;
-  data: any;
-  created_at: string;
-}
+import { Notification } from './types';
 
 export function NotificationCenter() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -34,36 +25,47 @@ export function NotificationCenter() {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (error) throw error;
+      if (error) {
+        console.log('Notifications table not available yet:', error);
+        setNotifications([]);
+        return;
+      }
+      
       setNotifications(data || []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
   };
 
   const subscribeToNotifications = () => {
-    const channel = supabase
-      .channel('notifications')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications'
-      }, (payload) => {
-        setNotifications(prev => [payload.new as Notification, ...prev]);
-        
-        // Show toast for new notifications
-        toast({
-          title: payload.new.title,
-          description: payload.new.message,
-        });
-      })
-      .subscribe();
+    try {
+      const channel = supabase
+        .channel('notifications')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications'
+        }, (payload) => {
+          setNotifications(prev => [payload.new as Notification, ...prev]);
+          
+          // Show toast for new notifications
+          toast({
+            title: (payload.new as any).title,
+            description: (payload.new as any).message,
+          });
+        })
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } catch (error) {
+      console.log('Could not subscribe to notifications:', error);
+      return () => {};
+    }
   };
 
   const markAsRead = async (id: string) => {
@@ -73,7 +75,10 @@ export function NotificationCenter() {
         .update({ is_read: true })
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.log('Could not update notification:', error);
+        return;
+      }
 
       setNotifications(prev => 
         prev.map(notif => 
@@ -92,7 +97,10 @@ export function NotificationCenter() {
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.log('Could not delete notification:', error);
+        return;
+      }
 
       setNotifications(prev => prev.filter(notif => notif.id !== id));
     } catch (error) {

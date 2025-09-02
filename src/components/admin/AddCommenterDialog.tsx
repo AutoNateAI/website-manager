@@ -38,34 +38,9 @@ export function AddCommenterDialog({ postId, onCommentAdded }: AddCommenterDialo
 
     setLoading(true);
     try {
-      // First, check if person already exists
+      // For now, we'll just create the comment without linking to a person
+      // This can be enhanced later when the people table is fully set up
       let personId = null;
-      const { data: existingPerson } = await supabase
-        .from('people')
-        .select('id')
-        .eq('instagram_username', commenterData.username)
-        .single();
-
-      if (existingPerson) {
-        personId = existingPerson.id;
-      } else {
-        // Create new person
-        const { data: newPerson, error: personError } = await supabase
-          .from('people')
-          .insert({
-            name: commenterData.displayName || commenterData.username,
-            instagram_username: commenterData.username,
-            instagram_profile_url: commenterData.profileUrl,
-            location: commenterData.location,
-            bio: commenterData.bio,
-            notes: `Added via comment on post ${postId}`
-          })
-          .select('id')
-          .single();
-
-        if (personError) throw personError;
-        personId = newPerson.id;
-      }
 
       // Create the comment
       const { error: commentError } = await supabase
