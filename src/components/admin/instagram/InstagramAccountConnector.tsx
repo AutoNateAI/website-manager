@@ -57,8 +57,7 @@ export default function InstagramAccountConnector() {
         environment: 'sandbox', // matches our PHYLLO_ENVIRONMENT
         userId: phyllo_user_id,
         token: token,
-        redirect: false, // Use popup flow
-        workPlatformId: '642543c681da6001396b7f87' // Instagram's work platform ID
+        redirect: false // Use popup flow - let users choose platform
       };
 
       const phylloConnect = window.PhylloConnect.initialize(config);
