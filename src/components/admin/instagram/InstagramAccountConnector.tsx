@@ -69,11 +69,22 @@ export default function InstagramAccountConnector() {
 
       const phylloConnect = window.PhylloConnect.initialize(config);
 
-      // Set up event listeners
+      // Set up event listeners with success prioritization
+      let connectionSucceeded = false;
+      let errorTimeout: NodeJS.Timeout;
+
       phylloConnect.on('accountConnected', async (accountId: string, workplatformId: string, userId: string) => {
         console.log('Account connected:', { accountId, workplatformId, userId });
+        connectionSucceeded = true;
+        
+        // Clear any pending error messages since we succeeded
+        if (errorTimeout) {
+          clearTimeout(errorTimeout);
+        }
+        
         toast({ title: 'Instagram account connected successfully!' });
         fetchAccounts(); // Refresh the accounts list
+        setLoading(false);
       });
 
       phylloConnect.on('accountDisconnected', (accountId: string, workplatformId: string, userId: string) => {
@@ -84,11 +95,27 @@ export default function InstagramAccountConnector() {
 
       phylloConnect.on('exit', (reason: string, userId: string) => {
         console.log('Phyllo Connect exited:', { reason, userId });
+        
+        // If connection succeeded, don't show as error
+        if (connectionSucceeded) {
+          return;
+        }
+        
         setLoading(false);
+        
+        // Check if we actually have a new connection despite the exit
+        setTimeout(() => {
+          fetchAccounts();
+        }, 1000);
       });
 
       phylloConnect.on('tokenExpired', (userId: string) => {
         console.log('Token expired for user:', userId, 'Environment:', currentEnvironment);
+        
+        if (connectionSucceeded) {
+          return; // Don't show token expired if we already succeeded
+        }
+        
         let expiredMessage = 'Please reconnect your account';
         
         // Add environment-specific guidance
@@ -102,26 +129,34 @@ export default function InstagramAccountConnector() {
 
       phylloConnect.on('connectionFailure', (reason: string, workplatformId: string, userId: string) => {
         console.log('Connection failed:', { reason, workplatformId, userId });
-        let errorMessage = reason;
-        let errorTitle = 'Connection failed';
         
-        // Handle specific error types
-        if (reason === 'INADEQUATE_PERMISSIONS') {
-          errorTitle = 'Insufficient Permissions';
-          errorMessage = 'Please grant ALL requested permissions when connecting your Instagram account. Make sure to:\n\n• Allow access to your Instagram profile\n• Allow access to your Instagram posts\n• Allow posting permissions\n• Select both Instagram AND Facebook accounts if prompted\n\nTry connecting again and accept all permissions.';
-        } else if (currentEnvironment === 'sandbox' && (reason.includes('verification') || reason.includes('code'))) {
-          errorMessage = 'In sandbox mode, Instagram verification codes are not sent. This is expected behavior for testing.';
-        } else if (currentEnvironment !== 'sandbox' && (reason.includes('verification') || reason.includes('code'))) {
-          errorMessage = 'Verification failed. Please ensure you have access to the verification code for this Instagram account.';
-        }
-        
-        toast({ 
-          title: errorTitle, 
-          description: errorMessage, 
-          variant: 'destructive',
-          duration: 8000 // Longer duration for permissions message
-        });
-        setLoading(false);
+        // Delay error handling to see if success event comes through
+        errorTimeout = setTimeout(() => {
+          if (connectionSucceeded) {
+            return; // Don't show error if we actually succeeded
+          }
+          
+          let errorMessage = reason;
+          let errorTitle = 'Connection failed';
+          
+          // Handle specific error types
+          if (reason === 'INADEQUATE_PERMISSIONS') {
+            errorTitle = 'Insufficient Permissions';
+            errorMessage = 'Please grant ALL requested permissions when connecting your Instagram account. Make sure to:\n\n• Allow access to your Instagram profile\n• Allow access to your Instagram posts\n• Allow posting permissions\n• Select both Instagram AND Facebook accounts if prompted\n\nTry connecting again and accept all permissions.';
+          } else if (currentEnvironment === 'sandbox' && (reason.includes('verification') || reason.includes('code'))) {
+            errorMessage = 'In sandbox mode, Instagram verification codes are not sent. This is expected behavior for testing.';
+          } else if (currentEnvironment !== 'sandbox' && (reason.includes('verification') || reason.includes('code'))) {
+            errorMessage = 'Verification failed. Please ensure you have access to the verification code for this Instagram account.';
+          }
+          
+          toast({ 
+            title: errorTitle, 
+            description: errorMessage, 
+            variant: 'destructive',
+            duration: 8000 // Longer duration for permissions message
+          });
+          setLoading(false);
+        }, 1500); // Wait 1.5 seconds to see if success comes through
       });
 
       // Open the connection flow
