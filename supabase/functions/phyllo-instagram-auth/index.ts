@@ -105,8 +105,15 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               user_id: userId,
-              products: ['IDENTITY', 'ENGAGEMENT', 'PUBLISH.CONTENT'], // Correct product key for publish
-              // Let Phyllo handle platform selection during the flow
+              products: ['IDENTITY', 'ENGAGEMENT', 'PUBLISH.CONTENT'], 
+              work_platform_id: 17, // Instagram Business ID
+              permissions: [
+                'instagram_basic',
+                'instagram_content_publish', 
+                'pages_manage_posts',
+                'pages_show_list',
+                'business_management'
+              ]
             }),
           });
 
