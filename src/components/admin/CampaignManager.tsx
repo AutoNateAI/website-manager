@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -84,12 +84,14 @@ export const CampaignManager = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   
-  // Campaign conversation state
+  // Campaign creation conversation state
   const [campaignConversationOpen, setCampaignConversationOpen] = useState(false);
   const [campaignMessages, setCampaignMessages] = useState<Array<{role: string, content: string}>>([]);
   const [campaignConversationLoading, setCampaignConversationLoading] = useState(false);
+  const [campaignCreationLoading, setCampaignCreationLoading] = useState(false);
   const [conversationTurnCount, setConversationTurnCount] = useState(0);
   const [conversationInput, setConversationInput] = useState('');
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const [companies, setCompanies] = useState<any[]>([]);
   const [people, setPeople] = useState<any[]>([]);
 
@@ -293,6 +295,20 @@ NEXT STEPS:
     }
   };
 
+  // Auto-scroll chat to bottom
+  const scrollToBottom = () => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  };
+
+  // Scroll when messages change
+  useEffect(() => {
+    if (campaignMessages.length > 0) {
+      setTimeout(scrollToBottom, 100);
+    }
+  }, [campaignMessages]);
+
   // Handle campaign creation conversation
   const handleCampaignConversationMessage = async (message: string) => {
     setCampaignConversationLoading(true);
@@ -324,7 +340,7 @@ NEXT STEPS:
 
   // Extract data and create campaign from conversation
   const handleCreateCampaignFromConversation = async () => {
-    setCampaignConversationLoading(true);
+    setCampaignCreationLoading(true);
 
     try {
       const { data, error } = await supabase.functions.invoke('goal-strategy-chat', {
@@ -361,7 +377,7 @@ NEXT STEPS:
       console.error('Error creating campaign from conversation:', error);
       toast.error('Failed to create campaign from conversation');
     } finally {
-      setCampaignConversationLoading(false);
+      setCampaignCreationLoading(false);
     }
   };
 
@@ -833,7 +849,7 @@ NEXT STEPS:
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 max-h-96 overflow-y-auto">
+            <div className="space-y-4 max-h-96 overflow-y-auto" ref={chatScrollRef}>
               {campaignMessages.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Target className="mx-auto h-12 w-12 mb-4" />
@@ -854,8 +870,13 @@ NEXT STEPS:
                 ))
               )}
               {campaignConversationLoading && (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                <div className="flex justify-start">
+                  <div className="bg-muted p-3 rounded-lg max-w-[80%]">
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                      <span className="text-sm text-muted-foreground">Thinking...</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -892,10 +913,10 @@ NEXT STEPS:
                 <div className="flex justify-center pt-4 border-t">
                   <Button
                     onClick={handleCreateCampaignFromConversation}
-                    disabled={campaignConversationLoading}
+                    disabled={campaignCreationLoading}
                     className="w-full"
                   >
-                    {campaignConversationLoading ? (
+                    {campaignCreationLoading ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                         Creating Campaign...
