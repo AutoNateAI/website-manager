@@ -45,7 +45,23 @@ serve(async (req) => {
         try {
           const { phyllo_user_id, name, external_id } = body || {};
           const env = (PHYLLO_ENVIRONMENT || 'sandbox').toLowerCase();
-          const apiBase = env === 'sandbox' ? 'https://api.sandbox.getphyllo.com' : 'https://api.getphyllo.com';
+          let apiBase: string;
+          switch (env) {
+            case 'sandbox':
+              apiBase = 'https://api.sandbox.getphyllo.com';
+              break;
+            case 'staging':
+            case 'development':
+              apiBase = 'https://api.staging.getphyllo.com';
+              break;
+            case 'prod':
+            case 'production':
+            case 'live':
+              apiBase = 'https://api.getphyllo.com';
+              break;
+            default:
+              apiBase = 'https://api.sandbox.getphyllo.com';
+          }
 
           const basicAuth = `Basic ${btoa(`${PHYLLO_CLIENT_ID}:${PHYLLO_CLIENT_SECRET}`)}`;
 
