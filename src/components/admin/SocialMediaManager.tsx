@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import SocialImageEditor from './SocialImageEditor';
 import SocialMediaPostCard from './SocialMediaPostCard';
 import SocialMediaPostDetailModal from './SocialMediaPostDetailModal';
+import InstagramAutomationTab from './instagram/InstagramAutomationTab';
 import { SocialMediaPost, SocialMediaImage } from './types';
 
 interface SourceItem {
@@ -99,7 +100,10 @@ const SocialMediaManager = () => {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [postsPerPage] = useState(9);
+const [postsPerPage] = useState(9);
+  
+  // Main tab state: content generation vs Instagram automation
+  const [activeMainTab, setActiveMainTab] = useState<'content' | 'instagram'>('content');
   
   // Detail modal state
   const [selectedPost, setSelectedPost] = useState<SocialMediaPost | null>(null);
@@ -337,7 +341,16 @@ const SocialMediaManager = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      <div className="glass-card p-4">
+        <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as 'content' | 'instagram')}>
+          <TabsList>
+            <TabsTrigger value="content">Content Generation</TabsTrigger>
+            <TabsTrigger value="instagram">Instagram Automation</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+      {activeMainTab === 'content' ? (
+        <>
       <div className="glass-card p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -822,6 +835,10 @@ const SocialMediaManager = () => {
         image={editingImage}
         onImageUpdated={fetchData}
       />
+      </>
+      ) : (
+        <InstagramAutomationTab />
+      )}
     </div>
   );
 };

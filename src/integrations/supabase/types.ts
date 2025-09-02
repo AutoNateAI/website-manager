@@ -166,6 +166,47 @@ export type Database = {
           },
         ]
       }
+      automation_rules: {
+        Row: {
+          account_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          params: Json
+          rule_type: string
+          schedule: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          params?: Json
+          rule_type: string
+          schedule?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          params?: Json
+          rule_type?: string
+          schedule?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_rules_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_ads: {
         Row: {
           advertisement_id: string
@@ -977,6 +1018,92 @@ export type Database = {
           },
         ]
       }
+      instagram_accounts: {
+        Row: {
+          access_status: string | null
+          connected_at: string | null
+          created_at: string
+          id: string
+          last_sync_at: string | null
+          phyllo_account_id: string | null
+          phyllo_profile_id: string | null
+          platform: string
+          updated_at: string
+          user_id: string | null
+          username: string | null
+        }
+        Insert: {
+          access_status?: string | null
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          phyllo_account_id?: string | null
+          phyllo_profile_id?: string | null
+          platform?: string
+          updated_at?: string
+          user_id?: string | null
+          username?: string | null
+        }
+        Update: {
+          access_status?: string | null
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          phyllo_account_id?: string | null
+          phyllo_profile_id?: string | null
+          platform?: string
+          updated_at?: string
+          user_id?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
+      instagram_engagement_log: {
+        Row: {
+          account_id: string
+          action_type: string
+          comment_text: string | null
+          created_at: string
+          error: string | null
+          id: string
+          status: string
+          target_post_url: string | null
+          target_user: string | null
+        }
+        Insert: {
+          account_id: string
+          action_type: string
+          comment_text?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          status?: string
+          target_post_url?: string | null
+          target_user?: string | null
+        }
+        Update: {
+          account_id?: string
+          action_type?: string
+          comment_text?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          status?: string
+          target_post_url?: string | null
+          target_user?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instagram_engagement_log_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       link_previews: {
         Row: {
           blog_id: string | null
@@ -1508,6 +1635,50 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduled_posts: {
+        Row: {
+          account_id: string
+          created_at: string
+          error: string | null
+          id: string
+          payload: Json
+          scheduled_for: string
+          social_media_post_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          payload?: Json
+          scheduled_for: string
+          social_media_post_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          payload?: Json
+          scheduled_for?: string
+          social_media_post_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_posts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_accounts"
             referencedColumns: ["id"]
           },
         ]
