@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Users, Map, PenTool, Image, Megaphone, Video, Share2, 
   Calendar, Package, ChevronDown, ChevronRight, Building,
-  Users2, MessageSquare, StickyNote, Target, Presentation, Settings
+  Users2, MessageSquare, StickyNote, Target, Presentation, Settings, FileText
 } from 'lucide-react';
 import {
   Sidebar,
@@ -85,6 +85,11 @@ const menuItems: MenuItem[] = [
     title: "Prompt Templates",
     value: "prompt-templates",
     icon: Settings,
+  },
+  {
+    title: "SOPs & Documentation", 
+    value: "sops",
+    icon: FileText,
   },
 ];
 

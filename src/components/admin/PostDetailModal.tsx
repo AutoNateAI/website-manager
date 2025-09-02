@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { AttentionScoreCard } from './AttentionScoreCard';
+import { CommentsThread } from './CommentsThread';
 import { 
   ExternalLink, 
   User, 
@@ -14,7 +15,9 @@ import {
   Calendar,
   Target,
   Brain,
-  Trash2
+  Trash2,
+  Share,
+  Repeat
 } from 'lucide-react';
 
 interface TargetPost {
@@ -36,6 +39,8 @@ interface TargetPost {
   overall_attention_score?: number;
   scoring_metadata?: any;
   last_scored_at?: string;
+  share_count?: number;
+  repost_count?: number;
   post_search_queries?: Array<{
     search_queries?: {
       id: string;
@@ -156,6 +161,22 @@ export function PostDetailModal({
                   <span className="font-medium">Comments:</span>
                   <span>{post.comment_count.toLocaleString()}</span>
                 </div>
+                
+                {post.share_count !== undefined && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Share className="h-4 w-4 text-green-500" />
+                    <span className="font-medium">Shares:</span>
+                    <span>{post.share_count.toLocaleString()}</span>
+                  </div>
+                )}
+                
+                {post.repost_count !== undefined && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Repeat className="h-4 w-4 text-purple-500" />
+                    <span className="font-medium">Reposts:</span>
+                    <span>{post.repost_count.toLocaleString()}</span>
+                  </div>
+                )}
                 
                 {post.last_scored_at && (
                   <div className="flex items-center gap-2 text-sm">
@@ -292,6 +313,13 @@ export function PostDetailModal({
               </div>
             </div>
           )}
+
+          <Separator />
+
+          {/* Comments Thread */}
+          <div className="space-y-3">
+            <CommentsThread postId={post.id} />
+          </div>
         </div>
       </DialogContent>
     </Dialog>

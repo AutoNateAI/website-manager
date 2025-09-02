@@ -1311,7 +1311,9 @@ export type Database = {
           post_url: string
           poster_user_id: string | null
           poster_username: string | null
+          repost_count: number | null
           scoring_metadata: Json | null
+          share_count: number | null
           updated_at: string
         }
         Insert: {
@@ -1336,7 +1338,9 @@ export type Database = {
           post_url: string
           poster_user_id?: string | null
           poster_username?: string | null
+          repost_count?: number | null
           scoring_metadata?: Json | null
+          share_count?: number | null
           updated_at?: string
         }
         Update: {
@@ -1361,7 +1365,9 @@ export type Database = {
           post_url?: string
           poster_user_id?: string | null
           poster_username?: string | null
+          repost_count?: number | null
           scoring_metadata?: Json | null
+          share_count?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -2505,6 +2511,72 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_media_comments: {
+        Row: {
+          comment_text: string
+          comment_timestamp: string
+          commenter_display_name: string | null
+          commenter_username: string
+          created_at: string
+          id: string
+          is_my_comment: boolean | null
+          is_reply_to_my_comment: boolean | null
+          like_count: number | null
+          parent_comment_id: string | null
+          post_id: string
+          reply_count: number | null
+          thread_depth: number | null
+          updated_at: string
+        }
+        Insert: {
+          comment_text: string
+          comment_timestamp: string
+          commenter_display_name?: string | null
+          commenter_username: string
+          created_at?: string
+          id?: string
+          is_my_comment?: boolean | null
+          is_reply_to_my_comment?: boolean | null
+          like_count?: number | null
+          parent_comment_id?: string | null
+          post_id: string
+          reply_count?: number | null
+          thread_depth?: number | null
+          updated_at?: string
+        }
+        Update: {
+          comment_text?: string
+          comment_timestamp?: string
+          commenter_display_name?: string | null
+          commenter_username?: string
+          created_at?: string
+          id?: string
+          is_my_comment?: boolean | null
+          is_reply_to_my_comment?: boolean | null
+          like_count?: number | null
+          parent_comment_id?: string | null
+          post_id?: string
+          reply_count?: number | null
+          thread_depth?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_media_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "social_media_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_media_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_target_posts"
             referencedColumns: ["id"]
           },
         ]
