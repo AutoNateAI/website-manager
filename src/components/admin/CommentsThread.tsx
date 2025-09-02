@@ -508,13 +508,11 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
   };
 
   const myCommentThreads = comments.filter(comment => 
-    comment.is_my_comment || 
-    (comment.replies && comment.replies.some(reply => reply.is_my_comment || reply.is_reply_to_my_comment))
+    comment.is_my_comment
   );
 
   const otherThreads = comments.filter(comment => 
-    !comment.is_my_comment && 
-    !(comment.replies && comment.replies.some(reply => reply.is_my_comment || reply.is_reply_to_my_comment))
+    !comment.is_my_comment
   );
 
   if (loading) {
