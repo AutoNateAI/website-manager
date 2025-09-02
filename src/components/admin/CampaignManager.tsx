@@ -352,7 +352,7 @@ NEXT STEPS:
       toast.success('Campaign created successfully');
       setDialogOpen(false);
       resetForm();
-      fetchCampaigns(); // Refresh the list
+      fetchCampaigns();
     } catch (error) {
       console.error('Error saving campaign:', error);
       toast.error('Failed to save campaign');
@@ -404,66 +404,6 @@ NEXT STEPS:
     }
   };
 
-  // Handle session submission
-  const handleSessionSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCampaign) return;
-
-    try {
-      const sessionData = {
-        campaign_id: selectedCampaign.id,
-        goal_id: sessionForm.goal_id,
-        session_date: sessionForm.session_date.toISOString(),
-        duration_hours: sessionForm.duration_hours,
-        activities_completed: sessionForm.activities_completed,
-        notes: sessionForm.notes,
-      };
-
-      const { data, error } = await supabase
-        .from('sessions')
-        .insert(sessionData)
-        .select();
-
-      if (error) throw error;
-
-      toast.success('Session created successfully');
-      setSessionDialogOpen(false);
-      resetSessionForm();
-      fetchSessions(selectedCampaign.id!);
-    } catch (error) {
-      console.error('Error saving session:', error);
-      toast.error('Failed to save session');
-    }
-  };
-
-  // Handle adding entities to campaign
-  const handleAddEntitiesToCampaign = async (entities: any[]) => {
-    if (!selectedCampaign) return;
-
-    try {
-      const updatedEntities = [...selectedCampaign.target_entities, ...entities];
-      
-      const { error } = await supabase
-        .from('campaigns')
-        .update({ target_entities: updatedEntities })
-        .eq('id', selectedCampaign.id);
-
-      if (error) throw error;
-
-      setSelectedCampaign({
-        ...selectedCampaign,
-        target_entities: updatedEntities
-      });
-
-      toast.success(`Added ${entities.length} entities to campaign`);
-      setEntityDialogOpen(false);
-      fetchCampaigns();
-    } catch (error) {
-      console.error('Error adding entities:', error);
-      toast.error('Failed to add entities');
-    }
-  };
-
   const resetGoalForm = () => {
     setGoalForm({
       title: '',
@@ -471,16 +411,6 @@ NEXT STEPS:
       priority: 'medium',
       due_date: undefined,
       target_metrics: {}
-    });
-  };
-
-  const resetSessionForm = () => {
-    setSessionForm({
-      session_date: new Date(),
-      duration_hours: 4,
-      goal_id: undefined,
-      activities_completed: [],
-      notes: ''
     });
   };
 
@@ -505,7 +435,6 @@ NEXT STEPS:
 
   // Calculate overall progress of a campaign
   const calculateProgress = (campaign: Campaign) => {
-    // For now, just return a mock progress based on dates
     const now = new Date();
     const totalTime = campaign.end_date.getTime() - campaign.start_date.getTime();
     const elapsed = now.getTime() - campaign.start_date.getTime();
@@ -518,88 +447,6 @@ NEXT STEPS:
       style: 'currency',
       currency: 'USD',
     }).format(cents / 100);
-  };
-
-  // Render campaign overview section
-  const renderCampaignOverview = (campaign: Campaign) => {
-    const progress = calculateProgress(campaign);
-    
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Goals</CardTitle>
-              <Target className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{goals.length}</div>
-              <p className="text-xs text-muted-foreground">Goals created</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Progress</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{Math.round(progress)}%</div>
-              <Progress value={progress} className="mt-2" />
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Target Entities</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{campaign.target_entities.length}</div>
-              <p className="text-xs text-muted-foreground">Companies & People</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Financial Target</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {campaign.financial_target ? formatCurrency(campaign.financial_target) : '$0'}
-              </div>
-              <p className="text-xs text-muted-foreground">Revenue goal</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Status</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <Badge variant={getStatusColor(campaign.status)}>{campaign.status}</Badge>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Campaign details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Campaign Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <p><strong>Description:</strong> {campaign.description || 'No description provided'}</p>
-              <p><strong>Start Date:</strong> {format(campaign.start_date, 'PPP')}</p>
-              <p><strong>End Date:</strong> {format(campaign.end_date, 'PPP')}</p>
-              <p><strong>Duration:</strong> {Math.ceil((campaign.end_date.getTime() - campaign.start_date.getTime()) / (1000 * 60 * 60 * 24))} days</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
   };
 
   // Render goals manager section
@@ -624,7 +471,6 @@ NEXT STEPS:
               </DialogHeader>
 
               <div className="flex-1 flex gap-4 min-h-0">
-                {/* Conversation Area */}
                 <div className="flex-1 flex flex-col min-h-0">
                   <div className="flex-1 overflow-y-auto border rounded-lg p-4 bg-muted/20 min-h-[300px]">
                     {goalConversation.length === 0 ? (
@@ -665,7 +511,6 @@ NEXT STEPS:
                   </div>
                 </div>
 
-                {/* SOP Linking Sidebar */}
                 <div className="w-80 border-l pl-4 space-y-4">
                   <div>
                     <h4 className="text-sm font-semibold mb-2">Available SOPs</h4>
@@ -712,7 +557,7 @@ NEXT STEPS:
                           </div>
                           <Badge variant="secondary" className="text-xs">{sop.category}</Badge>
                         </div>
-                      )))}
+                      ))}
                     </div>
                   </div>
 
@@ -864,14 +709,77 @@ NEXT STEPS:
     </div>
   );
 
-  // Additional render functions and main component return...
-  const renderSessionTracker = () => <div>Sessions</div>;
-  const renderEntityTargeting = () => <div>Entities</div>;
-  
   return (
     <div className="container mx-auto py-6">
-      <h1>Campaign Manager with Goal Strategy Chat</h1>
-      <p>Strategy chat system implemented with SOP linking functionality.</p>
+      <h1 className="text-3xl font-bold mb-6">Campaign Manager</h1>
+      <p className="text-muted-foreground mb-8">Strategy chat system with SOP linking functionality implemented.</p>
+      
+      {selectedCampaign && (
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-2xl">{selectedCampaign.name}</CardTitle>
+              <Button variant="outline" onClick={() => setSelectedCampaign(null)}>
+                Back to Campaigns
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="goals">
+              <TabsList>
+                <TabsTrigger value="goals">Goals</TabsTrigger>
+                {campaignBreakdown && <TabsTrigger value="breakdown">Strategy Breakdown</TabsTrigger>}
+              </TabsList>
+
+              <TabsContent value="goals">
+                {renderGoalsManager(selectedCampaign)}
+              </TabsContent>
+
+              {campaignBreakdown && (
+                <TabsContent value="breakdown">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Campaign Strategy Breakdown</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg overflow-auto">
+                        {campaignBreakdown}
+                      </pre>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              )}
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
+      
+      {!selectedCampaign && campaigns.length === 0 && (
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-center text-muted-foreground">
+              No campaigns available. Create a campaign first, then use the Strategy Chat to build goals.
+            </p>
+            <div className="text-center mt-4">
+              <Button onClick={() => {
+                // Create a demo campaign for testing
+                const demoCampaign: Campaign = {
+                  id: 'demo-1',
+                  name: 'Demo Campaign',
+                  description: 'A demo campaign to test the goal strategy system',
+                  start_date: new Date(),
+                  end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                  status: 'active',
+                  target_entities: []
+                };
+                setSelectedCampaign(demoCampaign);
+              }}>
+                Create Demo Campaign
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
