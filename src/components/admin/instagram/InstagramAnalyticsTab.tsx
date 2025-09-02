@@ -9,10 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, ExternalLink, User, MessageSquare, Heart, Eye, Search, Sparkles, TrendingUp, Target, Brain } from 'lucide-react';
+import { Plus, ExternalLink, User, MessageSquare, Heart, Eye, Search, Sparkles, TrendingUp, Target, Brain, Trash2 } from 'lucide-react';
 import { SearchQueryGenerator } from "../SearchQueryGenerator";
 import { AttentionScoreCard } from "../AttentionScoreCard";
 import { EnhancedAddPostModal } from "../EnhancedAddPostModal";
+import { PostDetailModal } from "../PostDetailModal";
 
 interface TargetPost {
   id: string;
@@ -81,6 +82,7 @@ export function InstagramAnalyticsTab() {
   const [newPostUrl, setNewPostUrl] = useState('');
   const [selectedPost, setSelectedPost] = useState<TargetPost | null>(null);
   const [selectedUser, setSelectedUser] = useState<InstagramUser | null>(null);
+  const [postDetailModal, setPostDetailModal] = useState<TargetPost | null>(null);
   
   // Search and filtering
   const [searchTerm, setSearchTerm] = useState('');
@@ -258,6 +260,29 @@ export function InstagramAnalyticsTab() {
       }
     });
 
+  const deleteTargetPost = async (postId: string) => {
+    try {
+      const { error } = await supabase
+        .from('instagram_target_posts')
+        .delete()
+        .eq('id', postId);
+
+      if (error) throw error;
+
+      setTargetPosts(targetPosts.filter(post => post.id !== postId));
+      toast({
+        title: 'Success',
+        description: 'Post deleted successfully'
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error deleting post',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  };
+
   const addEngagementActivity = async (postId: string, activityType: string, content: string) => {
     try {
       const { data, error } = await supabase
@@ -371,16 +396,20 @@ export function InstagramAnalyticsTab() {
         </TabsList>
 
         <TabsContent value="posts" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredAndSortedPosts.map((post) => (
-              <Card key={post.id} className="cursor-pointer hover:shadow-md transition-shadow">
+              <Card 
+                key={post.id} 
+                className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02] relative group"
+                onClick={() => setPostDetailModal(post)}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm">
+                    <CardTitle className="text-sm truncate pr-2">
                       {post.poster_username ? `@${post.poster_username}` : 'Unknown User'}
                     </CardTitle>
-                    <div className="flex items-center gap-1">
-                      <Badge variant={post.analysis_status === 'completed' ? 'default' : 'secondary'}>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Badge variant={post.analysis_status === 'completed' ? 'default' : 'secondary'} className="text-xs">
                         {post.analysis_status}
                       </Badge>
                       {post.overall_attention_score && (
@@ -388,6 +417,18 @@ export function InstagramAnalyticsTab() {
                           {post.overall_attention_score.toFixed(1)}
                         </Badge>
                       )}
+                      {/* Delete button - visible on hover */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteTargetPost(post.id);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
                 </CardHeader>
@@ -418,14 +459,14 @@ export function InstagramAnalyticsTab() {
                   {/* Hashtags */}
                   {post.hashtags && post.hashtags.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {post.hashtags.slice(0, 3).map((tag, index) => (
+                      {post.hashtags.slice(0, 2).map((tag, index) => (
                         <Badge key={index} variant="outline" className="text-xs">
                           {tag}
                         </Badge>
                       ))}
-                      {post.hashtags.length > 3 && (
+                      {post.hashtags.length > 2 && (
                         <Badge variant="outline" className="text-xs">
-                          +{post.hashtags.length - 3} more
+                          +{post.hashtags.length - 2}
                         </Badge>
                       )}
                     </div>
@@ -443,23 +484,31 @@ export function InstagramAnalyticsTab() {
                     {post.location_tag && (
                       <div className="flex items-center gap-1">
                         <Target className="h-3 w-3" />
-                        Location
+                        <span className="truncate max-w-16">Location</span>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-1 flex-wrap">
                     <Button 
                       size="sm" 
                       variant="outline" 
-                      onClick={() => window.open(post.post_url, '_blank')}
+                      className="flex-1 min-w-0 text-xs h-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(post.post_url, '_blank');
+                      }}
                     >
                       <ExternalLink className="h-3 w-3 mr-1" />
                       View
                     </Button>
                     <Button 
                       size="sm"
-                      onClick={() => setSelectedPost(post)}
+                      className="flex-1 min-w-0 text-xs h-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPost(post);
+                      }}
                     >
                       Engage
                     </Button>
@@ -467,7 +516,11 @@ export function InstagramAnalyticsTab() {
                       <Button 
                         size="sm"
                         variant="secondary"
-                        onClick={() => calculateAttentionScore(post.id)}
+                        className="flex-1 min-w-0 text-xs h-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          calculateAttentionScore(post.id);
+                        }}
                         disabled={isCalculatingScores}
                       >
                         <Brain className="h-3 w-3 mr-1" />
@@ -577,6 +630,16 @@ export function InstagramAnalyticsTab() {
             description: `Search query "${query.title}" saved successfully`,
           });
         }}
+      />
+
+      {/* Post Detail Modal */}
+      <PostDetailModal
+        post={postDetailModal}
+        open={!!postDetailModal}
+        onOpenChange={(open) => !open && setPostDetailModal(null)}
+        onDelete={deleteTargetPost}
+        onCalculateScore={calculateAttentionScore}
+        isCalculatingScores={isCalculatingScores}
       />
 
       {/* Enhanced Add Post Modal */}
