@@ -510,6 +510,41 @@ export type Database = {
         }
         Relationships: []
       }
+      comment_like_history: {
+        Row: {
+          changed_by: string
+          comment_id: string
+          created_at: string
+          id: string
+          new_count: number
+          previous_count: number
+        }
+        Insert: {
+          changed_by?: string
+          comment_id: string
+          created_at?: string
+          id?: string
+          new_count?: number
+          previous_count?: number
+        }
+        Update: {
+          changed_by?: string
+          comment_id?: string
+          created_at?: string
+          id?: string
+          new_count?: number
+          previous_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_like_history_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "social_media_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           chatgpt_links: Json | null

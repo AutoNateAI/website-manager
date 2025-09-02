@@ -38,8 +38,12 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
   const [loading, setLoading] = useState(true);
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const [newComment, setNewComment] = useState('');
+  const [commenterUsername, setCommenterUsername] = useState('');
+  const [commenterDisplayName, setCommenterDisplayName] = useState('');
   const [replyToComment, setReplyToComment] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
+  const [replyCommenterUsername, setReplyCommenterUsername] = useState('');
+  const [replyCommenterDisplayName, setReplyCommenterDisplayName] = useState('');
   const [showAddComment, setShowAddComment] = useState(false);
   const [scheduledFor, setScheduledFor] = useState('');
   const [commentStatus, setCommentStatus] = useState<{ [key: string]: string }>({});
@@ -118,16 +122,16 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
   };
 
   const addComment = async () => {
-    if (!newComment.trim()) return;
+    if (!newComment.trim() || !commenterUsername.trim()) return;
 
     try {
       const commentData: any = {
         post_id: postId,
-        commenter_username: 'you',
-        commenter_display_name: 'You',
+        commenter_username: commenterUsername,
+        commenter_display_name: commenterDisplayName || commenterUsername,
         comment_text: newComment,
         comment_timestamp: new Date().toISOString(),
-        is_my_comment: true,
+        is_my_comment: false,
         thread_depth: 0,
         status: scheduledFor ? 'scheduled' : 'posted'
       };
@@ -158,6 +162,8 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
       if (error) throw error;
 
       setNewComment('');
+      setCommenterUsername('');
+      setCommenterDisplayName('');
       setScheduledFor('');
       setShowAddComment(false);
       await fetchComments();
@@ -178,7 +184,7 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
 
   const addReply = async (parentId: string, aiSuggestion?: string) => {
     const textToUse = aiSuggestion || replyText;
-    if (!textToUse.trim()) return;
+    if (!textToUse.trim() || (!aiSuggestion && !replyCommenterUsername.trim())) return;
 
     try {
       const parentComment = findComment(comments, parentId);
@@ -189,11 +195,11 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
         .insert({
           post_id: postId,
           parent_comment_id: parentId,
-          commenter_username: 'you',
-          commenter_display_name: 'You',
+          commenter_username: aiSuggestion ? 'you' : replyCommenterUsername,
+          commenter_display_name: aiSuggestion ? 'You' : (replyCommenterDisplayName || replyCommenterUsername),
           comment_text: textToUse,
           comment_timestamp: new Date().toISOString(),
-          is_my_comment: true,
+          is_my_comment: aiSuggestion ? true : false,
           is_reply_to_my_comment: false,
           thread_depth: threadDepth,
           status: 'posted'
@@ -203,6 +209,8 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
 
       if (!aiSuggestion) {
         setReplyText('');
+        setReplyCommenterUsername('');
+        setReplyCommenterDisplayName('');
         setReplyToComment(null);
       }
       await fetchComments();
@@ -285,6 +293,60 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
     }
   };
 
+  const updateLikeCount = async (commentId: string) => {
+    const newCount = prompt('Enter new like count:');
+    if (newCount === null || isNaN(Number(newCount))) return;
+    
+    const newLikeCount = parseInt(newCount);
+    
+    try {
+      // Get current like count
+      const { data: currentComment } = await supabase
+        .from('social_media_comments')
+        .select('like_count')
+        .eq('id', commentId)
+        .single();
+      
+      const previousCount = currentComment?.like_count || 0;
+      
+      // Update the comment
+      const { error: updateError } = await supabase
+        .from('social_media_comments')
+        .update({ like_count: newLikeCount })
+        .eq('id', commentId);
+
+      if (updateError) throw updateError;
+
+      // Log the change in history
+      const { error: historyError } = await supabase
+        .from('comment_like_history')
+        .insert({
+          comment_id: commentId,
+          previous_count: previousCount,
+          new_count: newLikeCount,
+          changed_by: 'admin'
+        });
+
+      if (historyError) {
+        console.warn('Failed to log like count history:', historyError);
+      }
+
+      await fetchComments();
+      
+      toast({
+        title: "Success",
+        description: `Like count updated from ${previousCount} to ${newLikeCount}`,
+      });
+    } catch (error) {
+      console.error('Error updating like count:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update like count",
+        variant: "destructive",
+      });
+    }
+  };
+
   const buildCommentThreadText = (comment: SocialMediaComment): string => {
     let threadText = `${comment.commenter_display_name}: ${comment.comment_text}\n`;
     
@@ -327,8 +389,16 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
               </span>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Heart className="h-3 w-3" />
-              {comment.like_count}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => updateLikeCount(comment.id)}
+                className="h-6 px-2 text-xs hover:bg-accent flex items-center gap-1"
+                title="Click to update like count"
+              >
+                <Heart className="h-3 w-3" />
+                {comment.like_count}
+              </Button>
             </div>
           </div>
           
@@ -384,6 +454,26 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
 
           {replyToComment === comment.id && (
             <div className="mt-3 space-y-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="reply-commenter-username">Username *</Label>
+                  <Input
+                    id="reply-commenter-username"
+                    placeholder="@username"
+                    value={replyCommenterUsername}
+                    onChange={(e) => setReplyCommenterUsername(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reply-commenter-display-name">Display Name</Label>
+                  <Input
+                    id="reply-commenter-display-name"
+                    placeholder="Display Name"
+                    value={replyCommenterDisplayName}
+                    onChange={(e) => setReplyCommenterDisplayName(e.target.value)}
+                  />
+                </div>
+              </div>
               <Textarea
                 placeholder="Write a reply..."
                 value={replyText}
@@ -459,6 +549,26 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
         <Card>
           <CardContent className="pt-4">
             <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="commenter-username">Username *</Label>
+                  <Input
+                    id="commenter-username"
+                    placeholder="@username"
+                    value={commenterUsername}
+                    onChange={(e) => setCommenterUsername(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="commenter-display-name">Display Name</Label>
+                  <Input
+                    id="commenter-display-name"
+                    placeholder="Display Name"
+                    value={commenterDisplayName}
+                    onChange={(e) => setCommenterDisplayName(e.target.value)}
+                  />
+                </div>
+              </div>
               <Textarea
                 placeholder="Add a comment to this post..."
                 value={newComment}
