@@ -88,7 +88,14 @@ export default function InstagramAccountConnector() {
 
       phylloConnect.on('connectionFailure', (reason: string, workplatformId: string, userId: string) => {
         console.log('Connection failed:', { reason, workplatformId, userId });
-        toast({ title: 'Connection failed', description: reason, variant: 'destructive' });
+        let errorMessage = reason;
+        
+        // Handle specific sandbox mode issues
+        if (reason.includes('verification') || reason.includes('code')) {
+          errorMessage = 'In sandbox mode, Instagram verification codes are not sent. This is expected behavior for testing.';
+        }
+        
+        toast({ title: 'Connection failed', description: errorMessage, variant: 'destructive' });
         setLoading(false);
       });
 
@@ -146,6 +153,13 @@ export default function InstagramAccountConnector() {
           <CardTitle>Connect Instagram Account</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <h4 className="font-semibold text-yellow-800 mb-2">Sandbox Mode Notice</h4>
+            <p className="text-sm text-yellow-700">
+              You're in sandbox mode. Instagram verification codes won't be sent. 
+              If you get stuck at verification, this is expected behavior for testing.
+            </p>
+          </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <Button onClick={startConnect} disabled={loading} className="w-full sm:w-auto">Start Phyllo Connect</Button>
           </div>
