@@ -81,17 +81,17 @@ const Admin = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen w-full flex overflow-hidden">
         <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} />
         
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
-          <header className="h-16 flex items-center justify-between px-6 border-b border-border/50 bg-card">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger className="text-foreground hover:bg-accent" />
-              <div>
-                <h1 className="text-xl font-bold gradient-text">Admin Portal</h1>
-                <p className="text-xs text-muted-foreground">
+          <header className="flex-shrink-0 h-16 flex items-center justify-between px-6 border-b border-border/50 bg-card">
+            <div className="flex items-center gap-4 min-w-0">
+              <SidebarTrigger className="text-foreground hover:bg-accent flex-shrink-0" />
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold gradient-text truncate">Admin Portal</h1>
+                <p className="text-xs text-muted-foreground truncate">
                   Manage your leads, content, and marketing campaigns
                 </p>
               </div>
@@ -99,7 +99,7 @@ const Admin = () => {
             <Button 
               onClick={signOut}
               variant="outline"
-              className="glass-button"
+              className="glass-button flex-shrink-0"
               size="sm"
             >
               <LogOut size={16} className="mr-2" />
@@ -108,9 +108,11 @@ const Admin = () => {
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 p-6 overflow-auto">
-            <div className="max-w-7xl mx-auto">
-              {renderTabContent()}
+          <main className="flex-1 overflow-auto">
+            <div className="p-6">
+              <div className="max-w-7xl mx-auto">
+                {renderTabContent()}
+              </div>
             </div>
           </main>
         </div>

@@ -5,28 +5,29 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Plus, MessageSquare, Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import InstagramAccountConnector from './InstagramAccountConnector';
 
 interface Account {
   id: string;
   username: string;
-  access_status: string;
 }
 
 interface EngagementLog {
   id: string;
-  account_id: string;
-  action_type: string;
-  target_post_url?: string;
-  target_user?: string;
-  comment_text?: string;
-  status: string;
-  error?: string;
+  user_id?: string | null;
+  activity_type: string;
+  target_post_id?: string | null;
+  target_user_id?: string | null;
+  content?: string | null;
+  notes?: string | null;
+  engagement_score?: number | null;
+  led_to_follow?: boolean | null;
+  parent_comment_id?: string | null;
+  response_content?: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export function InstagramEngagementTab() {
@@ -47,19 +48,9 @@ export function InstagramEngagementTab() {
     try {
       setLoading(true);
 
-      // Fetch Instagram accounts
-      const { data: accountsData, error: accountsError } = await supabase
-        .from('instagram_accounts')
-        .select('*')
-        .order('username');
-
-      if (accountsError && accountsError.code !== 'PGRST116') {
-        throw accountsError;
-      }
-
-      // Fetch engagement logs
+      // Fetch engagement logs from our new table
       const { data: logsData, error: logsError } = await supabase
-        .from('instagram_engagement_log')
+        .from('engagement_activities')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
@@ -68,8 +59,12 @@ export function InstagramEngagementTab() {
         throw logsError;
       }
 
-      setAccounts(accountsData || []);
       setEngagementLogs(logsData || []);
+      // For now, create some mock accounts for the UI
+      setAccounts([
+        { id: '1', username: 'main_account' },
+        { id: '2', username: 'backup_account' }
+      ]);
     } catch (error: any) {
       console.error('Error loading data:', error);
       toast({
@@ -93,17 +88,17 @@ export function InstagramEngagementTab() {
     }
 
     try {
-      const payload = {
-        account_id: selectedAccount,
-        action_type: actionType,
-        target_post_url: targetPostUrl || null,
-        target_user: targetUser || null,
-        comment_text: commentText || null
-      };
-
-      const { data, error } = await supabase.functions.invoke('phyllo-auto-engage', {
-        body: payload
-      });
+      // Insert directly into our engagement_activities table
+      const { data, error } = await supabase
+        .from('engagement_activities')
+        .insert({
+          user_id: selectedAccount,
+          activity_type: actionType,
+          target_post_id: targetPostUrl || null,
+          target_user_id: targetUser || null,
+          content: commentText || null,
+          notes: `Manual entry via admin panel`
+        });
 
       if (error) throw error;
 
@@ -130,24 +125,12 @@ export function InstagramEngagementTab() {
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'failed':
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
-      case 'queued':
-      default:
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-    }
+    // For now, all manually logged activities are considered completed
+    return <CheckCircle className="h-4 w-4 text-green-500" />;
   };
 
   const getStatusBadge = (status: string) => {
-    const variants = {
-      completed: 'default' as const,
-      failed: 'destructive' as const,
-      queued: 'secondary' as const
-    };
-    return <Badge variant={variants[status as keyof typeof variants] || 'secondary'}>{status}</Badge>;
+    return <Badge variant="default">completed</Badge>;
   };
 
   if (loading) {
@@ -163,18 +146,6 @@ export function InstagramEngagementTab() {
         </div>
       </div>
 
-      {/* Account Connection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Account Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <InstagramAccountConnector />
-        </CardContent>
-      </Card>
 
       {/* Engagement Logging */}
       <Card>
@@ -192,7 +163,7 @@ export function InstagramEngagementTab() {
                 <SelectContent>
                   {accounts.map(account => (
                     <SelectItem key={account.id} value={account.id}>
-                      @{account.username} ({account.access_status})
+                      @{account.username}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -272,32 +243,32 @@ export function InstagramEngagementTab() {
                 <div key={log.id} className="flex items-start justify-between p-3 border rounded-lg">
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-2">
-                      {getStatusIcon(log.status)}
-                      <span className="font-medium capitalize">{log.action_type}</span>
-                      {getStatusBadge(log.status)}
+                      {getStatusIcon('completed')}
+                      <span className="font-medium capitalize">{log.activity_type}</span>
+                      {getStatusBadge('completed')}
                     </div>
                     
-                    {log.target_post_url && (
+                    {log.target_post_id && (
                       <p className="text-sm text-muted-foreground">
-                        Post: {log.target_post_url}
+                        Post: {log.target_post_id}
                       </p>
                     )}
                     
-                    {log.target_user && (
+                    {log.target_user_id && (
                       <p className="text-sm text-muted-foreground">
-                        User: {log.target_user}
+                        User: {log.target_user_id}
                       </p>
                     )}
                     
-                    {log.comment_text && (
+                    {log.content && (
                       <p className="text-sm bg-muted p-2 rounded">
-                        "{log.comment_text}"
+                        "{log.content}"
                       </p>
                     )}
                     
-                    {log.error && (
-                      <p className="text-sm text-red-600">
-                        Error: {log.error}
+                    {log.notes && (
+                      <p className="text-sm text-muted-foreground">
+                        Notes: {log.notes}
                       </p>
                     )}
                     
