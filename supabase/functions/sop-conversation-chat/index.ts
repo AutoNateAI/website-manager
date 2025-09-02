@@ -67,7 +67,7 @@ serve(async (req) => {
       });
     }
 
-    const reply = data.choices?.[0]?.message?.content?.trim() || 'I'm here. What process would you like to document?';
+    const reply = data.choices?.[0]?.message?.content?.trim() || "I'm here. What process would you like to document?";
     
     // Log if we got a blank response to help debug
     if (!data.choices?.[0]?.message?.content?.trim()) {
