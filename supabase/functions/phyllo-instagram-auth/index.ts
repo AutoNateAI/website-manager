@@ -96,10 +96,16 @@ serve(async (req) => {
             return json({ error: 'Unable to determine phyllo_user_id' }, 500);
           }
 
-          // 2) Create SDK token for that user - let Phyllo handle permissions automatically
+          // 2) Create SDK token for that user with explicit Facebook Page permissions for Instagram posting
           const tokenPayload = {
             user_id: userId,
-            products: ['PUBLISH.CONTENT', 'IDENTITY']
+            products: ['PUBLISH.CONTENT', 'IDENTITY'],
+            permissions: [
+              'instagram_basic',           // Base Instagram permission
+              'instagram_content_publish', // Instagram posting permission
+              'pages_manage_posts',        // CRITICAL: This shows "Create content on the Page"
+              'pages_show_list'           // List and select pages
+            ]
           };
           
           console.log('Creating SDK token with payload:', JSON.stringify(tokenPayload, null, 2));
