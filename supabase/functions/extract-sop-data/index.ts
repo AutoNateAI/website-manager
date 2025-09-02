@@ -116,7 +116,7 @@ SOP Context: ${JSON.stringify(sopDoc)}`;
         { role: 'user', content: `Extract structured data from this conversation:\n\n${conversationText}` }
       ],
       max_completion_tokens: 4096
-    } as const;
+    };
 
     console.log('extract-sop-data OpenAI payload:', JSON.stringify(payload));
 
