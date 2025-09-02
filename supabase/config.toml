@@ -12,3 +12,6 @@ verify_jwt = false
 [functions.phyllo-instagram-auth]
 verify_jwt = false
 
+# Make SOP conversational assistant public for the web app
+[functions.sop-conversation-chat]
+verify_jwt = false

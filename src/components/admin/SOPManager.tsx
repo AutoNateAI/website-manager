@@ -244,12 +244,16 @@ export const SOPManager: React.FC = () => {
     setIsProcessingMessage(true);
 
     try {
-      // Here you could add AI response generation
-      const aiResponse = {
-        role: 'assistant',
-        content: `I understand your input about "${messageInput}". Please continue sharing details about this process or procedure for the SOP documentation.`
-      };
-      
+      const { data, error } = await supabase.functions.invoke('sop-conversation-chat', {
+        body: {
+          messages: updatedConversation,
+        },
+      });
+
+      if (error) throw error;
+
+      const assistantReply = (data as any)?.reply ?? 'I\'m here. What process would you like to document?';
+      const aiResponse = { role: 'assistant', content: assistantReply };
       setCurrentConversation([...updatedConversation, aiResponse]);
     } catch (error) {
       console.error('Error processing message:', error);
