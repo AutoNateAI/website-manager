@@ -99,7 +99,7 @@ export const CampaignManager = () => {
     description: '',
     start_date: new Date(),
     end_date: new Date(),
-    status: 'active' as const,
+    status: 'active' as 'active' | 'paused' | 'completed' | 'cancelled',
     target_entities: [] as any[],
     financial_target: 0
   });
@@ -128,7 +128,7 @@ export const CampaignManager = () => {
       const { data, error } = await supabase
         .from('sop_documents')
         .select('id, title, description, category')
-        .eq('status', 'published')
+        .in('status', ['published', 'draft']) // Include both published and draft SOPs
         .order('title');
 
       if (error) throw error;
@@ -709,16 +709,195 @@ NEXT STEPS:
     </div>
   );
 
+  // Filter campaigns based on search and status
+  const filteredCampaigns = campaigns.filter(campaign => {
+    const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         campaign.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || campaign.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   return (
-    <div className="container mx-auto py-6">
-      <h1 className="text-3xl font-bold mb-6">Campaign Manager</h1>
-      <p className="text-muted-foreground mb-8">Strategy chat system with SOP linking functionality implemented.</p>
-      
-      {selectedCampaign && (
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Campaign Manager</h1>
+          <p className="text-muted-foreground">Manage your outreach campaigns and track progress</p>
+        </div>
+        
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={() => resetForm()}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Campaign
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New Campaign</DialogTitle>
+              <DialogDescription>
+                Set up a new campaign with financial targets and outreach goals
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Campaign Name *</Label>
+                <Input
+                  id="name"
+                  placeholder="Enter campaign name..."
+                  value={campaignForm.name}
+                  onChange={(e) => setCampaignForm({...campaignForm, name: e.target.value})}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Describe your campaign goals..."
+                  value={campaignForm.description}
+                  onChange={(e) => setCampaignForm({...campaignForm, description: e.target.value})}
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="start_date">Start Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !campaignForm.start_date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {campaignForm.start_date ? format(campaignForm.start_date, "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={campaignForm.start_date}
+                        onSelect={(date) => setCampaignForm({...campaignForm, start_date: date || new Date()})}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="end_date">End Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !campaignForm.end_date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {campaignForm.end_date ? format(campaignForm.end_date, "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={campaignForm.end_date}
+                        onSelect={(date) => setCampaignForm({...campaignForm, end_date: date || new Date()})}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={campaignForm.status}
+                    onValueChange={(value: 'active' | 'paused' | 'completed' | 'cancelled') => setCampaignForm({...campaignForm, status: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="financial_target">Financial Target ($)</Label>
+                  <Input
+                    id="financial_target"
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={campaignForm.financial_target}
+                    onChange={(e) => setCampaignForm({...campaignForm, financial_target: parseFloat(e.target.value) || 0})}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Create Campaign</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Search and filter controls */}
+      <div className="flex gap-4 items-center">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search campaigns..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="paused">Paused</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Main content */}
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : selectedCampaign ? (
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
-              <CardTitle className="text-2xl">{selectedCampaign.name}</CardTitle>
+              <div>
+                <CardTitle className="text-2xl">{selectedCampaign.name}</CardTitle>
+                <CardDescription>{selectedCampaign.description}</CardDescription>
+              </div>
               <Button variant="outline" onClick={() => setSelectedCampaign(null)}>
                 Back to Campaigns
               </Button>
@@ -752,33 +931,64 @@ NEXT STEPS:
             </Tabs>
           </CardContent>
         </Card>
-      )}
-      
-      {!selectedCampaign && campaigns.length === 0 && (
+      ) : filteredCampaigns.length === 0 ? (
         <Card>
           <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">
-              No campaigns available. Create a campaign first, then use the Strategy Chat to build goals.
-            </p>
-            <div className="text-center mt-4">
-              <Button onClick={() => {
-                // Create a demo campaign for testing
-                const demoCampaign: Campaign = {
-                  id: 'demo-1',
-                  name: 'Demo Campaign',
-                  description: 'A demo campaign to test the goal strategy system',
-                  start_date: new Date(),
-                  end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                  status: 'active',
-                  target_entities: []
-                };
-                setSelectedCampaign(demoCampaign);
-              }}>
-                Create Demo Campaign
+            <div className="text-center">
+              <Target className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No campaigns found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchTerm || statusFilter !== 'all' 
+                  ? "Try adjusting your search or filters"
+                  : "Create your first campaign to start tracking your outreach goals"}
+              </p>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Campaign
               </Button>
             </div>
           </CardContent>
         </Card>
+      ) : (
+        <div className="grid gap-6">
+          {filteredCampaigns.map((campaign) => (
+            <Card key={campaign.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedCampaign(campaign)}>
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle>{campaign.name}</CardTitle>
+                    <CardDescription>{campaign.description}</CardDescription>
+                  </div>
+                  <Badge variant={getStatusColor(campaign.status)}>{campaign.status}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Duration</p>
+                    <p className="font-medium">
+                      {Math.ceil((campaign.end_date.getTime() - campaign.start_date.getTime()) / (1000 * 60 * 60 * 24))} days
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Target Entities</p>
+                    <p className="font-medium">{campaign.target_entities.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Financial Target</p>
+                    <p className="font-medium">
+                      {campaign.financial_target ? formatCurrency(campaign.financial_target) : '$0'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Progress</p>
+                    <Progress value={calculateProgress(campaign)} className="mt-1" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   );
