@@ -348,7 +348,7 @@ const [postsPerPage] = useState(9);
         <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as 'queries' | 'analytics' | 'network' | 'engagement' | 'content')}>
           <TabsList>
             <TabsTrigger value="queries">Search Queries</TabsTrigger>
-            <TabsTrigger value="analytics">Instagram Analytics</TabsTrigger>
+            <TabsTrigger value="analytics">Target Posts</TabsTrigger>
             <TabsTrigger value="network">Network Graph</TabsTrigger>
             <TabsTrigger value="engagement">Instagram Engagement</TabsTrigger>
             <TabsTrigger value="content">Content Generation</TabsTrigger>

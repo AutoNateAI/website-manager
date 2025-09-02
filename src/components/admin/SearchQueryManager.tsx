@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Plus, Search, Target, Trash2, Edit, Sparkles } from 'lucide-react';
+import { LinkedPostsPanel } from './LinkedPostsPanel';
 
 interface SearchQuery {
   id: string;
@@ -321,106 +322,124 @@ export const SearchQueryManager: React.FC = () => {
 
       {/* Detail Modal */}
       <Dialog open={selectedQuery !== null} onOpenChange={(open) => !open && setSelectedQuery(null)}>
-        <DialogContent className="glass-modal max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedQuery?.title}</DialogTitle>
-          </DialogHeader>
-          {selectedQuery && (
-            <Tabs defaultValue="overview" className="mt-4">
-              <TabsList>
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="parameters">Parameters</TabsTrigger>
-                <TabsTrigger value="targeting">Targeting</TabsTrigger>
-                <TabsTrigger value="thresholds">Thresholds</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="overview" className="space-y-4">
-                <div>
-                  <h3 className="font-semibold mb-2">Description</h3>
-                  <p className="text-muted-foreground">{selectedQuery.description}</p>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-2">Business Types</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedQuery.parameters.business_types.map((type, index) => (
-                      <Badge key={index}>{type}</Badge>
-                    ))}
+        <DialogContent className="glass-modal max-w-7xl max-h-[95vh] p-0">
+          <div className="flex h-full max-h-[95vh]">
+            {/* Left Side - Query Details */}
+            <div className="flex-1 max-w-md border-r border-border flex flex-col">
+              <DialogHeader className="p-6 border-b border-border flex-shrink-0">
+                <DialogTitle className="text-xl font-bold line-clamp-2">
+                  {selectedQuery?.title}
+                </DialogTitle>
+              </DialogHeader>
+              {selectedQuery && (
+                <Tabs defaultValue="overview" className="flex-1 flex flex-col">
+                  <div className="p-6 border-b border-border">
+                    <TabsList className="grid w-full grid-cols-4">
+                      <TabsTrigger value="overview">Overview</TabsTrigger>
+                      <TabsTrigger value="parameters">Parameters</TabsTrigger>
+                      <TabsTrigger value="targeting">Targeting</TabsTrigger>
+                      <TabsTrigger value="thresholds">Thresholds</TabsTrigger>
+                    </TabsList>
                   </div>
-                </div>
-              </TabsContent>
 
-              <TabsContent value="parameters" className="space-y-4">
-                <div>
-                  <h3 className="font-semibold mb-2">Keywords</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedQuery.parameters.keywords.map((keyword, index) => (
-                      <Badge key={index} variant="secondary">{keyword}</Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-2">Topics</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedQuery.parameters.topics.map((topic, index) => (
-                      <Badge key={index} variant="outline">{topic}</Badge>
-                    ))}
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="targeting" className="space-y-4">
-                <div>
-                  <h3 className="font-semibold mb-2">Location Filters</h3>
-                  <div className="space-y-2">
-                    {selectedQuery.location_filters.map((filter, index) => (
-                      <div key={index} className="flex gap-2 text-sm">
-                        <Badge variant="outline">{filter.type}</Badge>
-                        <span>{filter.value}</span>
-                        {filter.radius && <span className="text-muted-foreground">({filter.radius})</span>}
+                  <div className="flex-1 overflow-y-auto">
+                    <TabsContent value="overview" className="p-6 space-y-4">
+                      <div>
+                        <h3 className="font-semibold mb-2">Description</h3>
+                        <div className="bg-muted/30 rounded-lg p-4">
+                          <p className="text-sm">{selectedQuery.description}</p>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-2">Hashtag Filters</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedQuery.hashtag_filters.map((hashtag, index) => (
-                      <Badge key={index} variant="outline">{hashtag}</Badge>
-                    ))}
-                  </div>
-                </div>
-              </TabsContent>
+                      <div>
+                        <h3 className="font-semibold mb-2">Business Types</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedQuery.parameters.business_types.map((type, index) => (
+                            <Badge key={index}>{type}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </TabsContent>
 
-              <TabsContent value="thresholds" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span>Minimum Likes</span>
-                      <span className="font-medium">{selectedQuery.engagement_thresholds.min_likes}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Minimum Comments</span>
-                      <span className="font-medium">{selectedQuery.engagement_thresholds.min_comments}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Real Commenter Ratio</span>
-                      <span className="font-medium">{Math.round(selectedQuery.engagement_thresholds.real_commenter_ratio * 100)}%</span>
-                    </div>
+                    <TabsContent value="parameters" className="p-6 space-y-4">
+                      <div>
+                        <h3 className="font-semibold mb-2">Keywords</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedQuery.parameters.keywords.map((keyword, index) => (
+                            <Badge key={index} variant="secondary">{keyword}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold mb-2">Topics</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedQuery.parameters.topics.map((topic, index) => (
+                            <Badge key={index} variant="outline">{topic}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="targeting" className="p-6 space-y-4">
+                      <div>
+                        <h3 className="font-semibold mb-2">Location Filters</h3>
+                        <div className="space-y-2">
+                          {selectedQuery.location_filters.map((filter, index) => (
+                            <div key={index} className="flex gap-2 text-sm">
+                              <Badge variant="outline">{filter.type}</Badge>
+                              <span>{filter.value}</span>
+                              {filter.radius && <span className="text-muted-foreground">({filter.radius})</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold mb-2">Hashtag Filters</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedQuery.hashtag_filters.map((hashtag, index) => (
+                            <Badge key={index} variant="outline">{hashtag}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="thresholds" className="p-6 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
+                          <div className="flex justify-between">
+                            <span>Minimum Likes</span>
+                            <span className="font-medium">{selectedQuery.engagement_thresholds.min_likes}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Minimum Comments</span>
+                            <span className="font-medium">{selectedQuery.engagement_thresholds.min_comments}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Real Commenter Ratio</span>
+                            <span className="font-medium">{Math.round(selectedQuery.engagement_thresholds.real_commenter_ratio * 100)}%</span>
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex justify-between">
+                            <span>Minimum Monthly Posts</span>
+                            <span className="font-medium">{selectedQuery.engagement_thresholds.min_monthly_posts}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Minimum Total Posts</span>
+                            <span className="font-medium">{selectedQuery.engagement_thresholds.min_total_posts}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span>Minimum Monthly Posts</span>
-                      <span className="font-medium">{selectedQuery.engagement_thresholds.min_monthly_posts}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Minimum Total Posts</span>
-                      <span className="font-medium">{selectedQuery.engagement_thresholds.min_total_posts}</span>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          )}
+                </Tabs>
+              )}
+            </div>
+            
+            {/* Right Side - Linked Posts */}
+            <div className="flex-1 min-w-0 flex flex-col">
+              <LinkedPostsPanel queryId={selectedQuery?.id} />
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
