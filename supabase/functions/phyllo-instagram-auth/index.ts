@@ -105,7 +105,7 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               user_id: userId,
-              products: ['IDENTITY', 'ENGAGEMENT', 'PUBLISH_CONTENT'], // Fixed the typo
+              products: ['IDENTITY', 'ENGAGEMENT', 'PUBLISH.CONTENT'], // Correct product key for publish
               // Let Phyllo handle platform selection during the flow
             }),
           });
