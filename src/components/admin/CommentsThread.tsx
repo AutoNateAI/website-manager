@@ -47,6 +47,8 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
   const [showAddComment, setShowAddComment] = useState(false);
   const [scheduledFor, setScheduledFor] = useState('');
   const [commentStatus, setCommentStatus] = useState<{ [key: string]: string }>({});
+  const [editingLikeCount, setEditingLikeCount] = useState<string | null>(null);
+  const [likeCountInput, setLikeCountInput] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -293,18 +295,27 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
     }
   };
 
-  const updateLikeCount = async (commentId: string) => {
-    const newCount = prompt('Enter new like count:');
-    if (newCount === null || isNaN(Number(newCount))) return;
+  const startEditingLikeCount = (commentId: string, currentCount: number) => {
+    setEditingLikeCount(commentId);
+    setLikeCountInput(currentCount.toString());
+  };
+
+  const cancelEditingLikeCount = () => {
+    setEditingLikeCount(null);
+    setLikeCountInput('');
+  };
+
+  const saveEditingLikeCount = async () => {
+    if (!editingLikeCount || isNaN(Number(likeCountInput))) return;
     
-    const newLikeCount = parseInt(newCount);
+    const newLikeCount = parseInt(likeCountInput);
     
     try {
       // Get current like count
       const { data: currentComment } = await supabase
         .from('social_media_comments')
         .select('like_count')
-        .eq('id', commentId)
+        .eq('id', editingLikeCount)
         .single();
       
       const previousCount = currentComment?.like_count || 0;
@@ -313,7 +324,7 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
       const { error: updateError } = await supabase
         .from('social_media_comments')
         .update({ like_count: newLikeCount })
-        .eq('id', commentId);
+        .eq('id', editingLikeCount);
 
       if (updateError) throw updateError;
 
@@ -321,7 +332,7 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
       const { error: historyError } = await supabase
         .from('comment_like_history')
         .insert({
-          comment_id: commentId,
+          comment_id: editingLikeCount,
           previous_count: previousCount,
           new_count: newLikeCount,
           changed_by: 'admin'
@@ -332,6 +343,8 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
       }
 
       await fetchComments();
+      setEditingLikeCount(null);
+      setLikeCountInput('');
       
       toast({
         title: "Success",
@@ -389,16 +402,49 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
               </span>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => updateLikeCount(comment.id)}
-                className="h-6 px-2 text-xs hover:bg-accent flex items-center gap-1"
-                title="Click to update like count"
-              >
-                <Heart className="h-3 w-3" />
-                {comment.like_count}
-              </Button>
+              {editingLikeCount === comment.id ? (
+                <div className="flex items-center gap-1">
+                  <Heart className="h-3 w-3" />
+                  <Input
+                    type="number"
+                    value={likeCountInput}
+                    onChange={(e) => setLikeCountInput(e.target.value)}
+                    className="h-6 w-12 px-1 text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveEditingLikeCount();
+                      if (e.key === 'Escape') cancelEditingLikeCount();
+                    }}
+                    autoFocus
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={saveEditingLikeCount}
+                    className="h-6 px-1 text-green-600 hover:text-green-700"
+                  >
+                    ✓
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={cancelEditingLikeCount}
+                    className="h-6 px-1 text-red-600 hover:text-red-700"
+                  >
+                    ✕
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => startEditingLikeCount(comment.id, comment.like_count)}
+                  className="h-6 px-2 text-xs hover:bg-accent flex items-center gap-1"
+                  title="Click to update like count"
+                >
+                  <Heart className="h-3 w-3" />
+                  {comment.like_count}
+                </Button>
+              )}
             </div>
           </div>
           
