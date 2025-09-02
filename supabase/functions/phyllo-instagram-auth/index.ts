@@ -96,23 +96,21 @@ serve(async (req) => {
             return json({ error: 'Unable to determine phyllo_user_id' }, 500);
           }
 
-          // 2) Create SDK token for that user with Instagram-specific configuration
+          // 2) Create SDK token for that user - let Phyllo handle permissions automatically
+          const tokenPayload = {
+            user_id: userId,
+            products: ['PUBLISH.CONTENT', 'IDENTITY']
+          };
+          
+          console.log('Creating SDK token with payload:', JSON.stringify(tokenPayload, null, 2));
+          
           const tokenResp = await fetch(`${apiBase}/v1/sdk-tokens`, {
             method: 'POST',
             headers: {
               Authorization: basicAuth,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              user_id: userId,
-              products: ['IDENTITY', 'ENGAGEMENT', 'PUBLISH.CONTENT'], 
-              work_platform_id: 17, // Instagram Business ID
-              permissions: [
-                'instagram_basic',           // Base Instagram permission (required)
-                'instagram_content_publish', // Instagram posting permission
-                'pages_read_engagement'      // Read page data (required dependency)
-              ]
-            }),
+            body: JSON.stringify(tokenPayload),
           });
 
           if (!tokenResp.ok) {
