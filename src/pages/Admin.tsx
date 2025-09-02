@@ -21,6 +21,7 @@ import { CampaignManager } from '@/components/admin/CampaignManager';
 import { SlideManager } from '@/components/admin/SlideManager';
 import PersonNotesManager from '@/components/admin/PersonNotesManager';
 import PromptTemplateManager from '@/components/admin/PromptTemplateManager';
+import { SOPManager } from '@/components/admin/SOPManager';
 
 const Admin = () => {
   const { user, loading, signOut, isAdmin } = useAuth();
@@ -74,6 +75,8 @@ const Admin = () => {
         return <CampaignManager />;
       case 'prompt-templates':
         return <PromptTemplateManager />;
+      case 'sops':
+        return <SOPManager />;
       default:
         return <LeadManager />;
     }

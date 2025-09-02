@@ -25,6 +25,22 @@ interface TargetPost {
   analysis_status: string;
   notes?: string;
   created_at: string;
+  // New attention scoring fields
+  attention_score?: number;
+  authenticity_score?: number;
+  market_fit_score?: number;
+  network_value_score?: number;
+  overall_attention_score?: number;
+  scoring_metadata?: any;
+  last_scored_at?: string;
+  // Relationship fields
+  post_search_queries?: Array<{
+    search_queries?: {
+      id: string;
+      title: string;
+    };
+  }>;
+  instagram_users?: InstagramUser;
 }
 
 interface InstagramUser {
