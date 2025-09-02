@@ -20,7 +20,9 @@ import { useToast } from '@/hooks/use-toast';
 import SocialImageEditor from './SocialImageEditor';
 import SocialMediaPostCard from './SocialMediaPostCard';
 import SocialMediaPostDetailModal from './SocialMediaPostDetailModal';
-import InstagramAutomationTab from './instagram/InstagramAutomationTab';
+import { InstagramAnalyticsTab } from './instagram/InstagramAnalyticsTab';
+import { NetworkGraphTab } from './instagram/NetworkGraphTab';  
+import { InstagramEngagementTab } from './instagram/InstagramEngagementTab';
 import { SocialMediaPost, SocialMediaImage } from './types';
 
 interface SourceItem {
@@ -102,8 +104,8 @@ const SocialMediaManager = () => {
   const [currentPage, setCurrentPage] = useState(1);
 const [postsPerPage] = useState(9);
   
-  // Main tab state: content generation vs Instagram automation
-  const [activeMainTab, setActiveMainTab] = useState<'content' | 'instagram'>('content');
+  // Main tab state: analytics is first, then network, engagement, and content generation
+  const [activeMainTab, setActiveMainTab] = useState<'analytics' | 'network' | 'engagement' | 'content'>('analytics');
   
   // Detail modal state
   const [selectedPost, setSelectedPost] = useState<SocialMediaPost | null>(null);
@@ -342,14 +344,20 @@ const [postsPerPage] = useState(9);
   return (
     <div className="space-y-6">
       <div className="glass-card p-4">
-        <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as 'content' | 'instagram')}>
+        <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as 'analytics' | 'network' | 'engagement' | 'content')}>
           <TabsList>
+            <TabsTrigger value="analytics">Instagram Analytics</TabsTrigger>
+            <TabsTrigger value="network">Network Graph</TabsTrigger>
+            <TabsTrigger value="engagement">Instagram Engagement</TabsTrigger>
             <TabsTrigger value="content">Content Generation</TabsTrigger>
-            <TabsTrigger value="instagram">Instagram Automation</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
-      {activeMainTab === 'content' ? (
+      
+      {activeMainTab === 'analytics' && <InstagramAnalyticsTab />}
+      {activeMainTab === 'network' && <NetworkGraphTab />}
+      {activeMainTab === 'engagement' && <InstagramEngagementTab />}
+      {activeMainTab === 'content' && (
         <>
       <div className="glass-card p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -836,8 +844,6 @@ const [postsPerPage] = useState(9);
         onImageUpdated={fetchData}
       />
       </>
-      ) : (
-        <InstagramAutomationTab />
       )}
     </div>
   );

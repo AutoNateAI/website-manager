@@ -166,6 +166,63 @@ export type Database = {
           },
         ]
       }
+      attention_network: {
+        Row: {
+          attention_strength: number | null
+          attention_type: string
+          created_at: string
+          frequency_score: number | null
+          id: string
+          influence_weight: number | null
+          network_cluster: string | null
+          recency_score: number | null
+          source_user_id: string
+          target_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          attention_strength?: number | null
+          attention_type: string
+          created_at?: string
+          frequency_score?: number | null
+          id?: string
+          influence_weight?: number | null
+          network_cluster?: string | null
+          recency_score?: number | null
+          source_user_id: string
+          target_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          attention_strength?: number | null
+          attention_type?: string
+          created_at?: string
+          frequency_score?: number | null
+          id?: string
+          influence_weight?: number | null
+          network_cluster?: string | null
+          recency_score?: number | null
+          source_user_id?: string
+          target_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attention_network_source_user_id_fkey"
+            columns: ["source_user_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attention_network_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_rules: {
         Row: {
           account_id: string
@@ -534,6 +591,54 @@ export type Database = {
         }
         Relationships: []
       }
+      content_analysis: {
+        Row: {
+          analysis_metadata: Json | null
+          confidence_score: number | null
+          content_id: string
+          content_type: string
+          created_at: string
+          hashtags: string[] | null
+          id: string
+          keywords: string[] | null
+          language: string | null
+          mentions: string[] | null
+          sentiment_label: string | null
+          sentiment_score: number | null
+          topics: string[] | null
+        }
+        Insert: {
+          analysis_metadata?: Json | null
+          confidence_score?: number | null
+          content_id: string
+          content_type: string
+          created_at?: string
+          hashtags?: string[] | null
+          id?: string
+          keywords?: string[] | null
+          language?: string | null
+          mentions?: string[] | null
+          sentiment_label?: string | null
+          sentiment_score?: number | null
+          topics?: string[] | null
+        }
+        Update: {
+          analysis_metadata?: Json | null
+          confidence_score?: number | null
+          content_id?: string
+          content_type?: string
+          created_at?: string
+          hashtags?: string[] | null
+          id?: string
+          keywords?: string[] | null
+          language?: string | null
+          mentions?: string[] | null
+          sentiment_label?: string | null
+          sentiment_score?: number | null
+          topics?: string[] | null
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           created_at: string
@@ -721,6 +826,85 @@ export type Database = {
           last_shown?: string
         }
         Relationships: []
+      }
+      engagement_activities: {
+        Row: {
+          activity_type: string
+          content: string | null
+          created_at: string
+          engagement_score: number | null
+          id: string
+          led_to_follow: boolean | null
+          notes: string | null
+          parent_comment_id: string | null
+          response_content: string | null
+          response_received: boolean | null
+          response_timestamp: string | null
+          sentiment_analysis: string | null
+          target_post_id: string | null
+          target_user_id: string | null
+          topics: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          activity_type: string
+          content?: string | null
+          created_at?: string
+          engagement_score?: number | null
+          id?: string
+          led_to_follow?: boolean | null
+          notes?: string | null
+          parent_comment_id?: string | null
+          response_content?: string | null
+          response_received?: boolean | null
+          response_timestamp?: string | null
+          sentiment_analysis?: string | null
+          target_post_id?: string | null
+          target_user_id?: string | null
+          topics?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          activity_type?: string
+          content?: string | null
+          created_at?: string
+          engagement_score?: number | null
+          id?: string
+          led_to_follow?: boolean | null
+          notes?: string | null
+          parent_comment_id?: string | null
+          response_content?: string | null
+          response_received?: boolean | null
+          response_timestamp?: string | null
+          sentiment_analysis?: string | null
+          target_post_id?: string | null
+          target_user_id?: string | null
+          topics?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engagement_activities_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "engagement_activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engagement_activities_target_post_id_fkey"
+            columns: ["target_post_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_target_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engagement_activities_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_connections: {
         Row: {
@@ -1104,6 +1288,152 @@ export type Database = {
           },
         ]
       }
+      instagram_target_posts: {
+        Row: {
+          analysis_status: string | null
+          comment_count: number | null
+          created_at: string
+          hashtags: string[] | null
+          id: string
+          like_count: number | null
+          location_tag: string | null
+          mention_count: number | null
+          notes: string | null
+          post_content: string | null
+          post_id: string | null
+          post_timestamp: string | null
+          post_url: string
+          poster_user_id: string | null
+          poster_username: string | null
+          updated_at: string
+        }
+        Insert: {
+          analysis_status?: string | null
+          comment_count?: number | null
+          created_at?: string
+          hashtags?: string[] | null
+          id?: string
+          like_count?: number | null
+          location_tag?: string | null
+          mention_count?: number | null
+          notes?: string | null
+          post_content?: string | null
+          post_id?: string | null
+          post_timestamp?: string | null
+          post_url: string
+          poster_user_id?: string | null
+          poster_username?: string | null
+          updated_at?: string
+        }
+        Update: {
+          analysis_status?: string | null
+          comment_count?: number | null
+          created_at?: string
+          hashtags?: string[] | null
+          id?: string
+          like_count?: number | null
+          location_tag?: string | null
+          mention_count?: number | null
+          notes?: string | null
+          post_content?: string | null
+          post_id?: string | null
+          post_timestamp?: string | null
+          post_url?: string
+          poster_user_id?: string | null
+          poster_username?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instagram_target_posts_poster_user_id_fkey"
+            columns: ["poster_user_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      instagram_users: {
+        Row: {
+          account_type: string | null
+          bio: string | null
+          created_at: string
+          discovered_through: string | null
+          discovery_source_id: string | null
+          display_name: string | null
+          engagement_rate: number | null
+          external_url: string | null
+          followed_at: string | null
+          follower_count: number | null
+          following_count: number | null
+          follows_me: boolean | null
+          id: string
+          influence_score: number | null
+          is_business_account: boolean | null
+          is_verified: boolean | null
+          location: string | null
+          niche_categories: string[] | null
+          notes: string | null
+          post_count: number | null
+          profile_image_url: string | null
+          sentiment_score: number | null
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          account_type?: string | null
+          bio?: string | null
+          created_at?: string
+          discovered_through?: string | null
+          discovery_source_id?: string | null
+          display_name?: string | null
+          engagement_rate?: number | null
+          external_url?: string | null
+          followed_at?: string | null
+          follower_count?: number | null
+          following_count?: number | null
+          follows_me?: boolean | null
+          id?: string
+          influence_score?: number | null
+          is_business_account?: boolean | null
+          is_verified?: boolean | null
+          location?: string | null
+          niche_categories?: string[] | null
+          notes?: string | null
+          post_count?: number | null
+          profile_image_url?: string | null
+          sentiment_score?: number | null
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          account_type?: string | null
+          bio?: string | null
+          created_at?: string
+          discovered_through?: string | null
+          discovery_source_id?: string | null
+          display_name?: string | null
+          engagement_rate?: number | null
+          external_url?: string | null
+          followed_at?: string | null
+          follower_count?: number | null
+          following_count?: number | null
+          follows_me?: boolean | null
+          id?: string
+          influence_score?: number | null
+          is_business_account?: boolean | null
+          is_verified?: boolean | null
+          location?: string | null
+          niche_categories?: string[] | null
+          notes?: string | null
+          post_count?: number | null
+          profile_image_url?: string | null
+          sentiment_score?: number | null
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       link_previews: {
         Row: {
           blog_id: string | null
@@ -1200,6 +1530,51 @@ export type Database = {
           tags?: Json | null
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      location_intelligence: {
+        Row: {
+          active_times: Json | null
+          created_at: string
+          engagement_quality_score: number | null
+          id: string
+          latitude: number | null
+          location_name: string
+          location_type: string | null
+          longitude: number | null
+          notes: string | null
+          trending_topics: string[] | null
+          updated_at: string
+          user_count: number | null
+        }
+        Insert: {
+          active_times?: Json | null
+          created_at?: string
+          engagement_quality_score?: number | null
+          id?: string
+          latitude?: number | null
+          location_name: string
+          location_type?: string | null
+          longitude?: number | null
+          notes?: string | null
+          trending_topics?: string[] | null
+          updated_at?: string
+          user_count?: number | null
+        }
+        Update: {
+          active_times?: Json | null
+          created_at?: string
+          engagement_quality_score?: number | null
+          id?: string
+          latitude?: number | null
+          location_name?: string
+          location_type?: string | null
+          longitude?: number | null
+          notes?: string | null
+          trending_topics?: string[] | null
+          updated_at?: string
+          user_count?: number | null
         }
         Relationships: []
       }
@@ -2188,6 +2563,51 @@ export type Database = {
             columns: ["goal_id"]
             isOneToOne: false
             referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_interactions: {
+        Row: {
+          discovered_at: string
+          id: string
+          interaction_context: string | null
+          interaction_type: string
+          strength_score: number | null
+          user_a_id: string
+          user_b_id: string
+        }
+        Insert: {
+          discovered_at?: string
+          id?: string
+          interaction_context?: string | null
+          interaction_type: string
+          strength_score?: number | null
+          user_a_id: string
+          user_b_id: string
+        }
+        Update: {
+          discovered_at?: string
+          id?: string
+          interaction_context?: string | null
+          interaction_type?: string
+          strength_score?: number | null
+          user_a_id?: string
+          user_b_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_interactions_user_a_id_fkey"
+            columns: ["user_a_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_interactions_user_b_id_fkey"
+            columns: ["user_b_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_users"
             referencedColumns: ["id"]
           },
         ]
