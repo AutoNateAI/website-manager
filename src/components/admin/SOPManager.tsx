@@ -415,8 +415,8 @@ export const SOPManager: React.FC = () => {
 
       {/* Conversation Dialog */}
       <Dialog open={conversationDialog} onOpenChange={setConversationDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
             <DialogTitle>
               {selectedSop ? `SOP Chat: ${selectedSop.title}` : 'Create New SOP'}
             </DialogTitle>
@@ -428,134 +428,139 @@ export const SOPManager: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto space-y-4 p-4 bg-muted/30 rounded">
-            {currentConversation.map((message, index) => (
-              <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] p-3 rounded-lg ${
-                  message.role === 'user' 
-                    ? 'bg-primary text-primary-foreground' 
-                    : 'bg-background border'
-                }`}>
-                  <div className="text-xs mb-1 opacity-70 capitalize">{message.role}</div>
-                  <div className="text-sm">{message.content}</div>
+          <div className="flex-1 overflow-y-auto p-4 bg-muted/30 min-h-0">
+            <div className="space-y-4 pb-4">
+              {currentConversation.map((message, index) => (
+                <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] p-3 rounded-lg ${
+                    message.role === 'user' 
+                      ? 'bg-primary text-primary-foreground' 
+                      : 'bg-background border'
+                  }`}>
+                    <div className="text-xs mb-1 opacity-70 capitalize">{message.role}</div>
+                    <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {isProcessingMessage && (
-              <div className="flex justify-start">
-                <div className="bg-background border p-3 rounded-lg">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+              ))}
+              {isProcessingMessage && (
+                <div className="flex justify-start">
+                  <div className="bg-background border p-3 rounded-lg">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          <div className="flex gap-2 mt-4">
-            <Input
-              placeholder="Type your message about this SOP..."
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-              className="flex-1"
-            />
-            <Button onClick={sendMessage} disabled={isProcessingMessage || !messageInput.trim()}>
-              Send
-            </Button>
-          </div>
+          <div className="border-t bg-background p-4 flex-shrink-0 space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder={selectedSop ? "Continue the conversation..." : "Describe the process you want to document..."}
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                className="flex-1"
+              />
+              <Button onClick={sendMessage} disabled={isProcessingMessage || !messageInput.trim()}>
+                Send
+              </Button>
+            </div>
 
-          <div className="flex flex-col gap-4 pt-4 border-t">
-            <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => setConversationDialog(false)}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={extractSOPData} 
-                  disabled={isExtracting || currentConversation.length < 3}
-                  variant="secondary"
-                >
-                  {isExtracting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Extracting Data...
-                    </>
-                  ) : (
-                    <>
-                      <Brain className="mr-2 h-4 w-4" />
-                      Extract Structured Data
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              <div className="flex-1 grid md:grid-cols-3 gap-3">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">Turns: {Math.floor(currentConversation.filter(m=>m.role!== 'system').length/2)}/2</Badge>
-                </div>
-
-                <div>
-                  <Label className="text-xs">Select Template</Label>
-                  <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={templatesLoading ? 'Loading...' : 'Choose a template'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {templates.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>{t.title} ({t.category})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-end gap-2">
+                  <Button variant="outline" onClick={() => setConversationDialog(false)}>
+                    Cancel
+                  </Button>
                   <Button 
-                    onClick={handleGenerateSOP}
-                    disabled={!minTurnsReached() || !selectedTemplateId || isGeneratingSOP}
+                    onClick={extractSOPData} 
+                    disabled={isExtracting || currentConversation.length < 3}
+                    variant="secondary"
                   >
-                    {isGeneratingSOP ? (
+                    {isExtracting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating SOP...
+                        Extracting Data...
                       </>
                     ) : (
-                      'Create SOP'
+                      <>
+                        <Brain className="mr-2 h-4 w-4" />
+                        Extract Structured Data
+                      </>
                     )}
                   </Button>
                 </div>
-              </div>
-            </div>
 
-            <div className="grid md:grid-cols-3 gap-3">
-              <div>
-                <Label className="text-xs">New Template Title</Label>
-                <Input value={newTemplateTitle} onChange={(e)=>setNewTemplateTitle(e.target.value)} placeholder="e.g., Onboarding Process Template" />
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">Turns: {Math.floor(currentConversation.filter(m=>m.role!== 'system').length/2)}/2</Badge>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Select Template</Label>
+                    <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={templatesLoading ? 'Loading...' : 'Choose a template'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {templates.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>{t.title} ({t.category})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-end">
+                    <Button 
+                      onClick={handleGenerateSOP}
+                      disabled={!minTurnsReached() || !selectedTemplateId || isGeneratingSOP}
+                      className="w-full"
+                    >
+                      {isGeneratingSOP ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Creating SOP...
+                        </>
+                      ) : (
+                        'Create SOP'
+                      )}
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label className="text-xs">Category</Label>
-                <Select value={newTemplateCategory} onValueChange={setNewTemplateCategory}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="general">General</SelectItem>
-                    <SelectItem value="process">Process</SelectItem>
-                    <SelectItem value="training">Training</SelectItem>
-                    <SelectItem value="policy">Policy</SelectItem>
-                    <SelectItem value="operations">Operations</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <Button onClick={handleGenerateTemplate} disabled={isGeneratingTemplate || !minTurnsReached()} variant="outline" className="w-full">
-                  {isGeneratingTemplate ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating Template...
-                    </>
-                  ) : (
-                    'Generate Template from Conversation'
-                  )}
-                </Button>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">New Template Title</Label>
+                  <Input value={newTemplateTitle} onChange={(e)=>setNewTemplateTitle(e.target.value)} placeholder="e.g., Onboarding Process Template" />
+                </div>
+                <div>
+                  <Label className="text-xs">Category</Label>
+                  <Select value={newTemplateCategory} onValueChange={setNewTemplateCategory}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="general">General</SelectItem>
+                      <SelectItem value="process">Process</SelectItem>
+                      <SelectItem value="training">Training</SelectItem>
+                      <SelectItem value="policy">Policy</SelectItem>
+                      <SelectItem value="operations">Operations</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={handleGenerateTemplate} disabled={isGeneratingTemplate || !minTurnsReached()} variant="outline" className="w-full">
+                    {isGeneratingTemplate ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Generating Template...
+                      </>
+                    ) : (
+                      'Generate Template from Conversation'
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
