@@ -349,7 +349,7 @@ NEXT STEPS:
       const { data, error } = await supabase.functions.invoke('goal-strategy-chat', {
         body: { 
           messages: newMessages,
-          linkedSOPs: linkedSOPs,
+          linkedSOPs: selectedCampaignSOPs,
           action: 'chat'
         }
       });
@@ -375,7 +375,7 @@ NEXT STEPS:
       const { data, error } = await supabase.functions.invoke('goal-strategy-chat', {
         body: { 
           messages: campaignMessages,
-          linkedSOPs: linkedSOPs,
+          linkedSOPs: selectedCampaignSOPs,
           action: 'extract_and_create'
         }
       });
@@ -870,229 +870,150 @@ NEXT STEPS:
               New Campaign
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Campaign</DialogTitle>
-              <DialogDescription>
-                Let's discuss your campaign goals and strategy. I'll help you create a comprehensive campaign plan.
-              </DialogDescription>
-            </DialogHeader>
+          <DialogContent className="max-w-4xl max-h-[80vh] flex">
+            <div className="flex-1">
+              <DialogHeader>
+                <DialogTitle>Create New Campaign</DialogTitle>
+                <DialogDescription>
+                  Let's discuss your campaign goals and strategy. I'll help you create a comprehensive campaign plan.
+                </DialogDescription>
+              </DialogHeader>
 
-            <div className="space-y-4 max-h-96 overflow-y-auto" ref={chatScrollRef}>
-              {campaignMessages.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Target className="mx-auto h-12 w-12 mb-4" />
-                  <p>Hi! I'm your Campaign Strategy Assistant. Let's create an amazing campaign together!</p>
-                  <p className="text-sm mt-2">Tell me about your campaign - what are you trying to achieve?</p>
-                </div>
-              ) : (
-                campaignMessages.map((msg, idx) => (
-                  <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] p-3 rounded-lg ${
-                      msg.role === 'user' 
-                        ? 'bg-primary text-primary-foreground ml-auto' 
-                        : 'bg-muted'
-                    }`}>
-                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              <div className="space-y-4 max-h-96 overflow-y-auto" ref={chatScrollRef}>
+                {campaignMessages.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Target className="mx-auto h-12 w-12 mb-4" />
+                    <p>Hi! I'm your Campaign Strategy Assistant. Let's create an amazing campaign together!</p>
+                    <p className="text-sm mt-2">Tell me about your campaign - what are you trying to achieve?</p>
+                  </div>
+                ) : (
+                  campaignMessages.map((msg, idx) => (
+                    <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[80%] p-3 rounded-lg ${
+                        msg.role === 'user' 
+                          ? 'bg-primary text-primary-foreground ml-auto' 
+                          : 'bg-muted'
+                      }`}>
+                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+                {campaignConversationLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-muted p-3 rounded-lg max-w-[80%]">
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                        <span className="text-sm text-muted-foreground">Thinking...</span>
+                      </div>
                     </div>
                   </div>
-                ))
-              )}
-              {campaignConversationLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-muted p-3 rounded-lg max-w-[80%]">
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                      <span className="text-sm text-muted-foreground">Thinking...</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Type your message here..."
-                  value={conversationInput}
-                  onChange={(e) => setConversationInput(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && !campaignConversationLoading && conversationInput.trim()) {
-                      handleCampaignConversationMessage(conversationInput);
-                      setConversationInput('');
-                    }
-                  }}
-                  disabled={campaignConversationLoading}
-                />
-                <Button
-                  onClick={() => {
-                    if (conversationInput.trim()) {
-                      handleCampaignConversationMessage(conversationInput);
-                      setConversationInput('');
-                    }
-                  }}
-                  disabled={campaignConversationLoading || !conversationInput.trim()}
-                  size="sm"
-                >
-                  Send
-                </Button>
+                )}
               </div>
 
-              {conversationTurnCount >= 2 && (
-                <div className="flex justify-center pt-4 border-t">
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Type your message here..."
+                    value={conversationInput}
+                    onChange={(e) => setConversationInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !campaignConversationLoading && conversationInput.trim()) {
+                        handleCampaignConversationMessage(conversationInput);
+                        setConversationInput('');
+                      }
+                    }}
+                    disabled={campaignConversationLoading}
+                  />
                   <Button
-                    onClick={handleCreateCampaignFromConversation}
-                    disabled={campaignCreationLoading}
-                    className="w-full"
+                    onClick={() => {
+                      if (conversationInput.trim()) {
+                        handleCampaignConversationMessage(conversationInput);
+                        setConversationInput('');
+                      }
+                    }}
+                    disabled={campaignConversationLoading || !conversationInput.trim()}
+                    size="sm"
                   >
-                    {campaignCreationLoading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Creating Campaign...
-                      </>
-                    ) : (
-                      <>
-                        <Target className="h-4 w-4 mr-2" />
-                        Create Campaign from Conversation
-                      </>
-                    )}
+                    Send
                   </Button>
                 </div>
-              )}
+
+                {conversationTurnCount >= 2 && (
+                  <div className="flex justify-center pt-4 border-t">
+                    <Button
+                      onClick={handleCreateCampaignFromConversation}
+                      disabled={campaignCreationLoading}
+                      className="w-full"
+                    >
+                      {campaignCreationLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Creating Campaign...
+                        </>
+                      ) : (
+                        <>
+                          <Target className="h-4 w-4 mr-2" />
+                          Create Campaign from Conversation
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
-          </DialogContent>
-        </Dialog>
-        
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" onClick={() => resetForm()}>
-              Manual Setup
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create New Campaign</DialogTitle>
-              <DialogDescription>
-                Set up a new campaign with financial targets and outreach goals
-              </DialogDescription>
-            </DialogHeader>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Campaign Name *</Label>
-                <Input
-                  id="name"
-                  placeholder="Enter campaign name..."
-                  value={campaignForm.name}
-                  onChange={(e) => setCampaignForm({...campaignForm, name: e.target.value})}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Describe your campaign goals..."
-                  value={campaignForm.description}
-                  onChange={(e) => setCampaignForm({...campaignForm, description: e.target.value})}
-                  rows={3}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="start_date">Start Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !campaignForm.start_date && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {campaignForm.start_date ? format(campaignForm.start_date, "PPP") : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={campaignForm.start_date}
-                        onSelect={(date) => setCampaignForm({...campaignForm, start_date: date || new Date()})}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="end_date">End Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !campaignForm.end_date && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {campaignForm.end_date ? format(campaignForm.end_date, "PPP") : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={campaignForm.end_date}
-                        onSelect={(date) => setCampaignForm({...campaignForm, end_date: date || new Date()})}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+            {/* SOP Selection Panel */}
+            <div className="w-80 border-l pl-4 space-y-4">
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Available SOPs</h4>
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                  {availableSOPs.map((sop) => (
+                    <div key={sop.id} className="p-2 border rounded text-xs">
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="font-medium">{sop.title}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0"
+                          onClick={() => {
+                            if (!selectedCampaignSOPs.find(s => s.id === sop.id)) {
+                              setSelectedCampaignSOPs([...selectedCampaignSOPs, sop]);
+                            }
+                          }}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <Badge variant="outline" className="text-xs">{sop.category}</Badge>
+                      <p className="text-muted-foreground mt-1">{sop.description}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Linked Strategies</h4>
                 <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select
-                    value={campaignForm.status}
-                    onValueChange={(value: 'active' | 'paused' | 'completed' | 'cancelled') => setCampaignForm({...campaignForm, status: value})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="paused">Paused</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="financial_target">Financial Target ($)</Label>
-                  <Input
-                    id="financial_target"
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={campaignForm.financial_target}
-                    onChange={(e) => setCampaignForm({...campaignForm, financial_target: parseFloat(e.target.value) || 0})}
-                  />
+                  {selectedCampaignSOPs.map((sop) => (
+                    <div key={sop.id} className="p-2 bg-primary/10 border rounded text-xs">
+                      <div className="flex justify-between items-start">
+                        <span className="font-medium">{sop.title}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0"
+                          onClick={() => setSelectedCampaignSOPs(selectedCampaignSOPs.filter(s => s.id !== sop.id))}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">{sop.category}</Badge>
+                    </div>
+                  ))}
                 </div>
               </div>
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">Create Campaign</Button>
-              </DialogFooter>
-            </form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
