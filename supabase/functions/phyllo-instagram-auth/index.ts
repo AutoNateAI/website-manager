@@ -96,7 +96,7 @@ serve(async (req) => {
             return json({ error: 'Unable to determine phyllo_user_id' }, 500);
           }
 
-          // 2) Create SDK token for that user
+          // 2) Create SDK token for that user with Instagram-specific configuration
           const tokenResp = await fetch(`${apiBase}/v1/sdk-tokens`, {
             method: 'POST',
             headers: {
@@ -105,7 +105,8 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               user_id: userId,
-              products: ['IDENTITY', 'ENGAGEMENT', 'PUBLISH.CONTENT'],
+              products: ['IDENTITY', 'ENGAGEMENT', 'PUBLISH_CONTENT'], // Fixed the typo
+              // Let Phyllo handle platform selection during the flow
             }),
           });
 

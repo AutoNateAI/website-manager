@@ -58,13 +58,15 @@ export default function InstagramAccountConnector() {
         throw new Error('Missing token or user ID from server');
       }
 
-      // Initialize Phyllo Connect SDK
+      // Initialize Phyllo Connect SDK with required permissions
       const config = {
         clientDisplayName: 'AutoNate AI',
         environment: currentEnvironment || 'sandbox',
         userId: phyllo_user_id,
         token: token,
-        redirect: false // Use popup flow - let users choose platform
+        redirect: false, // Use popup flow - let users choose platform
+        // Let Phyllo show platform selection and handle scopes automatically
+        products: ['IDENTITY', 'ENGAGEMENT', 'PUBLISH_CONTENT']
       };
 
       const phylloConnect = window.PhylloConnect.initialize(config);
