@@ -320,7 +320,7 @@ NEXT STEPS:
       const { data, error } = await supabase.functions.invoke('goal-strategy-chat', {
         body: { 
           messages: newMessages,
-          linkedSOPs: availableSOPs,
+          linkedSOPs: linkedSOPs,
           action: 'chat'
         }
       });
@@ -346,7 +346,7 @@ NEXT STEPS:
       const { data, error } = await supabase.functions.invoke('goal-strategy-chat', {
         body: { 
           messages: campaignMessages,
-          linkedSOPs: availableSOPs,
+          linkedSOPs: linkedSOPs,
           action: 'extract_and_create'
         }
       });
