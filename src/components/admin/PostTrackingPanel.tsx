@@ -54,19 +54,23 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
       if (usersError) throw usersError;
 
       // Fetch unique commenters who might not be in instagram_users yet
+      // Exclude self-references like "you", "You", etc.
       const { data: commenters, error: commentersError } = await supabase
         .from('social_media_comments')
         .select('commenter_username, commenter_display_name')
-        .not('commenter_username', 'is', null);
+        .not('commenter_username', 'is', null)
+        .not('commenter_username', 'ilike', 'you')
+        .not('commenter_username', 'ilike', '@you');
 
       if (commentersError) throw commentersError;
 
       // Create a map of existing usernames to avoid duplicates
-      const existingUsernames = new Set(instagramUsers?.map(user => user.username) || []);
+      const existingUsernames = new Set(instagramUsers?.map(user => user.username.toLowerCase()) || []);
       
       // Add commenters who aren't already in instagram_users
       const uniqueCommenters = commenters?.filter(commenter => 
-        !existingUsernames.has(commenter.commenter_username)
+        commenter.commenter_username && 
+        !existingUsernames.has(commenter.commenter_username.toLowerCase())
       ) || [];
 
       // Convert commenters to instagram_user format
@@ -79,8 +83,13 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
         updated_at: new Date().toISOString()
       }));
 
-      // Combine all users
-      const allUsers = [...(instagramUsers || []), ...commenterUsers];
+      // Combine all users, filter out any remaining self-references
+      const allUsers = [...(instagramUsers || []), ...commenterUsers]
+        .filter(user => 
+          user.username.toLowerCase() !== 'you' && 
+          !user.username.toLowerCase().startsWith('@you')
+        );
+      
       setUsers(allUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
