@@ -117,13 +117,55 @@ export function InstagramAnalyticsTab() {
 
       if (postsError) throw postsError;
 
-      // Fetch users
+      // Fetch existing instagram_users
       const { data: usersData, error: usersError } = await supabase
         .from('instagram_users')
         .select('*')
         .order('influence_score', { ascending: false });
 
       if (usersError) throw usersError;
+
+      // Fetch unique commenters who might not be in instagram_users yet
+      // Exclude self-references like "you", "You", etc.
+      const { data: commenters, error: commentersError } = await supabase
+        .from('social_media_comments')
+        .select('commenter_username, commenter_display_name')
+        .not('commenter_username', 'is', null)
+        .not('commenter_username', 'ilike', 'you')
+        .not('commenter_username', 'ilike', '@you');
+
+      if (commentersError) throw commentersError;
+
+      // Create a map of existing usernames to avoid duplicates
+      const existingUsernames = new Set(usersData?.map(user => user.username.toLowerCase()) || []);
+      
+      // Add commenters who aren't already in instagram_users
+      const uniqueCommenters = commenters?.filter(commenter => 
+        commenter.commenter_username && 
+        !existingUsernames.has(commenter.commenter_username.toLowerCase())
+      ) || [];
+
+      // Convert commenters to instagram_user format
+      const commenterUsers: InstagramUser[] = uniqueCommenters.map(commenter => ({
+        id: `commenter_${commenter.commenter_username}`, // Temporary ID for display
+        username: commenter.commenter_username.replace('@', ''),
+        display_name: commenter.commenter_display_name,
+        bio: undefined,
+        follower_count: undefined,
+        account_type: 'Comment Discovered',
+        follows_me: false,
+        discovered_through: 'comment',
+        influence_score: 0,
+        sentiment_score: undefined,
+        notes: undefined
+      }));
+
+      // Combine all users, filter out any remaining self-references
+      const allUsers = [...(usersData || []), ...commenterUsers]
+        .filter(user => 
+          user.username.toLowerCase() !== 'you' && 
+          !user.username.toLowerCase().startsWith('@you')
+        );
 
       // Fetch activities
       const { data: activitiesData, error: activitiesError } = await supabase
@@ -138,7 +180,7 @@ export function InstagramAnalyticsTab() {
       if (activitiesError) throw activitiesError;
 
       setTargetPosts(posts || []);
-      setUsers(usersData || []);
+      setUsers(allUsers);
       setActivities(activitiesData || []);
     } catch (error: any) {
       toast({
