@@ -17,6 +17,7 @@ export interface SocialMediaPost {
   scheduled_at?: string;
   posted_at?: string;
   caused_dm?: boolean;
+  post_url?: string;
   created_at: string;
   updated_at: string;
 }

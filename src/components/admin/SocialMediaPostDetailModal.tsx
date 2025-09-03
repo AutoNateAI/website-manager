@@ -3,7 +3,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Copy, Edit, Trash2, Calendar, Clock, Save, X, MessageSquare } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Copy, Edit, Trash2, Calendar, Clock, Save, X, MessageSquare, ExternalLink } from 'lucide-react';
 import { SocialMediaPost, SocialMediaImage } from './types';
 import SocialMediaImageGallery from './SocialMediaImageGallery';
 import PostTrackingPanel from './PostTrackingPanel';
@@ -37,12 +38,15 @@ const SocialMediaPostDetailModal = ({
 }: SocialMediaPostDetailModalProps) => {
   const [editingCaption, setEditingCaption] = useState(false);
   const [captionText, setCaptionText] = useState("");
+  const [editingUrl, setEditingUrl] = useState(false);
+  const [urlText, setUrlText] = useState("");
   const { toast } = useToast();
 
-  // Initialize caption text when post changes
+  // Initialize caption and URL text when post changes
   useEffect(() => {
     if (post) {
       setCaptionText(post.caption);
+      setUrlText(post.post_url || "");
     }
   }, [post]);
 
@@ -79,6 +83,29 @@ const SocialMediaPostDetailModal = ({
   const handleCancelEdit = () => {
     setCaptionText(post.caption);
     setEditingCaption(false);
+  };
+
+  const handleSaveUrl = async () => {
+    try {
+      const { error } = await supabase
+        .from('social_media_posts')
+        .update({ post_url: urlText })
+        .eq('id', post.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Post URL updated successfully!' });
+      setEditingUrl(false);
+      if (onPostUpdate) onPostUpdate();
+    } catch (error) {
+      console.error('Error updating post URL:', error);
+      toast({ title: 'Error updating post URL', variant: 'destructive' });
+    }
+  };
+
+  const handleCancelUrlEdit = () => {
+    setUrlText(post.post_url || "");
+    setEditingUrl(false);
   };
 
   return (
@@ -129,6 +156,68 @@ const SocialMediaPostDetailModal = ({
 
                 {/* Instagram Tracking Panel */}
                 <PostTrackingPanel post={post} onUpdate={() => onPostUpdate?.()} />
+
+                {/* Post URL */}
+                <div>
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    Post URL
+                    {!editingUrl ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingUrl(true)}
+                          className="h-6 px-2"
+                        >
+                          <Edit size={12} />
+                        </Button>
+                        {post.post_url && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(post.post_url, '_blank')}
+                            className="h-6 px-2"
+                          >
+                            <ExternalLink size={12} />
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleSaveUrl}
+                          className="h-6 px-2 text-green-600 hover:text-green-700"
+                        >
+                          <Save size={12} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleCancelUrlEdit}
+                          className="h-6 px-2"
+                        >
+                          <X size={12} />
+                        </Button>
+                      </>
+                    )}
+                  </h4>
+                  <div className="bg-muted/30 rounded-lg p-4">
+                    {editingUrl ? (
+                      <Input
+                        value={urlText}
+                        onChange={(e) => setUrlText(e.target.value)}
+                        className="text-sm border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        placeholder="Enter post URL..."
+                      />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {post.post_url || "No URL set - click edit to add one"}
+                      </p>
+                    )}
+                  </div>
+                </div>
 
                 {/* Caption */}
                 <div>

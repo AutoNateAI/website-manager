@@ -2743,6 +2743,7 @@ export type Database = {
           platform: string
           platform_type: string | null
           post_status: string | null
+          post_url: string | null
           posted_at: string | null
           scheduled_at: string | null
           source_items: Json
@@ -2768,6 +2769,7 @@ export type Database = {
           platform: string
           platform_type?: string | null
           post_status?: string | null
+          post_url?: string | null
           posted_at?: string | null
           scheduled_at?: string | null
           source_items?: Json
@@ -2793,6 +2795,7 @@ export type Database = {
           platform?: string
           platform_type?: string | null
           post_status?: string | null
+          post_url?: string | null
           posted_at?: string | null
           scheduled_at?: string | null
           source_items?: Json
