@@ -45,13 +45,43 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch existing instagram_users
+      const { data: instagramUsers, error: usersError } = await supabase
         .from('instagram_users')
         .select('*')
         .order('username');
       
-      if (error) throw error;
-      setUsers(data || []);
+      if (usersError) throw usersError;
+
+      // Fetch unique commenters who might not be in instagram_users yet
+      const { data: commenters, error: commentersError } = await supabase
+        .from('social_media_comments')
+        .select('commenter_username, commenter_display_name')
+        .not('commenter_username', 'is', null);
+
+      if (commentersError) throw commentersError;
+
+      // Create a map of existing usernames to avoid duplicates
+      const existingUsernames = new Set(instagramUsers?.map(user => user.username) || []);
+      
+      // Add commenters who aren't already in instagram_users
+      const uniqueCommenters = commenters?.filter(commenter => 
+        !existingUsernames.has(commenter.commenter_username)
+      ) || [];
+
+      // Convert commenters to instagram_user format
+      const commenterUsers: InstagramUser[] = uniqueCommenters.map(commenter => ({
+        id: `commenter_${commenter.commenter_username}`, // Temporary ID
+        username: commenter.commenter_username,
+        display_name: commenter.commenter_display_name,
+        discovered_through: 'comment',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+
+      // Combine all users
+      const allUsers = [...(instagramUsers || []), ...commenterUsers];
+      setUsers(allUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
@@ -116,8 +146,39 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
 
   const updatePostTracking = async () => {
     try {
+      let finalUserId = selectedUserId;
+      
+      // If user selected a commenter (temporary ID), create them as an instagram_user first
+      if (selectedUserId && selectedUserId.startsWith('commenter_')) {
+        const selectedUser = users.find(u => u.id === selectedUserId);
+        if (selectedUser) {
+          const { data: newUser, error: createError } = await supabase
+            .from('instagram_users')
+            .insert({
+              username: selectedUser.username,
+              display_name: selectedUser.display_name,
+              discovered_through: 'comment'
+            })
+            .select()
+            .single();
+          
+          if (createError) {
+            // If user already exists, try to find them
+            const { data: existingUser } = await supabase
+              .from('instagram_users')
+              .select('id')
+              .eq('username', selectedUser.username)
+              .single();
+            
+            finalUserId = existingUser?.id || null;
+          } else {
+            finalUserId = newUser.id;
+          }
+        }
+      }
+
       const updates: any = {
-        assigned_user_id: selectedUserId || null,
+        assigned_user_id: finalUserId || null,
         post_status: selectedStatus,
         scheduled_at: scheduledDate?.toISOString() || null,
         updated_at: new Date().toISOString()
@@ -135,10 +196,10 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
       if (error) throw error;
 
       // If scheduling, create a scheduled post entry
-      if (selectedStatus === 'scheduled' && scheduledDate && selectedUserId) {
+      if (selectedStatus === 'scheduled' && scheduledDate && finalUserId) {
         const { error: scheduleError } = await supabase.functions.invoke('phyllo-schedule-post', {
           body: {
-            account_id: selectedUserId,
+            account_id: finalUserId,
             social_media_post_id: post.id,
             scheduled_for: scheduledDate.toISOString(),
             payload: {
@@ -153,6 +214,7 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
       }
 
       await fetchScheduledPosts();
+      await fetchUsers(); // Refresh users list
       onUpdate();
       
       toast({
