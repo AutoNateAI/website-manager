@@ -42,9 +42,11 @@ interface InstagramUser {
   follower_count?: number;
   influence_score: number;
   account_type?: string;
-  follows_me: boolean;
+  follows_me?: boolean;
   niche_categories?: string[];
   discovered_through?: string;
+  type?: string;
+  caused_dm?: boolean;
 }
 
 export function NetworkGraphTab() {
@@ -67,6 +69,23 @@ export function NetworkGraphTab() {
     [setEdges]
   );
 
+  // Save node positions when they change
+  const onNodesChangeWithPersistence = useCallback(
+    (changes: any[]) => {
+      onNodesChange(changes);
+      
+      // Save positions after a short delay
+      setTimeout(() => {
+        const positions = nodes.reduce((acc, node) => {
+          acc[node.id] = node.position;
+          return acc;
+        }, {} as Record<string, { x: number; y: number }>);
+        localStorage.setItem('networkGraphPositions', JSON.stringify(positions));
+      }, 100);
+    },
+    [onNodesChange, nodes]
+  );
+
   useEffect(() => {
     fetchNetworkData();
   }, []);
@@ -81,30 +100,151 @@ export function NetworkGraphTab() {
     try {
       setLoading(true);
 
-      // Fetch users
-      const { data: usersData, error: usersError } = await supabase
-        .from('instagram_users')
-        .select('*')
-        .order('influence_score', { ascending: false });
+      // Fetch posts with existing columns
+      const { data: postsData, error: postsError } = await supabase
+        .from('social_media_posts')
+        .select('id, title, caption, platform, caused_dm, created_at');
 
-      if (usersError) throw usersError;
+      // Fetch users from comments (commenters) 
+      const { data: commentsData, error: commentsError } = await supabase
+        .from('social_media_comments')
+        .select('commenter_username, commenter_display_name, caused_dm, post_id');
 
-      // Fetch attention network
-      const { data: networkData, error: networkError } = await supabase
-        .from('attention_network')
-        .select('*');
+      // Fetch search queries with posts
+      const { data: queryPostsData, error: queryError } = await supabase
+        .from('post_search_queries')
+        .select(`
+          *,
+          search_queries:search_query_id(query_text, target_keywords)
+        `);
 
-      if (networkError) throw networkError;
+      if (postsError || commentsError || queryError) {
+        throw postsError || commentsError || queryError;
+      }
 
-      setUsers(usersData || []);
-      setAttentionFlows(networkData || []);
+      // Build unique users from all sources (excluding self)
+      const allUsers = new Map<string, any>();
+      
+      // Add commenters as the main users
+      commentsData?.forEach(comment => {
+        if (comment.commenter_username && comment.commenter_username !== 'me') {
+          const userId = comment.commenter_username.toLowerCase();
+          if (!allUsers.has(userId)) {
+            allUsers.set(userId, {
+              id: userId,
+              username: comment.commenter_username,
+              display_name: comment.commenter_display_name || comment.commenter_username,
+              type: 'commenter',
+              caused_dm: comment.caused_dm || false,
+              influence_score: 20
+            });
+          } else {
+            // Update existing user if they caused a DM
+            const existing = allUsers.get(userId);
+            if (comment.caused_dm) {
+              existing.caused_dm = true;
+            }
+          }
+        }
+      });
+
+      const usersArray = Array.from(allUsers.values());
+
+      // Build relationships/attention flows
+      const relationships: AttentionFlow[] = [];
+      let relationshipId = 1;
+
+      // Query -> Post relationships
+      queryPostsData?.forEach(qp => {
+        if (qp.search_queries) {
+          relationships.push({
+            id: `query-post-${relationshipId++}`,
+            source_user_id: 'search_queries',
+            target_user_id: 'our_posts',
+            attention_type: 'search_discovery',
+            attention_strength: qp.relevance_score || 3,
+            frequency_score: 1,
+            network_cluster: 'discovery'
+          });
+        }
+      });
+
+      // Comment -> DM relationships
+      commentsData?.forEach(comment => {
+        if (comment.commenter_username && comment.commenter_username !== 'me') {
+          if (comment.caused_dm) {
+            relationships.push({
+              id: `comment-dm-${relationshipId++}`,
+              source_user_id: comment.commenter_username.toLowerCase(),
+              target_user_id: 'dm_conversations',
+              attention_type: 'comment_to_dm',
+              attention_strength: 8,
+              frequency_score: 1,
+              network_cluster: 'dm_conversion'
+            });
+          } else {
+            relationships.push({
+              id: `comment-post-${relationshipId++}`,
+              source_user_id: comment.commenter_username.toLowerCase(),
+              target_user_id: 'our_posts',
+              attention_type: 'comment_engagement',
+              attention_strength: 5,
+              frequency_score: 1,
+              network_cluster: 'engagement'
+            });
+          }
+        }
+      });
+
+      // Post -> DM relationships
+      postsData?.forEach(post => {
+        if (post.caused_dm) {
+          relationships.push({
+            id: `post-dm-${relationshipId++}`,
+            source_user_id: 'our_posts',
+            target_user_id: 'dm_conversations',
+            attention_type: 'post_to_dm',
+            attention_strength: 10,
+            frequency_score: 1,
+            network_cluster: 'dm_conversion'
+          });
+        }
+      });
+
+      // Add virtual nodes for search queries, our posts, and DM conversations
+      usersArray.push({
+        id: 'search_queries',
+        username: 'Search Queries',
+        display_name: 'Search Queries',
+        type: 'system_node',
+        influence_score: 50
+      });
+
+      usersArray.push({
+        id: 'our_posts',
+        username: 'Our Posts',
+        display_name: 'Our Posts',
+        type: 'system_node',
+        influence_score: 40
+      });
+
+      usersArray.push({
+        id: 'dm_conversations',
+        username: 'DM Conversations',
+        display_name: 'DM Conversations',
+        type: 'system_node',
+        influence_score: 60
+      });
+
+      setUsers(usersArray);
+      setAttentionFlows(relationships);
 
       // Calculate network stats
       const stats = {
-        totalUsers: usersData?.length || 0,
-        totalConnections: networkData?.length || 0,
-        clusters: new Set(networkData?.map(n => n.network_cluster).filter(Boolean)).size,
-        followsMe: usersData?.filter(u => u.follows_me).length || 0
+        totalUsers: usersArray.length - 3, // Exclude system nodes
+        totalConnections: relationships.length,
+        clusters: new Set(relationships.map(r => r.network_cluster).filter(Boolean)).size,
+        followsMe: 0 // We don't have this data in our current schema
       };
       setNetworkStats(stats);
 
@@ -134,70 +274,92 @@ export function NetworkGraphTab() {
     ]);
 
     const filteredUsers = users.filter(user => 
-      involvedUserIds.has(user.id) || user.follows_me
+      involvedUserIds.has(user.id)
     );
 
-    // Create nodes
+    // Load saved positions from localStorage
+    const savedPositions = JSON.parse(localStorage.getItem('networkGraphPositions') || '{}');
+
+    // Create nodes with saved positions or default circular layout
     const newNodes: Node[] = filteredUsers.map((user, index) => {
-      const angle = (index / filteredUsers.length) * 2 * Math.PI;
-      const radius = Math.min(400, filteredUsers.length * 30);
+      const savedPos = savedPositions[user.id];
+      let position;
+      
+      if (savedPos) {
+        position = savedPos;
+      } else {
+        const angle = (index / filteredUsers.length) * 2 * Math.PI;
+        const radius = Math.min(400, filteredUsers.length * 30);
+        position = {
+          x: 400 + radius * Math.cos(angle),
+          y: 300 + radius * Math.sin(angle)
+        };
+      }
       
       return {
         id: user.id,
-        position: {
-          x: 400 + radius * Math.cos(angle),
-          y: 300 + radius * Math.sin(angle)
-        },
+        position,
         data: {
-          label: `@${user.username}`,
+          label: user.display_name || user.username,
           user: user
         },
         type: 'default',
-        className: user.follows_me ? 'follow-me-node' : 'regular-node',
+        className: user.caused_dm ? 'dm-conversion-node' : 'regular-node',
         style: {
-          backgroundColor: user.follows_me ? '#10b981' : getNodeColor(user),
+          backgroundColor: getNodeColor(user),
           color: 'white',
-          border: user.influence_score > 50 ? '3px solid #f59e0b' : '1px solid #6b7280',
+          border: user.caused_dm ? '3px solid #ef4444' : user.influence_score > 40 ? '2px solid #f59e0b' : '1px solid #6b7280',
           borderRadius: '8px',
           padding: '8px',
           fontSize: '12px',
-          width: Math.max(80, user.influence_score * 2),
-          height: 60
+          width: Math.max(100, Math.min(200, user.username.length * 8 + 40)),
+          height: 60,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center'
         }
       };
     });
 
     // Create edges
-    const newEdges: Edge[] = filteredFlows.map((flow, index) => ({
+    const newEdges: Edge[] = filteredFlows.map((flow) => ({
       id: flow.id,
       source: flow.source_user_id,
       target: flow.target_user_id,
       type: 'smoothstep',
-      animated: flow.attention_strength > 5,
+      animated: flow.attention_strength > 7,
       style: {
-        strokeWidth: Math.max(1, flow.attention_strength),
+        strokeWidth: Math.max(2, flow.attention_strength / 2),
         stroke: getEdgeColor(flow.attention_type)
       },
-      label: `${flow.attention_type} (${flow.frequency_score})`,
-      labelStyle: { fontSize: '10px' }
+      label: `${flow.attention_type.replace('_', ' ')}`,
+      labelStyle: { fontSize: '10px', fill: '#666' },
+      markerEnd: {
+        type: 'arrowclosed',
+        color: getEdgeColor(flow.attention_type)
+      }
     }));
 
     setNodes(newNodes);
     setEdges(newEdges);
   };
 
-  const getNodeColor = (user: InstagramUser): string => {
-    if (user.account_type === 'business') return '#3b82f6';
-    if (user.account_type === 'creator') return '#8b5cf6';
+  const getNodeColor = (user: any): string => {
+    if (user.type === 'system_node') return '#8b5cf6';
+    if (user.type === 'post_author') return '#3b82f6';
+    if (user.type === 'commenter') return '#f59e0b';
+    if (user.caused_dm) return '#ef4444';
     return '#6b7280';
   };
 
   const getEdgeColor = (attentionType: string): string => {
     switch (attentionType) {
-      case 'follows': return '#10b981';
-      case 'frequent_commenter': return '#f59e0b';
-      case 'mentions': return '#ef4444';
-      case 'tags': return '#8b5cf6';
+      case 'search_discovery': return '#10b981';
+      case 'comment_engagement': return '#f59e0b';
+      case 'comment_to_dm': return '#ef4444';
+      case 'post_to_dm': return '#dc2626';
+      case 'thread_reply': return '#8b5cf6';
       default: return '#6b7280';
     }
   };
@@ -313,38 +475,42 @@ export function NetworkGraphTab() {
         <CardContent className="space-y-2">
           <div className="flex flex-wrap gap-4 text-xs">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-green-500 rounded"></div>
-              <span>Follows Me</span>
+              <div className="w-3 h-3 bg-purple-500 rounded"></div>
+              <span>System Nodes</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-blue-500 rounded"></div>
-              <span>Business</span>
+              <span>Post Authors</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-purple-500 rounded"></div>
-              <span>Creator</span>
+              <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+              <span>Commenters</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-gray-500 rounded"></div>
-              <span>Personal</span>
+              <div className="w-3 h-3 bg-red-500 rounded border-2 border-red-600"></div>
+              <span>DM Conversions</span>
             </div>
           </div>
           <div className="flex flex-wrap gap-4 text-xs">
             <div className="flex items-center gap-2">
               <div className="w-8 h-0.5 bg-green-500"></div>
-              <span>Follows</span>
+              <span>Search Discovery</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-8 h-0.5 bg-yellow-500"></div>
-              <span>Comments</span>
+              <span>Comment Engagement</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-8 h-0.5 bg-red-500"></div>
-              <span>Mentions</span>
+              <span>Comment to DM</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-0.5 bg-red-700"></div>
+              <span>Post to DM</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-8 h-0.5 bg-purple-500"></div>
-              <span>Tags</span>
+              <span>Thread Reply</span>
             </div>
           </div>
         </CardContent>
@@ -357,7 +523,7 @@ export function NetworkGraphTab() {
             <ReactFlow
               nodes={nodes}
               edges={edges}
-              onNodesChange={onNodesChange}
+              onNodesChange={onNodesChangeWithPersistence}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               fitView

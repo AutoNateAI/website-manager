@@ -24,6 +24,7 @@ import { InstagramAnalyticsTab } from './instagram/InstagramAnalyticsTab';
 import { NetworkGraphTab } from './instagram/NetworkGraphTab';
 import { InstagramEngagementTab } from './instagram/InstagramEngagementTab';
 import { SearchQueryManager } from './SearchQueryManager';
+import { DMConversationsTab } from './DMConversationsTab';
 import { SocialMediaPost, SocialMediaImage } from './types';
 
 interface SourceItem {
@@ -105,8 +106,8 @@ const SocialMediaManager = () => {
   const [currentPage, setCurrentPage] = useState(1);
 const [postsPerPage] = useState(9);
   
-  // Main tab state: analytics is first, then network, engagement, and content generation
-  const [activeMainTab, setActiveMainTab] = useState<'queries' | 'analytics' | 'network' | 'engagement' | 'content'>('queries');
+  // Main tab state: analytics is first, then network, engagement, dms, and content generation
+  const [activeMainTab, setActiveMainTab] = useState<'queries' | 'analytics' | 'network' | 'engagement' | 'dms' | 'content'>('queries');
   
   // Detail modal state
   const [selectedPost, setSelectedPost] = useState<SocialMediaPost | null>(null);
@@ -345,12 +346,13 @@ const [postsPerPage] = useState(9);
   return (
     <div className="space-y-6">
       <div className="glass-card p-4">
-        <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as 'queries' | 'analytics' | 'network' | 'engagement' | 'content')}>
+        <Tabs value={activeMainTab} onValueChange={(v) => setActiveMainTab(v as 'queries' | 'analytics' | 'network' | 'engagement' | 'dms' | 'content')}>
           <TabsList>
             <TabsTrigger value="queries">Search Queries</TabsTrigger>
             <TabsTrigger value="analytics">Target Posts</TabsTrigger>
             <TabsTrigger value="network">Network Graph</TabsTrigger>
             <TabsTrigger value="engagement">Instagram Engagement</TabsTrigger>
+            <TabsTrigger value="dms">DM Conversations</TabsTrigger>
             <TabsTrigger value="content">Content Generation</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -360,6 +362,7 @@ const [postsPerPage] = useState(9);
       {activeMainTab === 'analytics' && <InstagramAnalyticsTab />}
       {activeMainTab === 'network' && <NetworkGraphTab />}
       {activeMainTab === 'engagement' && <InstagramEngagementTab />}
+      {activeMainTab === 'dms' && <DMConversationsTab />}
       {activeMainTab === 'content' && (
         <>
       <div className="glass-card p-6">
