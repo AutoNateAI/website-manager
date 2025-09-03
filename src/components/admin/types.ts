@@ -16,6 +16,7 @@ export interface SocialMediaPost {
   post_status?: 'draft' | 'assigned' | 'scheduled' | 'posted' | 'failed';
   scheduled_at?: string;
   posted_at?: string;
+  caused_dm?: boolean;
   created_at: string;
   updated_at: string;
 }

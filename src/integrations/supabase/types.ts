@@ -2730,6 +2730,7 @@ export type Database = {
         Row: {
           assigned_user_id: string | null
           caption: string
+          caused_dm: boolean | null
           context_direction: string | null
           created_at: string
           generation_progress: Json | null
@@ -2754,6 +2755,7 @@ export type Database = {
         Insert: {
           assigned_user_id?: string | null
           caption: string
+          caused_dm?: boolean | null
           context_direction?: string | null
           created_at?: string
           generation_progress?: Json | null
@@ -2778,6 +2780,7 @@ export type Database = {
         Update: {
           assigned_user_id?: string | null
           caption?: string
+          caused_dm?: boolean | null
           context_direction?: string | null
           created_at?: string
           generation_progress?: Json | null

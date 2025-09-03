@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Plus, Clock, CheckCircle, AlertCircle, Send } from 'lucide-react';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { CalendarIcon, Plus, Clock, CheckCircle, AlertCircle, Send, Check, ChevronsUpDown, MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,6 +32,9 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
     post.scheduled_at ? new Date(post.scheduled_at) : undefined
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showUserPicker, setShowUserPicker] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [causedDm, setCausedDm] = useState<boolean>(false);
   const [newUser, setNewUser] = useState({
     username: '',
     notes: ''
@@ -41,7 +45,8 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
   useEffect(() => {
     fetchUsers();
     fetchScheduledPosts();
-  }, []);
+    setCausedDm(post.caused_dm || false);
+  }, [post.caused_dm]);
 
   const fetchUsers = async () => {
     try {
@@ -190,6 +195,7 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
         assigned_user_id: finalUserId || null,
         post_status: selectedStatus,
         scheduled_at: scheduledDate?.toISOString() || null,
+        caused_dm: causedDm,
         updated_at: new Date().toISOString()
       };
 
@@ -277,6 +283,35 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
     }
   };
 
+  const toggleCausedDm = async () => {
+    const newCausedDm = !causedDm;
+    setCausedDm(newCausedDm);
+    
+    try {
+      const { error } = await supabase
+        .from('social_media_posts')
+        .update({ caused_dm: newCausedDm })
+        .eq('id', post.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: newCausedDm ? "Marked as caused DM" : "Unmarked as caused DM",
+        description: `Post ${newCausedDm ? 'now' : 'no longer'} marked as causing a DM`
+      });
+      
+      onUpdate();
+    } catch (error) {
+      console.error('Error updating DM status:', error);
+      setCausedDm(!newCausedDm); // Revert on error
+      toast({
+        title: "Error",
+        description: "Failed to update DM status",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getStatusIcon = () => {
     switch (selectedStatus) {
       case 'draft': return <AlertCircle size={16} className="text-muted-foreground" />;
@@ -299,36 +334,88 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
     }
   };
 
+  // Filter users based on search query
+  const filteredUsers = users.filter(user => 
+    user.username.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+    (user.display_name && user.display_name.toLowerCase().includes(userSearchQuery.toLowerCase()))
+  );
+
+  const selectedUser = users.find(u => u.id === selectedUserId);
+
   return (
     <div className="space-y-3">
       <Card className="border-l-4 border-l-primary/50">
         <CardContent className="p-4 space-y-3">
-          {/* User Assignment */}
+          {/* User Assignment with Search */}
           <div className="flex items-center gap-2">
             <Label className="text-sm font-medium min-w-0 flex-shrink-0">Target User:</Label>
             <div className="flex items-center gap-2 flex-1">
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Assign target user..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
+              <Popover open={showUserPicker} onOpenChange={setShowUserPicker}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={showUserPicker}
+                    className="h-8 text-xs justify-between flex-1"
+                  >
+                    {selectedUser ? (
                       <div className="flex items-center gap-2">
-                        <span>@{user.username}</span>
-                        {user.display_name && (
-                          <span className="text-muted-foreground text-xs">({user.display_name})</span>
+                        <span>@{selectedUser.username}</span>
+                        {selectedUser.display_name && (
+                          <span className="text-muted-foreground text-xs">({selectedUser.display_name})</span>
                         )}
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    ) : (
+                      "Search users..."
+                    )}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput 
+                      placeholder="Search users..." 
+                      value={userSearchQuery}
+                      onValueChange={setUserSearchQuery}
+                    />
+                    <CommandList>
+                      <CommandEmpty>No users found.</CommandEmpty>
+                      <CommandGroup>
+                        {filteredUsers.map((user) => (
+                          <CommandItem
+                            key={user.id}
+                            value={user.username}
+                            onSelect={() => {
+                              setSelectedUserId(user.id);
+                              setShowUserPicker(false);
+                              setUserSearchQuery('');
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedUserId === user.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex items-center gap-2">
+                              <span>@{user.username}</span>
+                              {user.display_name && (
+                                <span className="text-muted-foreground text-xs">({user.display_name})</span>
+                              )}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               <Button 
                 size="sm" 
                 variant="ghost" 
                 className="h-8 w-8 p-0"
                 onClick={() => setShowAddUserModal(true)}
+                title="Add new user"
               >
                 <Plus size={14} />
               </Button>
@@ -391,6 +478,20 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
               </Popover>
             </div>
           )}
+
+          {/* DM Tracking */}
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium min-w-0 flex-shrink-0">DM Tracking:</Label>
+            <Button
+              size="sm"
+              variant={causedDm ? "default" : "outline"}
+              onClick={toggleCausedDm}
+              className="h-8 text-xs flex items-center gap-2"
+            >
+              <MessageCircle size={12} />
+              {causedDm ? "Caused a DM" : "Mark as caused DM"}
+            </Button>
+          </div>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 pt-2 border-t">
