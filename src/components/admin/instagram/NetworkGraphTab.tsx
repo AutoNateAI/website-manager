@@ -100,46 +100,59 @@ export function NetworkGraphTab() {
     try {
       setLoading(true);
 
-      // Fetch posts with existing columns only
-      const { data: postsData, error: postsError } = await supabase
+      // Fetch our social media posts
+      const { data: ourPostsData, error: postsError } = await supabase
         .from('social_media_posts')
         .select('id, title, caption, platform, caused_dm, created_at');
 
-      // Fetch users from comments (commenters) 
+      // Fetch comments on posts
       const { data: commentsData, error: commentsError } = await supabase
         .from('social_media_comments')
         .select('commenter_username, commenter_display_name, caused_dm, post_id');
 
-      // Fetch search queries relationships (simplified)
-      const { data: queryPostsData, error: queryError } = await supabase
-        .from('post_search_queries')
-        .select('id, post_id, search_query_id, relevance_score');
-
-      if (postsError || commentsError || queryError) {
-        throw postsError || commentsError || queryError;
+      if (postsError || commentsError) {
+        throw postsError || commentsError;
       }
 
-      // Build unique users from comments only (excluding self)
       const allUsers = new Map<string, any>();
-      
-      // Add commenters as the main users
+      const relationships: AttentionFlow[] = [];
+      let relationshipId = 1;
+
+      // 1. Add Our Posts nodes (individual posts)
+      ourPostsData?.forEach(post => {
+        const ourPostId = `our_post_${post.id}`;
+        allUsers.set(ourPostId, {
+          id: ourPostId,
+          username: post.title.length > 25 ? post.title.substring(0, 25) + '...' : post.title,
+          display_name: post.title,
+          type: 'our_post',
+          influence_score: 35,
+          caused_dm: post.caused_dm,
+          data: post
+        });
+      });
+
+      // 2. Add Commenters
+      const commenterMap = new Map<string, any>();
       commentsData?.forEach(comment => {
         if (comment.commenter_username && 
             comment.commenter_username !== 'me' && 
             comment.commenter_username !== 'you') {
-          const userId = comment.commenter_username.toLowerCase();
-          if (!allUsers.has(userId)) {
-            allUsers.set(userId, {
-              id: userId,
+          
+          const commenterId = comment.commenter_username.toLowerCase();
+          if (!commenterMap.has(commenterId)) {
+            commenterMap.set(commenterId, {
+              id: commenterId,
               username: comment.commenter_username,
               display_name: comment.commenter_display_name || comment.commenter_username,
               type: 'commenter',
               caused_dm: comment.caused_dm || false,
-              influence_score: 25
+              influence_score: 20,
+              post_ids: new Set([comment.post_id])
             });
           } else {
-            // Update existing user if they caused a DM
-            const existing = allUsers.get(userId);
+            const existing = commenterMap.get(commenterId);
+            existing.post_ids.add(comment.post_id);
             if (comment.caused_dm) {
               existing.caused_dm = true;
             }
@@ -147,88 +160,85 @@ export function NetworkGraphTab() {
         }
       });
 
-      const usersArray = Array.from(allUsers.values());
+      // Add commenters to main users map
+      commenterMap.forEach(commenter => {
+        allUsers.set(commenter.id, commenter);
+      });
 
-      // Build relationships/attention flows
-      const relationships: AttentionFlow[] = [];
-      let relationshipId = 1;
-
-      // Add search query node
-      usersArray.push({
+      // 3. Add Search Queries node (simplified)
+      allUsers.set('search_queries', {
         id: 'search_queries',
         username: 'Search Queries',
         display_name: 'Search Queries',
-        type: 'search_node',
+        type: 'search_query',
         influence_score: 50
       });
 
-      // Add our posts node
-      usersArray.push({
-        id: 'our_posts',
-        username: 'Our Posts',
-        display_name: 'Our Posts',
-        type: 'posts_node',
-        influence_score: 40
-      });
-
-      // Add DM conversations node
-      usersArray.push({
+      // 4. Add DM Conversations node
+      allUsers.set('dm_conversations', {
         id: 'dm_conversations',
         username: 'DM Conversations',
         display_name: 'DM Conversations',
         type: 'dm_node',
-        influence_score: 60
+        influence_score: 40
       });
 
-      // Query -> Post relationships (if we have query data)
-      queryPostsData?.forEach(qp => {
+      // 5. Create relationships: Search → Our Posts (conceptual)
+      ourPostsData?.forEach(post => {
         relationships.push({
-          id: `query-post-${relationshipId++}`,
+          id: `search-our-post-${relationshipId++}`,
           source_user_id: 'search_queries',
-          target_user_id: 'our_posts',
+          target_user_id: `our_post_${post.id}`,
           attention_type: 'search_discovery',
-          attention_strength: qp.relevance_score || 3,
+          attention_strength: 4,
           frequency_score: 1,
           network_cluster: 'discovery'
         });
       });
 
-      // Comment -> Post/DM relationships
+      // 6. Create relationships: Commenters → Our Posts
       commentsData?.forEach(comment => {
         if (comment.commenter_username && 
             comment.commenter_username !== 'me' && 
             comment.commenter_username !== 'you') {
           
-          if (comment.caused_dm) {
-            relationships.push({
-              id: `comment-dm-${relationshipId++}`,
-              source_user_id: comment.commenter_username.toLowerCase(),
-              target_user_id: 'dm_conversations',
-              attention_type: 'comment_to_dm',
-              attention_strength: 8,
-              frequency_score: 1,
-              network_cluster: 'dm_conversion'
-            });
-          } else {
-            relationships.push({
-              id: `comment-post-${relationshipId++}`,
-              source_user_id: comment.commenter_username.toLowerCase(),
-              target_user_id: 'our_posts',
-              attention_type: 'comment_engagement',
-              attention_strength: 5,
-              frequency_score: 1,
-              network_cluster: 'engagement'
-            });
+          const commenterId = comment.commenter_username.toLowerCase();
+          const ourPostId = `our_post_${comment.post_id}`;
+          
+          if (allUsers.has(ourPostId)) {
+            if (comment.caused_dm) {
+              // Commenter → DM
+              relationships.push({
+                id: `commenter-dm-${relationshipId++}`,
+                source_user_id: commenterId,
+                target_user_id: 'dm_conversations',
+                attention_type: 'comment_to_dm',
+                attention_strength: 8,
+                frequency_score: 1,
+                network_cluster: 'dm_conversion'
+              });
+            } else {
+              // Commenter → Our Post
+              relationships.push({
+                id: `commenter-post-${relationshipId++}`,
+                source_user_id: commenterId,
+                target_user_id: ourPostId,
+                attention_type: 'comment_engagement',
+                attention_strength: 5,
+                frequency_score: 1,
+                network_cluster: 'engagement'
+              });
+            }
           }
         }
       });
 
-      // Post -> DM relationships
-      postsData?.forEach(post => {
+      // 7. Our Posts → DM relationships
+      ourPostsData?.forEach(post => {
         if (post.caused_dm) {
           relationships.push({
-            id: `post-dm-${relationshipId++}`,
-            source_user_id: 'our_posts',
+            id: `our-post-dm-${relationshipId++}`,
+            source_user_id: `our_post_${post.id}`,
             target_user_id: 'dm_conversations',
             attention_type: 'post_to_dm',
             attention_strength: 10,
@@ -238,16 +248,17 @@ export function NetworkGraphTab() {
         }
       });
 
+      const usersArray = Array.from(allUsers.values());
       setUsers(usersArray);
       setAttentionFlows(relationships);
 
-      // Calculate network stats
-      const actualUsers = usersArray.filter(u => u.type === 'commenter');
+      // Calculate network stats - count commenters correctly
+      const actualCommenters = usersArray.filter(u => u.type === 'commenter');
       const stats = {
-        totalUsers: actualUsers.length,
+        totalUsers: actualCommenters.length,
         totalConnections: relationships.length,
         clusters: new Set(relationships.map(r => r.network_cluster).filter(Boolean)).size,
-        followsMe: 0 // We don't have this data
+        followsMe: 0
       };
       setNetworkStats(stats);
 
@@ -350,8 +361,9 @@ export function NetworkGraphTab() {
   };
 
   const getNodeColor = (user: any): string => {
-    if (user.type === 'search_node') return '#8b5cf6';
-    if (user.type === 'posts_node') return '#3b82f6';
+    if (user.type === 'search_query') return '#8b5cf6';
+    if (user.type === 'target_post') return '#06b6d4';
+    if (user.type === 'our_post') return '#3b82f6';
     if (user.type === 'dm_node') return '#ef4444';
     if (user.type === 'commenter') return '#f59e0b';
     if (user.caused_dm) return '#dc2626';
@@ -492,8 +504,8 @@ export function NetworkGraphTab() {
               <span>Commenters</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-red-500 rounded border-2 border-red-600"></div>
-              <span>DM Nodes</span>
+              <div className="w-3 h-3 bg-red-500 rounded"></div>
+              <span>DM Conversations</span>
             </div>
           </div>
           <div className="flex flex-wrap gap-4 text-xs">
