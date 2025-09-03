@@ -3,10 +3,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Copy, Edit, Trash2, Calendar, Clock, Save, X } from 'lucide-react';
+import { Copy, Edit, Trash2, Calendar, Clock, Save, X, MessageSquare } from 'lucide-react';
 import { SocialMediaPost, SocialMediaImage } from './types';
 import SocialMediaImageGallery from './SocialMediaImageGallery';
 import PostTrackingPanel from './PostTrackingPanel';
+import { CommentsThread } from './CommentsThread';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -230,6 +231,15 @@ const SocialMediaPostDetailModal = ({
                     <Clock size={14} />
                     Updated: {formatDate(post.updated_at)}
                   </div>
+                </div>
+
+                {/* Comments Section */}
+                <div className="border-t border-border pt-4">
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    <MessageSquare size={16} />
+                    Comments & Engagement
+                  </h4>
+                  <CommentsThread postId={post.id} />
                 </div>
               </div>
             </ScrollArea>
