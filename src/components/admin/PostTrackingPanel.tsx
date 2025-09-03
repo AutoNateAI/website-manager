@@ -9,8 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { CalendarIcon, Plus, Clock, CheckCircle, AlertCircle, Send, Check, ChevronsUpDown, MessageCircle } from 'lucide-react';
+import { CalendarIcon, Plus, Clock, CheckCircle, AlertCircle, Send, MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,7 +31,6 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
     post.scheduled_at ? new Date(post.scheduled_at) : undefined
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showUserPicker, setShowUserPicker] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [causedDm, setCausedDm] = useState<boolean>(false);
   const [newUser, setNewUser] = useState({
@@ -46,7 +44,15 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
     fetchUsers();
     fetchScheduledPosts();
     setCausedDm(post.caused_dm || false);
-  }, [post.caused_dm]);
+    
+    // Set initial search query to selected user
+    if (post.assigned_user_id) {
+      const user = users.find(u => u.id === post.assigned_user_id);
+      if (user) {
+        setUserSearchQuery(`@${user.username}`);
+      }
+    }
+  }, [post.caused_dm, post.assigned_user_id, users]);
 
   const fetchUsers = async () => {
     try {
@@ -350,66 +356,33 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
           <div className="flex items-center gap-2">
             <Label className="text-sm font-medium min-w-0 flex-shrink-0">Target User:</Label>
             <div className="flex items-center gap-2 flex-1">
-              <Popover open={showUserPicker} onOpenChange={setShowUserPicker}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={showUserPicker}
-                    className="h-8 text-xs justify-between flex-1"
-                  >
-                    {selectedUser ? (
-                      <div className="flex items-center gap-2">
-                        <span>@{selectedUser.username}</span>
-                        {selectedUser.display_name && (
-                          <span className="text-muted-foreground text-xs">({selectedUser.display_name})</span>
+              <div className="relative flex-1">
+                <Input
+                  value={userSearchQuery}
+                  onChange={(e) => setUserSearchQuery(e.target.value)}
+                  placeholder="Search users..."
+                  className="h-8 text-xs"
+                />
+                {userSearchQuery && filteredUsers.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-background border rounded-md shadow-lg max-h-[200px] overflow-y-auto">
+                    {filteredUsers.slice(0, 10).map((user) => (
+                      <div
+                        key={user.id}
+                        className="px-3 py-2 text-xs hover:bg-accent cursor-pointer flex items-center gap-2"
+                        onClick={() => {
+                          setSelectedUserId(user.id);
+                          setUserSearchQuery(`@${user.username}`);
+                        }}
+                      >
+                        <span>@{user.username}</span>
+                        {user.display_name && (
+                          <span className="text-muted-foreground">({user.display_name})</span>
                         )}
                       </div>
-                    ) : (
-                      "Search users..."
-                    )}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0" align="start">
-                  <Command>
-                    <CommandInput 
-                      placeholder="Search users..." 
-                      value={userSearchQuery}
-                      onValueChange={setUserSearchQuery}
-                    />
-                    <CommandList>
-                      <CommandEmpty>No users found.</CommandEmpty>
-                      <CommandGroup>
-                        {filteredUsers.map((user) => (
-                          <CommandItem
-                            key={user.id}
-                            value={user.username}
-                            onSelect={() => {
-                              setSelectedUserId(user.id);
-                              setShowUserPicker(false);
-                              setUserSearchQuery('');
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedUserId === user.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            <div className="flex items-center gap-2">
-                              <span>@{user.username}</span>
-                              {user.display_name && (
-                                <span className="text-muted-foreground text-xs">({user.display_name})</span>
-                              )}
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                    ))}
+                  </div>
+                )}
+              </div>
               <Button 
                 size="sm" 
                 variant="ghost" 
