@@ -150,7 +150,7 @@ const [postsPerPage] = useState(9);
   const fetchData = async () => {
     try {
       const [postsRes, blogsRes, liveBuildsRes, adsRes] = await Promise.all([
-        supabase.from('social_media_posts').select('*, assigned_account_id, post_status, scheduled_at, posted_at').order('created_at', { ascending: false }),
+        supabase.from('social_media_posts').select('*, assigned_user_id, post_status, scheduled_at, posted_at').order('created_at', { ascending: false }),
         supabase.from('blogs').select('id, title, published').eq('published', true),
         supabase.from('live_builds').select('id, title, is_published').eq('is_published', true),
         supabase.from('advertisements').select('id, title, is_active').eq('is_active', true)

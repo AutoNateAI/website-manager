@@ -12,7 +12,7 @@ export interface SocialMediaPost {
   is_published: boolean;
   status?: string;
   generation_progress?: any;
-  assigned_account_id?: string;
+  assigned_user_id?: string;
   post_status?: 'draft' | 'assigned' | 'scheduled' | 'posted' | 'failed';
   scheduled_at?: string;
   posted_at?: string;
@@ -20,13 +20,19 @@ export interface SocialMediaPost {
   updated_at: string;
 }
 
-export interface InstagramAccount {
+export interface InstagramUser {
   id: string;
   username: string;
-  platform: string;
-  access_status?: string;
-  connected_at?: string;
-  last_sync_at?: string;
+  display_name?: string;
+  bio?: string;
+  profile_image_url?: string;
+  follower_count?: number;
+  following_count?: number;
+  engagement_rate?: number;
+  influence_score?: number;
+  follows_me?: boolean;
+  discovered_through?: string;
+  notes?: string;
   created_at: string;
   updated_at: string;
 }

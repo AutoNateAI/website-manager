@@ -14,7 +14,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { SocialMediaPost, InstagramAccount, ScheduledPost } from './types';
+import { SocialMediaPost, InstagramUser, ScheduledPost } from './types';
 
 interface PostTrackingPanelProps {
   post: SocialMediaPost;
@@ -22,38 +22,38 @@ interface PostTrackingPanelProps {
 }
 
 const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
-  const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
+  const [users, setUsers] = useState<InstagramUser[]>([]);
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
-  const [showAddAccountModal, setShowAddAccountModal] = useState(false);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>(post.assigned_account_id || '');
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string>(post.assigned_user_id || '');
   const [selectedStatus, setSelectedStatus] = useState<string>(post.post_status || 'draft');
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(
     post.scheduled_at ? new Date(post.scheduled_at) : undefined
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [newAccount, setNewAccount] = useState({
+  const [newUser, setNewUser] = useState({
     username: '',
-    bio: ''
+    notes: ''
   });
   
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchAccounts();
+    fetchUsers();
     fetchScheduledPosts();
   }, []);
 
-  const fetchAccounts = async () => {
+  const fetchUsers = async () => {
     try {
       const { data, error } = await supabase
-        .from('instagram_accounts')
+        .from('instagram_users')
         .select('*')
         .order('username');
       
       if (error) throw error;
-      setAccounts(data || []);
+      setUsers(data || []);
     } catch (error) {
-      console.error('Error fetching accounts:', error);
+      console.error('Error fetching users:', error);
     }
   };
 
@@ -72,8 +72,8 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
     }
   };
 
-  const handleAddAccount = async () => {
-    if (!newAccount.username.trim()) {
+  const handleAddUser = async () => {
+    if (!newUser.username.trim()) {
       toast({
         title: "Username required",
         description: "Please enter an Instagram username",
@@ -84,31 +84,31 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
 
     try {
       const { data, error } = await supabase
-        .from('instagram_accounts')
+        .from('instagram_users')
         .insert({
-          username: newAccount.username.replace('@', ''),
-          platform: 'instagram',
-          access_status: 'pending'
+          username: newUser.username.replace('@', ''),
+          notes: newUser.notes,
+          discovered_through: 'manual_entry'
         })
         .select()
         .single();
       
       if (error) throw error;
       
-      await fetchAccounts();
-      setSelectedAccountId(data.id);
-      setShowAddAccountModal(false);
-      setNewAccount({ username: '', bio: '' });
+      await fetchUsers();
+      setSelectedUserId(data.id);
+      setShowAddUserModal(false);
+      setNewUser({ username: '', notes: '' });
       
       toast({
-        title: "Account added",
-        description: `Instagram account @${data.username} has been added`
+        title: "User added",
+        description: `Instagram user @${data.username} has been added`
       });
     } catch (error: any) {
-      console.error('Error adding account:', error);
+      console.error('Error adding user:', error);
       toast({
-        title: "Error adding account",
-        description: error.message?.includes('unique') ? 'This username already exists' : 'Failed to add account',
+        title: "Error adding user",
+        description: error.message?.includes('unique') ? 'This username already exists' : 'Failed to add user',
         variant: "destructive"
       });
     }
@@ -117,7 +117,7 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
   const updatePostTracking = async () => {
     try {
       const updates: any = {
-        assigned_account_id: selectedAccountId || null,
+        assigned_user_id: selectedUserId || null,
         post_status: selectedStatus,
         scheduled_at: scheduledDate?.toISOString() || null,
         updated_at: new Date().toISOString()
@@ -135,10 +135,10 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
       if (error) throw error;
 
       // If scheduling, create a scheduled post entry
-      if (selectedStatus === 'scheduled' && scheduledDate && selectedAccountId) {
+      if (selectedStatus === 'scheduled' && scheduledDate && selectedUserId) {
         const { error: scheduleError } = await supabase.functions.invoke('phyllo-schedule-post', {
           body: {
-            account_id: selectedAccountId,
+            account_id: selectedUserId,
             social_media_post_id: post.id,
             scheduled_for: scheduledDate.toISOString(),
             payload: {
@@ -170,10 +170,10 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
   };
 
   const publishNow = async () => {
-    if (!selectedAccountId) {
+    if (!selectedUserId) {
       toast({
-        title: "Account required",
-        description: "Please assign an Instagram account first",
+        title: "User required",
+        description: "Please assign a target Instagram user first",
         variant: "destructive"
       });
       return;
@@ -182,7 +182,7 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
     try {
       const { error } = await supabase.functions.invoke('phyllo-publish-post', {
         body: {
-          account_id: selectedAccountId,
+          account_id: selectedUserId,
           social_media_post_id: post.id
         }
       });
@@ -232,18 +232,23 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
     <div className="space-y-3">
       <Card className="border-l-4 border-l-primary/50">
         <CardContent className="p-4 space-y-3">
-          {/* Account Assignment */}
+          {/* User Assignment */}
           <div className="flex items-center gap-2">
-            <Label className="text-sm font-medium min-w-0 flex-shrink-0">Instagram:</Label>
+            <Label className="text-sm font-medium min-w-0 flex-shrink-0">Target User:</Label>
             <div className="flex items-center gap-2 flex-1">
-              <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
                 <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Assign account..." />
+                  <SelectValue placeholder="Assign target user..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {accounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      @{account.username}
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      <div className="flex items-center gap-2">
+                        <span>@{user.username}</span>
+                        {user.display_name && (
+                          <span className="text-muted-foreground text-xs">({user.display_name})</span>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -252,7 +257,7 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
                 size="sm" 
                 variant="ghost" 
                 className="h-8 w-8 p-0"
-                onClick={() => setShowAddAccountModal(true)}
+                onClick={() => setShowAddUserModal(true)}
               >
                 <Plus size={14} />
               </Button>
@@ -321,7 +326,7 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
             <Button size="sm" onClick={updatePostTracking} className="text-xs">
               Save Changes
             </Button>
-            {selectedAccountId && selectedStatus !== 'posted' && (
+            {selectedUserId && selectedStatus !== 'posted' && (
               <Button size="sm" variant="outline" onClick={publishNow} className="text-xs">
                 <Send size={12} className="mr-1" />
                 Publish Now
@@ -338,38 +343,38 @@ const PostTrackingPanel = ({ post, onUpdate }: PostTrackingPanelProps) => {
         </CardContent>
       </Card>
 
-      {/* Add Account Modal */}
-      <Dialog open={showAddAccountModal} onOpenChange={setShowAddAccountModal}>
+      {/* Add User Modal */}
+      <Dialog open={showAddUserModal} onOpenChange={setShowAddUserModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Instagram Account</DialogTitle>
+            <DialogTitle>Add Instagram User</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label htmlFor="username">Instagram Username *</Label>
               <Input
                 id="username"
-                value={newAccount.username}
-                onChange={(e) => setNewAccount({ ...newAccount, username: e.target.value })}
+                value={newUser.username}
+                onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
                 placeholder="@username or username"
               />
             </div>
             <div>
-              <Label htmlFor="bio">Notes (optional)</Label>
+              <Label htmlFor="notes">Notes (optional)</Label>
               <Textarea
-                id="bio"
-                value={newAccount.bio}
-                onChange={(e) => setNewAccount({ ...newAccount, bio: e.target.value })}
-                placeholder="Notes about this account..."
+                id="notes"
+                value={newUser.notes}
+                onChange={(e) => setNewUser({ ...newUser, notes: e.target.value })}
+                placeholder="Notes about this user..."
                 rows={3}
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowAddAccountModal(false)}>
+              <Button variant="outline" onClick={() => setShowAddUserModal(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleAddAccount}>
-                Add Account
+              <Button onClick={handleAddUser}>
+                Add User
               </Button>
             </div>
           </div>

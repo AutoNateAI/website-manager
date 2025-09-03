@@ -2728,7 +2728,7 @@ export type Database = {
       }
       social_media_posts: {
         Row: {
-          assigned_account_id: string | null
+          assigned_user_id: string | null
           caption: string
           context_direction: string | null
           created_at: string
@@ -2752,7 +2752,7 @@ export type Database = {
           voice: string
         }
         Insert: {
-          assigned_account_id?: string | null
+          assigned_user_id?: string | null
           caption: string
           context_direction?: string | null
           created_at?: string
@@ -2776,7 +2776,7 @@ export type Database = {
           voice: string
         }
         Update: {
-          assigned_account_id?: string | null
+          assigned_user_id?: string | null
           caption?: string
           context_direction?: string | null
           created_at?: string
@@ -2801,10 +2801,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "social_media_posts_assigned_account_id_fkey"
-            columns: ["assigned_account_id"]
+            foreignKeyName: "social_media_posts_assigned_user_id_fkey"
+            columns: ["assigned_user_id"]
             isOneToOne: false
-            referencedRelation: "instagram_accounts"
+            referencedRelation: "instagram_users"
             referencedColumns: ["id"]
           },
         ]
