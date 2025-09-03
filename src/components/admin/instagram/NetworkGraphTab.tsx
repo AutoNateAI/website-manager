@@ -100,7 +100,7 @@ export function NetworkGraphTab() {
     try {
       setLoading(true);
 
-      // Fetch posts with existing columns
+      // Fetch posts with existing columns only
       const { data: postsData, error: postsError } = await supabase
         .from('social_media_posts')
         .select('id, title, caption, platform, caused_dm, created_at');
@@ -110,24 +110,23 @@ export function NetworkGraphTab() {
         .from('social_media_comments')
         .select('commenter_username, commenter_display_name, caused_dm, post_id');
 
-      // Fetch search queries with posts
+      // Fetch search queries relationships (simplified)
       const { data: queryPostsData, error: queryError } = await supabase
         .from('post_search_queries')
-        .select(`
-          *,
-          search_queries:search_query_id(query_text, target_keywords)
-        `);
+        .select('id, post_id, search_query_id, relevance_score');
 
       if (postsError || commentsError || queryError) {
         throw postsError || commentsError || queryError;
       }
 
-      // Build unique users from all sources (excluding self)
+      // Build unique users from comments only (excluding self)
       const allUsers = new Map<string, any>();
       
       // Add commenters as the main users
       commentsData?.forEach(comment => {
-        if (comment.commenter_username && comment.commenter_username !== 'me') {
+        if (comment.commenter_username && 
+            comment.commenter_username !== 'me' && 
+            comment.commenter_username !== 'you') {
           const userId = comment.commenter_username.toLowerCase();
           if (!allUsers.has(userId)) {
             allUsers.set(userId, {
@@ -136,7 +135,7 @@ export function NetworkGraphTab() {
               display_name: comment.commenter_display_name || comment.commenter_username,
               type: 'commenter',
               caused_dm: comment.caused_dm || false,
-              influence_score: 20
+              influence_score: 25
             });
           } else {
             // Update existing user if they caused a DM
@@ -154,24 +153,52 @@ export function NetworkGraphTab() {
       const relationships: AttentionFlow[] = [];
       let relationshipId = 1;
 
-      // Query -> Post relationships
-      queryPostsData?.forEach(qp => {
-        if (qp.search_queries) {
-          relationships.push({
-            id: `query-post-${relationshipId++}`,
-            source_user_id: 'search_queries',
-            target_user_id: 'our_posts',
-            attention_type: 'search_discovery',
-            attention_strength: qp.relevance_score || 3,
-            frequency_score: 1,
-            network_cluster: 'discovery'
-          });
-        }
+      // Add search query node
+      usersArray.push({
+        id: 'search_queries',
+        username: 'Search Queries',
+        display_name: 'Search Queries',
+        type: 'search_node',
+        influence_score: 50
       });
 
-      // Comment -> DM relationships
+      // Add our posts node
+      usersArray.push({
+        id: 'our_posts',
+        username: 'Our Posts',
+        display_name: 'Our Posts',
+        type: 'posts_node',
+        influence_score: 40
+      });
+
+      // Add DM conversations node
+      usersArray.push({
+        id: 'dm_conversations',
+        username: 'DM Conversations',
+        display_name: 'DM Conversations',
+        type: 'dm_node',
+        influence_score: 60
+      });
+
+      // Query -> Post relationships (if we have query data)
+      queryPostsData?.forEach(qp => {
+        relationships.push({
+          id: `query-post-${relationshipId++}`,
+          source_user_id: 'search_queries',
+          target_user_id: 'our_posts',
+          attention_type: 'search_discovery',
+          attention_strength: qp.relevance_score || 3,
+          frequency_score: 1,
+          network_cluster: 'discovery'
+        });
+      });
+
+      // Comment -> Post/DM relationships
       commentsData?.forEach(comment => {
-        if (comment.commenter_username && comment.commenter_username !== 'me') {
+        if (comment.commenter_username && 
+            comment.commenter_username !== 'me' && 
+            comment.commenter_username !== 'you') {
+          
           if (comment.caused_dm) {
             relationships.push({
               id: `comment-dm-${relationshipId++}`,
@@ -211,44 +238,21 @@ export function NetworkGraphTab() {
         }
       });
 
-      // Add virtual nodes for search queries, our posts, and DM conversations
-      usersArray.push({
-        id: 'search_queries',
-        username: 'Search Queries',
-        display_name: 'Search Queries',
-        type: 'system_node',
-        influence_score: 50
-      });
-
-      usersArray.push({
-        id: 'our_posts',
-        username: 'Our Posts',
-        display_name: 'Our Posts',
-        type: 'system_node',
-        influence_score: 40
-      });
-
-      usersArray.push({
-        id: 'dm_conversations',
-        username: 'DM Conversations',
-        display_name: 'DM Conversations',
-        type: 'system_node',
-        influence_score: 60
-      });
-
       setUsers(usersArray);
       setAttentionFlows(relationships);
 
       // Calculate network stats
+      const actualUsers = usersArray.filter(u => u.type === 'commenter');
       const stats = {
-        totalUsers: usersArray.length - 3, // Exclude system nodes
+        totalUsers: actualUsers.length,
         totalConnections: relationships.length,
         clusters: new Set(relationships.map(r => r.network_cluster).filter(Boolean)).size,
-        followsMe: 0 // We don't have this data in our current schema
+        followsMe: 0 // We don't have this data
       };
       setNetworkStats(stats);
 
     } catch (error: any) {
+      console.error('Network fetch error:', error);
       toast({
         title: 'Error fetching network data',
         description: error.message,
@@ -346,10 +350,11 @@ export function NetworkGraphTab() {
   };
 
   const getNodeColor = (user: any): string => {
-    if (user.type === 'system_node') return '#8b5cf6';
-    if (user.type === 'post_author') return '#3b82f6';
+    if (user.type === 'search_node') return '#8b5cf6';
+    if (user.type === 'posts_node') return '#3b82f6';
+    if (user.type === 'dm_node') return '#ef4444';
     if (user.type === 'commenter') return '#f59e0b';
-    if (user.caused_dm) return '#ef4444';
+    if (user.caused_dm) return '#dc2626';
     return '#6b7280';
   };
 
@@ -476,11 +481,11 @@ export function NetworkGraphTab() {
           <div className="flex flex-wrap gap-4 text-xs">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-purple-500 rounded"></div>
-              <span>System Nodes</span>
+              <span>Search Queries</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-blue-500 rounded"></div>
-              <span>Post Authors</span>
+              <span>Our Posts</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-yellow-500 rounded"></div>
@@ -488,7 +493,7 @@ export function NetworkGraphTab() {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-red-500 rounded border-2 border-red-600"></div>
-              <span>DM Conversions</span>
+              <span>DM Nodes</span>
             </div>
           </div>
           <div className="flex flex-wrap gap-4 text-xs">
