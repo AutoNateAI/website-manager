@@ -51,6 +51,7 @@ interface InstagramUser {
   display_name?: string;
   bio?: string;
   follower_count?: number;
+  following_count?: number;
   account_type?: string;
   follows_me: boolean;
   discovered_through?: string;
@@ -703,6 +704,81 @@ export function InstagramAnalyticsTab() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* User Profile Dialog */}
+      {selectedUser && (
+        <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedUser.id.startsWith('commenter_') ? 'Add Instagram User' : 'Edit Instagram User'}
+              </DialogTitle>
+            </DialogHeader>
+            <UserProfileForm 
+              user={selectedUser}
+              onSubmit={async (userData) => {
+                try {
+                  if (selectedUser.id.startsWith('commenter_')) {
+                    // Create new user in database
+                    const { data, error } = await supabase
+                      .from('instagram_users')
+                      .insert({
+                        username: userData.username,
+                        display_name: userData.display_name || null,
+                        bio: userData.bio || null,
+                        follower_count: userData.follower_count || null,
+                        account_type: userData.account_type || null,
+                        notes: userData.notes || null,
+                        discovered_through: 'comment',
+                        influence_score: userData.influence_score || 0
+                      })
+                      .select()
+                      .single();
+                    
+                    if (error) throw error;
+                    
+                    toast({
+                      title: "User added",
+                      description: `@${data.username} has been added to the database`
+                    });
+                  } else {
+                    // Update existing user
+                    const { error } = await supabase
+                      .from('instagram_users')
+                      .update({
+                        display_name: userData.display_name || null,
+                        bio: userData.bio || null,
+                        follower_count: userData.follower_count || null,
+                        account_type: userData.account_type || null,
+                        notes: userData.notes || null,
+                        influence_score: userData.influence_score || 0
+                      })
+                      .eq('id', selectedUser.id);
+                    
+                    if (error) throw error;
+                    
+                    toast({
+                      title: "User updated",
+                      description: `@${userData.username} has been updated`
+                    });
+                  }
+                  
+                  // Refresh data and close dialog
+                  fetchData();
+                  setSelectedUser(null);
+                } catch (error: any) {
+                  toast({
+                    title: "Error",
+                    description: error.message,
+                    variant: "destructive"
+                  });
+                }
+              }}
+              onCancel={() => setSelectedUser(null)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
@@ -746,6 +822,117 @@ function EngagementForm({ post, onSubmit }: {
       <Button type="submit" className="w-full">
         Log Activity
       </Button>
+    </form>
+  );
+}
+
+function UserProfileForm({ user, onSubmit, onCancel }: {
+  user: InstagramUser;
+  onSubmit: (userData: Partial<InstagramUser>) => void;
+  onCancel: () => void;
+}) {
+  const [formData, setFormData] = useState({
+    username: user.username,
+    display_name: user.display_name || '',
+    bio: user.bio || '',
+    follower_count: user.follower_count || 0,
+    following_count: user.following_count || 0,
+    account_type: user.account_type || '',
+    notes: user.notes || '',
+    influence_score: user.influence_score || 0
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="text-sm font-medium">Username</label>
+        <Input
+          value={formData.username}
+          onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+          disabled={!user.id.startsWith('commenter_')}
+          placeholder="@username"
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Display Name</label>
+        <Input
+          value={formData.display_name}
+          onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+          placeholder="Display name"
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Bio</label>
+        <Textarea
+          value={formData.bio}
+          onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+          placeholder="User bio..."
+          rows={2}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-sm font-medium">Followers</label>
+          <Input
+            type="number"
+            value={formData.follower_count}
+            onChange={(e) => setFormData({ ...formData, follower_count: parseInt(e.target.value) || 0 })}
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Following</label>
+          <Input
+            type="number"
+            value={formData.following_count}
+            onChange={(e) => setFormData({ ...formData, following_count: parseInt(e.target.value) || 0 })}
+            placeholder="0"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Account Type</label>
+        <Select value={formData.account_type} onValueChange={(value) => setFormData({ ...formData, account_type: value })}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select account type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="personal">Personal</SelectItem>
+            <SelectItem value="business">Business</SelectItem>
+            <SelectItem value="creator">Creator</SelectItem>
+            <SelectItem value="influencer">Influencer</SelectItem>
+            <SelectItem value="brand">Brand</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Notes</label>
+        <Textarea
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          placeholder="Internal notes about this user..."
+          rows={2}
+        />
+      </div>
+
+      <div className="flex gap-2 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
+          Cancel
+        </Button>
+        <Button type="submit" className="flex-1">
+          {user.id.startsWith('commenter_') ? 'Add User' : 'Update User'}
+        </Button>
+      </div>
     </form>
   );
 }
