@@ -415,28 +415,28 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
     const status = commentStatus[comment.id] || 'posted';
 
     return (
-      <div key={comment.id} className={`${depth > 0 ? 'ml-6 border-l border-border pl-4' : ''}`}>
-        <div className={`p-3 rounded-lg border ${isMyComment ? 'bg-primary/5 border-primary/20' : isReplyToMe ? 'bg-accent/50' : 'bg-card'}`}>
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <User className="h-4 w-4" />
-              <span className="font-medium text-sm">
+      <div key={comment.id} className={`${depth > 0 ? 'ml-4 border-l border-border pl-3' : ''}`}>
+        <div className={`p-2 rounded-lg border text-xs ${isMyComment ? 'bg-primary/5 border-primary/20' : isReplyToMe ? 'bg-accent/50' : 'bg-card'}`}>
+          <div className="flex items-start justify-between mb-1">
+            <div className="flex items-center gap-1 flex-wrap">
+              <User className="h-3 w-3" />
+              <span className="font-medium text-xs">
                 {comment.commenter_display_name || comment.commenter_username}
               </span>
-              {isMyComment && <Badge variant="outline" className="text-xs">You</Badge>}
-              {isReplyToMe && <Badge variant="secondary" className="text-xs">Reply to you</Badge>}
+              {isMyComment && <Badge variant="outline" className="text-[10px] px-1 py-0">You</Badge>}
+              {isReplyToMe && <Badge variant="secondary" className="text-[10px] px-1 py-0">Reply to you</Badge>}
               <Badge 
                 variant={status === 'scheduled' ? 'default' : status === 'posted' ? 'secondary' : 'outline'} 
-                className="text-xs"
+                className="text-[10px] px-1 py-0"
               >
-                {status === 'scheduled' && <Clock className="h-3 w-3 mr-1" />}
+                {status === 'scheduled' && <Clock className="h-2 w-2 mr-1" />}
                 {status}
               </Badge>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-[10px] text-muted-foreground">
                 {new Date(comment.comment_timestamp).toLocaleDateString()}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
               {editingLikeCount === comment.id ? (
                 <div className="flex items-center gap-1">
                   <Heart className="h-3 w-3" />
@@ -496,7 +496,7 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
             </div>
           </div>
           
-          <p className="text-sm mb-2 whitespace-pre-wrap">{comment.comment_text}</p>
+          <p className="text-xs mb-1 whitespace-pre-wrap">{comment.comment_text}</p>
           
           <div className="flex items-center gap-2 flex-wrap">
             {hasReplies && (
@@ -618,108 +618,92 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <MessageSquare className="h-5 w-5" />
-          Comments ({comments.length})
-        </h3>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Total: {comments.length} comments</span>
+        </div>
+        <div className="flex gap-1">
           <AddCommenterDialog postId={postId} onCommentAdded={fetchComments} />
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => setShowAddComment(!showAddComment)}
+            className="h-7 px-2"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Comment
+            <Plus className="h-3 w-3 mr-1" />
+            Add
           </Button>
         </div>
       </div>
 
       {showAddComment && (
-        <Card>
-          <CardContent className="pt-4">
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="commenter-username">Username *</Label>
-                  <Input
-                    id="commenter-username"
-                    placeholder="@username"
-                    value={commenterUsername}
-                    onChange={(e) => setCommenterUsername(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="commenter-display-name">Display Name</Label>
-                  <Input
-                    id="commenter-display-name"
-                    placeholder="Display Name"
-                    value={commenterDisplayName}
-                    onChange={(e) => setCommenterDisplayName(e.target.value)}
-                  />
-                </div>
-              </div>
-              <Textarea
-                placeholder="Add a comment to this post..."
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                className="min-h-[80px]"
-              />
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <Label htmlFor="schedule-date" className="text-sm">Schedule for later (optional)</Label>
-                </div>
-                <Input
-                  id="schedule-date"
-                  type="datetime-local"
-                  value={scheduledFor}
-                  onChange={(e) => setScheduledFor(e.target.value)}
-                  className="max-w-xs"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={addComment}>
-                  <Send className="h-4 w-4 mr-2" />
-                  {scheduledFor ? 'Schedule Comment' : 'Post Comment'}
-                </Button>
-                <Button variant="outline" onClick={() => setShowAddComment(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              placeholder="@username"
+              value={commenterUsername}
+              onChange={(e) => setCommenterUsername(e.target.value)}
+              className="text-xs h-7"
+            />
+            <Input
+              placeholder="Display Name"
+              value={commenterDisplayName}
+              onChange={(e) => setCommenterDisplayName(e.target.value)}
+              className="text-xs h-7"
+            />
+          </div>
+          <Textarea
+            placeholder="Add a comment..."
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            className="min-h-[60px] text-xs resize-none"
+          />
+          <div className="flex items-center gap-2">
+            <Input
+              type="datetime-local"
+              value={scheduledFor}
+              onChange={(e) => setScheduledFor(e.target.value)}
+              className="text-xs h-7 flex-1"
+              placeholder="Schedule (optional)"
+            />
+            <Button onClick={addComment} size="sm" className="h-7 px-2 text-xs">
+              <Send className="h-3 w-3 mr-1" />
+              {scheduledFor ? 'Schedule' : 'Post'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowAddComment(false)} className="h-7 px-2 text-xs">
+              Cancel
+            </Button>
+          </div>
+        </div>
       )}
 
       <Tabs defaultValue="my-threads" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="my-threads">
+        <TabsList className="grid w-full grid-cols-2 h-8">
+          <TabsTrigger value="my-threads" className="text-xs">
             My Threads ({myCommentThreads.length})
           </TabsTrigger>
-          <TabsTrigger value="other-threads">
+          <TabsTrigger value="other-threads" className="text-xs">
             Other Threads ({otherThreads.length})
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="my-threads" className="space-y-3">
+        <TabsContent value="my-threads" className="space-y-2 mt-3">
           {myCommentThreads.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No comments or threads involving you yet</p>
+            <div className="text-center py-6 text-muted-foreground">
+              <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-xs">No comments or threads involving you yet</p>
             </div>
           ) : (
             myCommentThreads.map(comment => renderComment(comment))
           )}
         </TabsContent>
         
-        <TabsContent value="other-threads" className="space-y-3">
+        <TabsContent value="other-threads" className="space-y-2 mt-3">
           {otherThreads.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No other comment threads</p>
+            <div className="text-center py-6 text-muted-foreground">
+              <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-xs">No other comment threads</p>
             </div>
           ) : (
             otherThreads.map(comment => renderComment(comment))
