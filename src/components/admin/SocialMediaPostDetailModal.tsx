@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Copy, Edit, Trash2, Calendar, Clock, Save, X } from 'lucide-react';
 import { SocialMediaPost, SocialMediaImage } from './types';
 import SocialMediaImageGallery from './SocialMediaImageGallery';
+import PostTrackingPanel from './PostTrackingPanel';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -124,6 +125,9 @@ const SocialMediaPostDetailModal = ({
                     )}
                   </div>
                 </div>
+
+                {/* Instagram Tracking Panel */}
+                <PostTrackingPanel post={post} onUpdate={() => onPostUpdate?.()} />
 
                 {/* Caption */}
                 <div>

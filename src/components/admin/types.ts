@@ -12,6 +12,33 @@ export interface SocialMediaPost {
   is_published: boolean;
   status?: string;
   generation_progress?: any;
+  assigned_account_id?: string;
+  post_status?: 'draft' | 'assigned' | 'scheduled' | 'posted' | 'failed';
+  scheduled_at?: string;
+  posted_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InstagramAccount {
+  id: string;
+  username: string;
+  platform: string;
+  access_status?: string;
+  connected_at?: string;
+  last_sync_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduledPost {
+  id: string;
+  account_id: string;
+  social_media_post_id?: string;
+  scheduled_for: string;
+  status: 'pending' | 'scheduled' | 'posted' | 'failed';
+  payload: any;
+  error?: string;
   created_at: string;
   updated_at: string;
 }
