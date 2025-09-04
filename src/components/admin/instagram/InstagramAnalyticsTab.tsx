@@ -451,7 +451,7 @@ export function InstagramAnalyticsTab() {
             </Button>
           )}
           {activeTab === 'users' && (
-            <Button variant="outline" onClick={() => setShowAddUserModal(true)}>
+            <Button onClick={() => setShowAddUserModal(true)}>
               <User className="h-4 w-4 mr-2" />
               Add User
             </Button>
