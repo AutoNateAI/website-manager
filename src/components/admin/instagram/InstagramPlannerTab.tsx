@@ -67,7 +67,7 @@ function ImageCarousel({ images }: { images: SocialMediaImage[] }) {
 
   if (!images || images.length === 0) {
     return (
-      <div className="h-20 bg-muted rounded-md flex items-center justify-center">
+      <div className="aspect-square bg-muted rounded-md flex items-center justify-center">
         <span className="text-xs text-muted-foreground">No images</span>
       </div>
     );
@@ -82,7 +82,7 @@ function ImageCarousel({ images }: { images: SocialMediaImage[] }) {
   };
 
   return (
-    <div className="relative h-20 rounded-md overflow-hidden bg-muted">
+    <div className="relative aspect-square rounded-md overflow-hidden bg-muted">
       <img
         src={images[currentIndex].image_url}
         alt={images[currentIndex].alt_text || 'Post image'}
@@ -92,21 +92,21 @@ function ImageCarousel({ images }: { images: SocialMediaImage[] }) {
         <>
           <button
             onClick={(e) => { e.stopPropagation(); prevImage(); }}
-            className="absolute left-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-black/50 text-white rounded-full flex items-center justify-center text-xs hover:bg-black/70"
+            className="absolute left-1 top-1/2 -translate-y-1/2 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center text-xs hover:bg-black/70 transition-colors"
           >
             <ChevronLeft className="h-3 w-3" />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); nextImage(); }}
-            className="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-black/50 text-white rounded-full flex items-center justify-center text-xs hover:bg-black/70"
+            className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center text-xs hover:bg-black/70 transition-colors"
           >
             <ChevronRight className="h-3 w-3" />
           </button>
-          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1">
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
             {images.map((_, idx) => (
               <div
                 key={idx}
-                className={`w-1 h-1 rounded-full ${
+                className={`w-1.5 h-1.5 rounded-full transition-colors ${
                   idx === currentIndex ? 'bg-white' : 'bg-white/50'
                 }`}
               />
@@ -145,51 +145,51 @@ function PostCard({ post, images, isDragging, isScheduled, onUnschedule }: PostC
       className="cursor-grab active:cursor-grabbing"
     >
       <Card className="border-l-4 border-l-primary hover:shadow-md transition-shadow">
-        <CardContent className="p-3 space-y-2">
+        <CardContent className="p-3 space-y-3">
           {/* Image Carousel */}
           <ImageCarousel images={images || []} />
           
-          <div className="space-y-2">
-            <div className="flex justify-between items-start gap-2">
-              <h4 className="font-medium text-sm line-clamp-2 flex-1">{post.title}</h4>
-              <div className="flex flex-wrap gap-1 items-center">
-                {hasNoTarget && (
-                  <Badge variant="secondary" className="text-xs px-2 py-0 bg-orange-100 text-orange-800 whitespace-nowrap">
-                    No Target Yet
-                  </Badge>
-                )}
-                {isScheduled && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onUnschedule?.();
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                )}
+            <div className="space-y-2">
+              <div className="flex justify-between items-start gap-2">
+                <h4 className="font-medium text-sm line-clamp-2 flex-1">{post.title}</h4>
+                <div className="flex flex-wrap gap-1 items-center">
+                  {hasNoTarget && (
+                    <Badge variant="secondary" className="text-xs px-2 py-0 bg-orange-100 text-orange-800 whitespace-nowrap">
+                      No Target Yet
+                    </Badge>
+                  )}
+                  {isScheduled && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onUnschedule?.();
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-            <p className="text-xs text-muted-foreground line-clamp-2">
-              {post.caption}
-            </p>
-            <div className="flex items-center gap-2 text-xs">
-              <Badge variant="outline" className="px-2 py-0">
-                {post.platform}
-              </Badge>
-              <Badge variant="outline" className="px-2 py-0">
-                {post.style}
-              </Badge>
-            </div>
-            {post.target_user && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <User className="h-3 w-3" />
-                <span>{post.target_user}</span>
+              <p className="text-xs text-muted-foreground line-clamp-2">
+                {post.caption}
+              </p>
+              <div className="flex items-center gap-2 text-xs">
+                <Badge variant="outline" className="px-2 py-0">
+                  {post.platform}
+                </Badge>
+                <Badge variant="outline" className="px-2 py-0">
+                  {post.style}
+                </Badge>
               </div>
-            )}
+              {post.target_user && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <User className="h-3 w-3" />
+                  <span>{post.target_user}</span>
+                </div>
+              )}
           </div>
         </CardContent>
       </Card>
@@ -214,7 +214,7 @@ function TimeSlotComponent({ slot, images, onPostClick, onUnschedule }: TimeSlot
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[120px] border rounded-md p-2 transition-colors ${
+      className={`min-h-[180px] border rounded-md p-2 transition-colors ${
         isOver ? 'bg-primary/10 border-primary' : 'bg-background border-border'
       }`}
     >
@@ -272,9 +272,11 @@ export function InstagramPlannerTab() {
   }, []);
 
   useEffect(() => {
-    generateTimeSlots();
-    loadScheduledPosts();
-  }, [selectedDate]);
+    if (posts.length > 0) {
+      generateTimeSlots();
+      loadScheduledPosts();
+    }
+  }, [selectedDate, posts]);
 
   const loadData = async () => {
     try {
@@ -322,6 +324,8 @@ export function InstagramPlannerTab() {
   };
 
   const loadScheduledPosts = async () => {
+    if (timeSlots.length === 0) return;
+    
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       const { data: scheduledData, error } = await supabase
@@ -332,8 +336,10 @@ export function InstagramPlannerTab() {
 
       if (error) throw error;
 
+      // Create a copy of time slots
+      const newSlots = timeSlots.map(slot => ({ ...slot, post: undefined }));
+      
       // Map scheduled posts to time slots
-      const newSlots = [...timeSlots];
       scheduledData?.forEach(scheduled => {
         const scheduleTime = parseISO(scheduled.scheduled_for);
         const slotIndex = Math.floor(
