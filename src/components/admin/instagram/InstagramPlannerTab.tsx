@@ -177,11 +177,11 @@ function PostCard({ post, images, isDragging, isScheduled, onUnschedule }: PostC
               <p className="text-xs text-muted-foreground line-clamp-2">
                 {post.caption}
               </p>
-              <div className="flex items-center gap-2 text-xs">
-                <Badge variant="outline" className="px-2 py-0">
+              <div className="flex items-center flex-wrap gap-1 text-xs">
+                <Badge variant="outline" className="px-2 py-0 text-xs shrink-0">
                   {post.platform}
                 </Badge>
-                <Badge variant="outline" className="px-2 py-0">
+                <Badge variant="outline" className="px-2 py-0 text-xs shrink-0">
                   {post.style}
                 </Badge>
               </div>
