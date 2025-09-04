@@ -254,15 +254,7 @@ export type Database = {
           schedule?: string | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "automation_rules_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "instagram_accounts"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       blog_ads: {
         Row: {
@@ -1258,48 +1250,6 @@ export type Database = {
           },
         ]
       }
-      instagram_accounts: {
-        Row: {
-          access_status: string | null
-          connected_at: string | null
-          created_at: string
-          id: string
-          last_sync_at: string | null
-          phyllo_account_id: string | null
-          phyllo_profile_id: string | null
-          platform: string
-          updated_at: string
-          user_id: string | null
-          username: string | null
-        }
-        Insert: {
-          access_status?: string | null
-          connected_at?: string | null
-          created_at?: string
-          id?: string
-          last_sync_at?: string | null
-          phyllo_account_id?: string | null
-          phyllo_profile_id?: string | null
-          platform?: string
-          updated_at?: string
-          user_id?: string | null
-          username?: string | null
-        }
-        Update: {
-          access_status?: string | null
-          connected_at?: string | null
-          created_at?: string
-          id?: string
-          last_sync_at?: string | null
-          phyllo_account_id?: string | null
-          phyllo_profile_id?: string | null
-          platform?: string
-          updated_at?: string
-          user_id?: string | null
-          username?: string | null
-        }
-        Relationships: []
-      }
       instagram_engagement_log: {
         Row: {
           account_id: string
@@ -1334,15 +1284,7 @@ export type Database = {
           target_post_url?: string | null
           target_user?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "instagram_engagement_log_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "instagram_accounts"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       instagram_target_posts: {
         Row: {
@@ -1440,6 +1382,7 @@ export type Database = {
         Row: {
           account_type: string | null
           bio: string | null
+          company_id: string | null
           created_at: string
           discovered_through: string | null
           discovery_source_id: string | null
@@ -1457,6 +1400,7 @@ export type Database = {
           location: string | null
           niche_categories: string[] | null
           notes: string | null
+          person_id: string | null
           post_count: number | null
           profile_image_url: string | null
           sentiment_score: number | null
@@ -1466,6 +1410,7 @@ export type Database = {
         Insert: {
           account_type?: string | null
           bio?: string | null
+          company_id?: string | null
           created_at?: string
           discovered_through?: string | null
           discovery_source_id?: string | null
@@ -1483,6 +1428,7 @@ export type Database = {
           location?: string | null
           niche_categories?: string[] | null
           notes?: string | null
+          person_id?: string | null
           post_count?: number | null
           profile_image_url?: string | null
           sentiment_score?: number | null
@@ -1492,6 +1438,7 @@ export type Database = {
         Update: {
           account_type?: string | null
           bio?: string | null
+          company_id?: string | null
           created_at?: string
           discovered_through?: string | null
           discovery_source_id?: string | null
@@ -1509,13 +1456,29 @@ export type Database = {
           location?: string | null
           niche_categories?: string[] | null
           notes?: string | null
+          person_id?: string | null
           post_count?: number | null
           profile_image_url?: string | null
           sentiment_score?: number | null
           updated_at?: string
           username?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "instagram_users_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instagram_users_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       link_previews: {
         Row: {
@@ -2203,15 +2166,7 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "scheduled_posts_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "instagram_accounts"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       scoring_algorithms: {
         Row: {
@@ -3230,6 +3185,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_or_get_instagram_user: {
+        Args: {
+          bio_param?: string
+          company_id_param?: string
+          discovered_through_param?: string
+          display_name_param?: string
+          location_param?: string
+          person_id_param?: string
+          username_param: string
+        }
+        Returns: string
+      }
       delete_comment_cascade: {
         Args: { comment_id: string }
         Returns: undefined
