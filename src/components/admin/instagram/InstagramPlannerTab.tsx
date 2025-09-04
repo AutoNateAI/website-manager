@@ -67,7 +67,7 @@ function ImageCarousel({ images }: { images: SocialMediaImage[] }) {
 
   if (!images || images.length === 0) {
     return (
-      <div className="aspect-square bg-muted rounded-md flex items-center justify-center">
+      <div className="w-20 h-20 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
         <span className="text-xs text-muted-foreground">No images</span>
       </div>
     );
@@ -82,7 +82,7 @@ function ImageCarousel({ images }: { images: SocialMediaImage[] }) {
   };
 
   return (
-    <div className="relative aspect-square rounded-md overflow-hidden bg-muted">
+    <div className="relative w-20 h-20 rounded-md overflow-hidden bg-muted flex-shrink-0">
       <img
         src={images[currentIndex].image_url}
         alt={images[currentIndex].alt_text || 'Post image'}
@@ -92,21 +92,21 @@ function ImageCarousel({ images }: { images: SocialMediaImage[] }) {
         <>
           <button
             onClick={(e) => { e.stopPropagation(); prevImage(); }}
-            className="absolute left-1 top-1/2 -translate-y-1/2 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center text-xs hover:bg-black/70 transition-colors"
+            className="absolute left-0.5 top-1/2 -translate-y-1/2 w-5 h-5 bg-black/50 text-white rounded-full flex items-center justify-center text-xs hover:bg-black/70 transition-colors"
           >
             <ChevronLeft className="h-3 w-3" />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); nextImage(); }}
-            className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center text-xs hover:bg-black/70 transition-colors"
+            className="absolute right-0.5 top-1/2 -translate-y-1/2 w-5 h-5 bg-black/50 text-white rounded-full flex items-center justify-center text-xs hover:bg-black/70 transition-colors"
           >
             <ChevronRight className="h-3 w-3" />
           </button>
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
             {images.map((_, idx) => (
               <div
                 key={idx}
-                className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                className={`w-1 h-1 rounded-full transition-colors ${
                   idx === currentIndex ? 'bg-white' : 'bg-white/50'
                 }`}
               />
@@ -145,11 +145,13 @@ function PostCard({ post, images, isDragging, isScheduled, onUnschedule }: PostC
       className="cursor-grab active:cursor-grabbing"
     >
       <Card className="border-l-4 border-l-primary hover:shadow-md transition-shadow">
-        <CardContent className="p-3 space-y-3">
-          {/* Image Carousel */}
-          <ImageCarousel images={images || []} />
-          
-            <div className="space-y-2">
+        <CardContent className="p-3">
+          <div className="flex gap-3">
+            {/* Image Carousel - Fixed width */}
+            <ImageCarousel images={images || []} />
+            
+            {/* Content - Flexible width */}
+            <div className="flex-1 min-w-0 space-y-2">
               <div className="flex justify-between items-start gap-2">
                 <h4 className="font-medium text-sm line-clamp-2 flex-1">{post.title}</h4>
                 <div className="flex flex-wrap gap-1 items-center">
@@ -190,6 +192,7 @@ function PostCard({ post, images, isDragging, isScheduled, onUnschedule }: PostC
                   <span>{post.target_user}</span>
                 </div>
               )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -214,7 +217,7 @@ function TimeSlotComponent({ slot, images, onPostClick, onUnschedule }: TimeSlot
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[180px] border rounded-md p-2 transition-colors ${
+      className={`min-h-[100px] border rounded-md p-2 transition-colors ${
         isOver ? 'bg-primary/10 border-primary' : 'bg-background border-border'
       }`}
     >
@@ -431,7 +434,6 @@ export function InstagramPlannerTab() {
         await supabase
           .from('scheduled_posts')
           .upsert({
-            account_id: '00000000-0000-0000-0000-000000000000', // Default account for now
             social_media_post_id: draggedPost.id,
             scheduled_for: scheduledDateTime,
             status: 'pending',
@@ -517,7 +519,7 @@ export function InstagramPlannerTab() {
 
       if (error) throw error;
 
-      // Update scheduled post if it has target_user changes
+      // Save scheduled post if it has target_user changes
       if (editingPost.scheduled_for) {
         await supabase
           .from('scheduled_posts')
