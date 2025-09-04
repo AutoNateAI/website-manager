@@ -20,6 +20,7 @@ import {
   useSensor,
   useSensors,
   closestCenter,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -118,7 +119,23 @@ function ImageCarousel({ images }: { images: SocialMediaImage[] }) {
   );
 }
 
-// Draggable Post Card Component
+// Available Posts Droppable Area Component
+function AvailablePostsDroppable({ children }: { children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: 'available-posts',
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`space-y-3 min-h-[100px] p-2 rounded-md transition-colors ${
+        isOver ? 'bg-primary/5 border-2 border-primary border-dashed' : ''
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
 function PostCard({ post, images, isDragging, isScheduled, onUnschedule }: PostCardProps) {
   const {
     attributes,
@@ -463,9 +480,16 @@ export function InstagramPlannerTab() {
       try {
         const scheduledDateTime = targetSlot.datetime.toISOString();
         
+        // Delete any existing scheduled entry for this post first
         await supabase
           .from('scheduled_posts')
-          .upsert({
+          .delete()
+          .eq('social_media_post_id', draggedPost.id);
+        
+        // Insert new scheduled entry
+        await supabase
+          .from('scheduled_posts')
+          .insert({
             account_id: null,
             social_media_post_id: draggedPost.id,
             scheduled_for: scheduledDateTime,
@@ -738,10 +762,7 @@ export function InstagramPlannerTab() {
                     items={availablePosts.map(post => post.id)} 
                     strategy={verticalListSortingStrategy}
                   >
-                    <div 
-                      id="available-posts"
-                      className="space-y-3"
-                    >
+                    <AvailablePostsDroppable>
                       {availablePosts.map((post) => (
                         <PostCard 
                           key={post.id} 
@@ -756,7 +777,7 @@ export function InstagramPlannerTab() {
                           <p className="text-sm">Try adjusting your filters or create posts in Content Generation</p>
                         </div>
                       )}
-                    </div>
+                    </AvailablePostsDroppable>
                   </SortableContext>
                 </ScrollArea>
               </CardContent>
