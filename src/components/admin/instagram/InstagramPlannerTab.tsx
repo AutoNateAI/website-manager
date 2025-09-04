@@ -20,7 +20,6 @@ import {
   useSensor,
   useSensors,
   closestCenter,
-  useDroppable,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -119,23 +118,6 @@ function ImageCarousel({ images }: { images: SocialMediaImage[] }) {
   );
 }
 
-// Available Posts Droppable Area Component
-function AvailablePostsDroppable({ children }: { children: React.ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: 'available-posts',
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`space-y-3 min-h-[100px] p-2 rounded-md transition-colors ${
-        isOver ? 'bg-primary/5 border-2 border-primary border-dashed' : ''
-      }`}
-    >
-      {children}
-    </div>
-  );
-}
 function PostCard({ post, images, isDragging, isScheduled, onUnschedule }: PostCardProps) {
   const {
     attributes,
@@ -762,7 +744,10 @@ export function InstagramPlannerTab() {
                     items={availablePosts.map(post => post.id)} 
                     strategy={verticalListSortingStrategy}
                   >
-                    <AvailablePostsDroppable>
+                    <div 
+                      id="available-posts"
+                      className="space-y-3"
+                    >
                       {availablePosts.map((post) => (
                         <PostCard 
                           key={post.id} 
@@ -777,7 +762,7 @@ export function InstagramPlannerTab() {
                           <p className="text-sm">Try adjusting your filters or create posts in Content Generation</p>
                         </div>
                       )}
-                    </AvailablePostsDroppable>
+                    </div>
                   </SortableContext>
                 </ScrollArea>
               </CardContent>
