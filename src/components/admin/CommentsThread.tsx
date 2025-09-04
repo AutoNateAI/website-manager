@@ -28,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SocialMediaComment } from './types';
 import { AICommentHelper } from './AICommentHelper';
 import { AddCommenterDialog } from './AddCommenterDialog';
+import { createOrGetInstagramUser } from '@/lib/instagram';
 
 interface CommentsThreadProps {
   postId: string;
@@ -127,6 +128,13 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
     if (!newComment.trim() || !commenterUsername.trim()) return;
 
     try {
+      // First, create or get the Instagram user
+      await createOrGetInstagramUser(supabase, {
+        username: commenterUsername,
+        display_name: commenterDisplayName,
+        discovered_through: 'comment'
+      });
+
       const commentData: any = {
         post_id: postId,
         commenter_username: commenterUsername,
@@ -172,7 +180,7 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
       
       toast({
         title: "Success",
-        description: scheduledFor ? "Comment scheduled successfully" : "Comment added successfully",
+        description: scheduledFor ? "Comment scheduled successfully" : "Comment added successfully (Instagram user created/updated)",
       });
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -191,6 +199,15 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
     try {
       const parentComment = findComment(comments, parentId);
       const threadDepth = parentComment ? parentComment.thread_depth + 1 : 1;
+
+      // Create Instagram user if it's not an AI suggestion
+      if (!aiSuggestion) {
+        await createOrGetInstagramUser(supabase, {
+          username: replyCommenterUsername,
+          display_name: replyCommenterDisplayName,
+          discovered_through: 'comment'
+        });
+      }
 
       const { error } = await supabase
         .from('social_media_comments')
@@ -219,7 +236,7 @@ export function CommentsThread({ postId }: CommentsThreadProps) {
       
       toast({
         title: "Success",
-        description: "Reply added successfully",
+        description: aiSuggestion ? "Reply added successfully" : "Reply added successfully (Instagram user created/updated)",
       });
     } catch (error) {
       console.error('Error adding reply:', error);

@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { UserPlus, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { createOrGetInstagramUser } from '@/lib/instagram';
 
 interface AddCommenterDialogProps {
   postId: string;
@@ -38,9 +39,14 @@ export function AddCommenterDialog({ postId, onCommentAdded }: AddCommenterDialo
 
     setLoading(true);
     try {
-      // For now, we'll just create the comment without linking to a person
-      // This can be enhanced later when the people table is fully set up
-      let personId = null;
+      // First, create or get the Instagram user
+      const instagramUserId = await createOrGetInstagramUser(supabase, {
+        username: commenterData.username,
+        display_name: commenterData.displayName,
+        bio: commenterData.bio,
+        location: commenterData.location,
+        discovered_through: 'comment'
+      });
 
       // Create the comment
       const { error: commentError } = await supabase
@@ -61,7 +67,7 @@ export function AddCommenterDialog({ postId, onCommentAdded }: AddCommenterDialo
 
       toast({
         title: "Success",
-        description: "Commenter and comment added successfully",
+        description: `Commenter and comment added successfully. Instagram user ${instagramUserId ? 'created/updated' : 'creation failed but comment saved'}.`,
       });
 
       setCommenterData({

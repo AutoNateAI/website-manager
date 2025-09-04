@@ -35,6 +35,8 @@ export interface InstagramUser {
   follows_me?: boolean;
   discovered_through?: string;
   notes?: string;
+  company_id?: string;
+  person_id?: string;
   created_at: string;
   updated_at: string;
 }

@@ -26,7 +26,8 @@ export default function InstagramAutomationTab() {
   const load = async () => {
     const [p, a, s] = await Promise.all([
       supabase.from('social_media_posts').select('id,title,platform,caption,created_at').eq('platform', 'instagram').order('created_at', { ascending: false }),
-      supabase.from('instagram_accounts').select('id,username,access_status').order('connected_at', { ascending: false }),
+      // Note: instagram_accounts table doesn't exist yet, using placeholder
+      Promise.resolve({ data: [], error: null }),
       supabase.from('scheduled_posts').select('id,status,scheduled_for,social_media_post_id').order('scheduled_for', { ascending: false }),
     ]);
     if (!p.error && p.data) setPosts(p.data as any);

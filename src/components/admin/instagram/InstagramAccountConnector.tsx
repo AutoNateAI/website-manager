@@ -33,8 +33,9 @@ export default function InstagramAccountConnector() {
   const { toast } = useToast();
 
   const fetchAccounts = async () => {
-    const { data, error } = await supabase.from('instagram_accounts').select('*').order('connected_at', { ascending: false });
-    if (!error && data) setAccounts(data as any);
+    // Note: instagram_accounts table doesn't exist yet - using placeholder
+    // This can be implemented when Instagram account integration is added
+    setAccounts([]);
   };
 
   useEffect(() => { fetchAccounts(); }, []);

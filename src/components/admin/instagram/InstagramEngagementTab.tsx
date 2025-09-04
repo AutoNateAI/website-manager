@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Plus, MessageSquare, Clock, CheckCircle, AlertCircle, User, ExternalLink, Reply, Search } from 'lucide-react';
+import { createOrGetInstagramUser } from '@/lib/instagram';
 
 interface Account {
   id: string;
@@ -62,6 +63,9 @@ interface InstagramUser {
   niche_categories?: string[];
   location?: string;
   notes?: string;
+  company_id?: string;
+  person_id?: string;
+  discovered_through?: string;
   created_at: string;
 }
 
@@ -216,6 +220,14 @@ export function InstagramEngagementTab() {
   const handleSubmitPost = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // First, create Instagram user if poster_username is provided
+      if (postForm.poster_username && postForm.poster_username.trim()) {
+        await createOrGetInstagramUser(supabase, {
+          username: postForm.poster_username,
+          discovered_through: 'target_post'
+        });
+      }
+
       const hashtags = postForm.hashtags
         .split(',')
         .map(tag => tag.trim())
@@ -238,7 +250,10 @@ export function InstagramEngagementTab() {
         .insert([postData]);
       
       if (error) throw error;
-      toast({ title: 'Post added successfully!' });
+      toast({ 
+        title: 'Post added successfully!',
+        description: postForm.poster_username ? 'Instagram user created/updated as well.' : undefined
+      });
       
       resetPostForm();
       loadData();
