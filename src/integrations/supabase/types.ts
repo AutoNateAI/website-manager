@@ -256,6 +256,117 @@ export type Database = {
         }
         Relationships: []
       }
+      blitz_campaigns: {
+        Row: {
+          campaign_date: string
+          campaign_id: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          posts_per_target: number
+          status: string
+          target_count: number
+          updated_at: string
+        }
+        Insert: {
+          campaign_date: string
+          campaign_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          posts_per_target?: number
+          status?: string
+          target_count?: number
+          updated_at?: string
+        }
+        Update: {
+          campaign_date?: string
+          campaign_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          posts_per_target?: number
+          status?: string
+          target_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blitz_campaigns_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blitz_posts: {
+        Row: {
+          campaign_target_id: string
+          created_at: string
+          engagement_metrics: Json | null
+          id: string
+          post_order: number
+          posted_at: string | null
+          scheduled_for: string
+          scheduled_posts_id: string | null
+          social_media_post_id: string
+          status: string
+          updated_at: string
+          wave_number: number
+        }
+        Insert: {
+          campaign_target_id: string
+          created_at?: string
+          engagement_metrics?: Json | null
+          id?: string
+          post_order: number
+          posted_at?: string | null
+          scheduled_for: string
+          scheduled_posts_id?: string | null
+          social_media_post_id: string
+          status?: string
+          updated_at?: string
+          wave_number: number
+        }
+        Update: {
+          campaign_target_id?: string
+          created_at?: string
+          engagement_metrics?: Json | null
+          id?: string
+          post_order?: number
+          posted_at?: string | null
+          scheduled_for?: string
+          scheduled_posts_id?: string | null
+          social_media_post_id?: string
+          status?: string
+          updated_at?: string
+          wave_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blitz_posts_campaign_target_id_fkey"
+            columns: ["campaign_target_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_targets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blitz_posts_scheduled_posts_id_fkey"
+            columns: ["scheduled_posts_id"]
+            isOneToOne: false
+            referencedRelation: "scheduled_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blitz_posts_social_media_post_id_fkey"
+            columns: ["social_media_post_id"]
+            isOneToOne: false
+            referencedRelation: "social_media_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_ads: {
         Row: {
           advertisement_id: string
@@ -417,6 +528,72 @@ export type Database = {
           sop_document_id?: string
         }
         Relationships: []
+      }
+      campaign_targets: {
+        Row: {
+          blitz_campaign_id: string
+          created_at: string
+          current_wave: number
+          id: string
+          instagram_user_id: string
+          last_blitz_date: string | null
+          next_action_date: string | null
+          outcome: string | null
+          outcome_notes: string | null
+          response_date: string | null
+          target_timezone: string
+          updated_at: string
+          wave_assignment: number
+          wave_status: string
+        }
+        Insert: {
+          blitz_campaign_id: string
+          created_at?: string
+          current_wave?: number
+          id?: string
+          instagram_user_id: string
+          last_blitz_date?: string | null
+          next_action_date?: string | null
+          outcome?: string | null
+          outcome_notes?: string | null
+          response_date?: string | null
+          target_timezone: string
+          updated_at?: string
+          wave_assignment: number
+          wave_status?: string
+        }
+        Update: {
+          blitz_campaign_id?: string
+          created_at?: string
+          current_wave?: number
+          id?: string
+          instagram_user_id?: string
+          last_blitz_date?: string | null
+          next_action_date?: string | null
+          outcome?: string | null
+          outcome_notes?: string | null
+          response_date?: string | null
+          target_timezone?: string
+          updated_at?: string
+          wave_assignment?: number
+          wave_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_targets_blitz_campaign_id_fkey"
+            columns: ["blitz_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "blitz_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_targets_instagram_user_id_fkey"
+            columns: ["instagram_user_id"]
+            isOneToOne: false
+            referencedRelation: "instagram_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       campaigns: {
         Row: {
@@ -3048,6 +3225,54 @@ export type Database = {
             columns: ["sop_document_id"]
             isOneToOne: false
             referencedRelation: "sop_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      target_outcomes: {
+        Row: {
+          campaign_target_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          outcome_date: string
+          outcome_type: string
+          outcome_value: number | null
+          source_post_id: string | null
+        }
+        Insert: {
+          campaign_target_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          outcome_date?: string
+          outcome_type: string
+          outcome_value?: number | null
+          source_post_id?: string | null
+        }
+        Update: {
+          campaign_target_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          outcome_date?: string
+          outcome_type?: string
+          outcome_value?: number | null
+          source_post_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "target_outcomes_campaign_target_id_fkey"
+            columns: ["campaign_target_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_targets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "target_outcomes_source_post_id_fkey"
+            columns: ["source_post_id"]
+            isOneToOne: false
+            referencedRelation: "social_media_posts"
             referencedColumns: ["id"]
           },
         ]
