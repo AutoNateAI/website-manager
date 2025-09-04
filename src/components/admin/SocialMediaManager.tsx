@@ -22,7 +22,7 @@ import SocialMediaPostCard from './SocialMediaPostCard';
 import SocialMediaPostDetailModal from './SocialMediaPostDetailModal';
 import { InstagramAnalyticsTab } from './instagram/InstagramAnalyticsTab';
 import { NetworkGraphTab } from './instagram/NetworkGraphTab';
-import { InstagramPlannerTab } from './instagram/InstagramPlannerTab';
+import { BlitzCampaignManager } from './BlitzCampaignManager';
 import { SearchQueryManager } from './SearchQueryManager';
 import { DMConversationsTab } from './DMConversationsTab';
 import { SocialMediaPost, SocialMediaImage } from './types';
@@ -351,7 +351,7 @@ const [postsPerPage] = useState(9);
             <TabsTrigger value="queries">Search Queries</TabsTrigger>
             <TabsTrigger value="analytics">Target Posts</TabsTrigger>
             <TabsTrigger value="network">Network Graph</TabsTrigger>
-            <TabsTrigger value="engagement">Planner</TabsTrigger>
+            <TabsTrigger value="engagement">Blitz Campaigns</TabsTrigger>
             <TabsTrigger value="dms">DM Conversations</TabsTrigger>
             <TabsTrigger value="content">Content Generation</TabsTrigger>
           </TabsList>
@@ -361,7 +361,7 @@ const [postsPerPage] = useState(9);
       {activeMainTab === 'queries' && <SearchQueryManager />}
       {activeMainTab === 'analytics' && <InstagramAnalyticsTab />}
       {activeMainTab === 'network' && <NetworkGraphTab />}
-      {activeMainTab === 'engagement' && <InstagramPlannerTab />}
+      {activeMainTab === 'engagement' && <BlitzCampaignManager />}
       {activeMainTab === 'dms' && <DMConversationsTab />}
       {activeMainTab === 'content' && (
         <>
