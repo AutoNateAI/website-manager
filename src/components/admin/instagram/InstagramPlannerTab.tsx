@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { format, addMinutes, startOfDay } from 'date-fns';
+import { format, addMinutes, startOfDay, parseISO } from 'date-fns';
 import {
   DndContext,
   DragEndEvent,
@@ -35,9 +35,11 @@ import {
   Edit, 
   ChevronLeft, 
   ChevronRight,
-  Save
+  Save,
+  Filter,
+  X
 } from 'lucide-react';
-import { SocialMediaPost } from '../types';
+import { SocialMediaPost, SocialMediaImage } from '../types';
 
 interface ScheduledPost extends SocialMediaPost {
   target_user?: string;
@@ -53,11 +55,71 @@ interface TimeSlot {
 
 interface PostCardProps {
   post: ScheduledPost;
+  images?: SocialMediaImage[];
   isDragging?: boolean;
+  isScheduled?: boolean;
+  onUnschedule?: () => void;
+}
+
+// Image Carousel Component
+function ImageCarousel({ images }: { images: SocialMediaImage[] }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  if (!images || images.length === 0) {
+    return (
+      <div className="h-20 bg-muted rounded-md flex items-center justify-center">
+        <span className="text-xs text-muted-foreground">No images</span>
+      </div>
+    );
+  }
+
+  const nextImage = () => {
+    setCurrentIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = () => {
+    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  return (
+    <div className="relative h-20 rounded-md overflow-hidden bg-muted">
+      <img
+        src={images[currentIndex].image_url}
+        alt={images[currentIndex].alt_text || 'Post image'}
+        className="w-full h-full object-cover"
+      />
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={(e) => { e.stopPropagation(); prevImage(); }}
+            className="absolute left-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-black/50 text-white rounded-full flex items-center justify-center text-xs hover:bg-black/70"
+          >
+            <ChevronLeft className="h-3 w-3" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); nextImage(); }}
+            className="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 bg-black/50 text-white rounded-full flex items-center justify-center text-xs hover:bg-black/70"
+          >
+            <ChevronRight className="h-3 w-3" />
+          </button>
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1">
+            {images.map((_, idx) => (
+              <div
+                key={idx}
+                className={`w-1 h-1 rounded-full ${
+                  idx === currentIndex ? 'bg-white' : 'bg-white/50'
+                }`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 // Draggable Post Card Component
-function PostCard({ post, isDragging }: PostCardProps) {
+function PostCard({ post, images, isDragging, isScheduled, onUnschedule }: PostCardProps) {
   const {
     attributes,
     listeners,
@@ -83,24 +145,42 @@ function PostCard({ post, isDragging }: PostCardProps) {
       className="cursor-grab active:cursor-grabbing"
     >
       <Card className="border-l-4 border-l-primary hover:shadow-md transition-shadow">
-        <CardContent className="p-4">
+        <CardContent className="p-3 space-y-2">
+          {/* Image Carousel */}
+          <ImageCarousel images={images || []} />
+          
           <div className="space-y-2">
-            <div className="flex justify-between items-start">
-              <h4 className="font-medium text-sm line-clamp-2">{post.title}</h4>
-              {hasNoTarget && (
-                <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-800">
-                  No Target Yet
-                </Badge>
-              )}
+            <div className="flex justify-between items-start gap-2">
+              <h4 className="font-medium text-sm line-clamp-2 flex-1">{post.title}</h4>
+              <div className="flex flex-wrap gap-1 items-center">
+                {hasNoTarget && (
+                  <Badge variant="secondary" className="text-xs px-2 py-0 bg-orange-100 text-orange-800 whitespace-nowrap">
+                    No Target Yet
+                  </Badge>
+                )}
+                {isScheduled && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUnschedule?.();
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
             </div>
             <p className="text-xs text-muted-foreground line-clamp-2">
               {post.caption}
             </p>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline" className="px-2 py-1">
+            <div className="flex items-center gap-2 text-xs">
+              <Badge variant="outline" className="px-2 py-0">
                 {post.platform}
               </Badge>
-              <Badge variant="outline" className="px-2 py-1">
+              <Badge variant="outline" className="px-2 py-0">
                 {post.style}
               </Badge>
             </div>
@@ -120,10 +200,12 @@ function PostCard({ post, isDragging }: PostCardProps) {
 // Time Slot Component
 interface TimeSlotProps {
   slot: TimeSlot;
+  images?: Record<string, SocialMediaImage[]>;
   onPostClick?: (post: ScheduledPost) => void;
+  onUnschedule?: (postId: string) => void;
 }
 
-function TimeSlotComponent({ slot, onPostClick }: TimeSlotProps) {
+function TimeSlotComponent({ slot, images, onPostClick, onUnschedule }: TimeSlotProps) {
   const {
     setNodeRef,
     isOver,
@@ -132,7 +214,7 @@ function TimeSlotComponent({ slot, onPostClick }: TimeSlotProps) {
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[80px] border rounded-md p-2 transition-colors ${
+      className={`min-h-[120px] border rounded-md p-2 transition-colors ${
         isOver ? 'bg-primary/10 border-primary' : 'bg-background border-border'
       }`}
     >
@@ -146,26 +228,12 @@ function TimeSlotComponent({ slot, onPostClick }: TimeSlotProps) {
           className="cursor-pointer"
           onClick={() => onPostClick?.(slot.post!)}
         >
-          <Card className="border-l-4 border-l-green-500">
-            <CardContent className="p-2">
-              <div className="space-y-1">
-                <h5 className="font-medium text-xs line-clamp-1">{slot.post.title}</h5>
-                <p className="text-xs text-muted-foreground line-clamp-1">
-                  {slot.post.caption}
-                </p>
-                <div className="flex items-center gap-1">
-                  <Badge variant="outline" className="text-xs px-1 py-0">
-                    {slot.post.platform}
-                  </Badge>
-                  {!slot.post.target_user && (
-                    <Badge variant="secondary" className="text-xs px-1 py-0 bg-orange-100 text-orange-800">
-                      No Target
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <PostCard 
+            post={slot.post} 
+            images={images?.[slot.post.id] || []}
+            isScheduled={true}
+            onUnschedule={() => onUnschedule?.(slot.post!.id)}
+          />
         </div>
       ) : (
         <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
@@ -178,12 +246,18 @@ function TimeSlotComponent({ slot, onPostClick }: TimeSlotProps) {
 
 export function InstagramPlannerTab() {
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
+  const [images, setImages] = useState<Record<string, SocialMediaImage[]>>({});
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingPost, setEditingPost] = useState<ScheduledPost | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  
+  // Filter states
+  const [filterPlatform, setFilterPlatform] = useState<string>('all');
+  const [filterStyle, setFilterStyle] = useState<string>('all');
+  const [filterTarget, setFilterTarget] = useState<string>('all');
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -199,24 +273,42 @@ export function InstagramPlannerTab() {
 
   useEffect(() => {
     generateTimeSlots();
+    loadScheduledPosts();
   }, [selectedDate]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       
-      const { data: postsData, error } = await supabase
-        .from('social_media_posts')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [postsData, imagesData] = await Promise.all([
+        supabase
+          .from('social_media_posts')
+          .select('*')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('social_media_images')
+          .select('*')
+          .order('carousel_index')
+          .order('image_index')
+      ]);
 
-      if (error) throw error;
+      if (postsData.error) throw postsData.error;
+      if (imagesData.error) throw imagesData.error;
 
-      setPosts((postsData as SocialMediaPost[] || []).map(post => ({
+      setPosts((postsData.data as SocialMediaPost[] || []).map(post => ({
         ...post,
         target_user: undefined,
         scheduled_for: undefined
       })));
+
+      // Group images by post_id
+      const imagesByPost = (imagesData.data || []).reduce((acc, img) => {
+        if (!acc[img.post_id]) acc[img.post_id] = [];
+        acc[img.post_id].push(img);
+        return acc;
+      }, {} as Record<string, SocialMediaImage[]>);
+      setImages(imagesByPost);
+
     } catch (error: any) {
       console.error('Error loading posts:', error);
       toast({
@@ -226,6 +318,43 @@ export function InstagramPlannerTab() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadScheduledPosts = async () => {
+    try {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      const { data: scheduledData, error } = await supabase
+        .from('scheduled_posts')
+        .select('*')
+        .gte('scheduled_for', `${dateStr}T00:00:00`)
+        .lt('scheduled_for', `${dateStr}T23:59:59`);
+
+      if (error) throw error;
+
+      // Map scheduled posts to time slots
+      const newSlots = [...timeSlots];
+      scheduledData?.forEach(scheduled => {
+        const scheduleTime = parseISO(scheduled.scheduled_for);
+        const slotIndex = Math.floor(
+          (scheduleTime.getHours() * 60 + scheduleTime.getMinutes()) / 30
+        );
+        
+        if (slotIndex >= 0 && slotIndex < 48) {
+          const post = posts.find(p => p.id === scheduled.social_media_post_id);
+          if (post) {
+            newSlots[slotIndex].post = {
+              ...post,
+              target_user: (scheduled.payload as any)?.target_user,
+              scheduled_for: scheduled.scheduled_for
+            };
+          }
+        }
+      });
+      
+      setTimeSlots(newSlots);
+    } catch (error: any) {
+      console.error('Error loading scheduled posts:', error);
     }
   };
 
@@ -251,7 +380,7 @@ export function InstagramPlannerTab() {
     setActiveId(event.active.id as string);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
 
@@ -260,28 +389,105 @@ export function InstagramPlannerTab() {
     const activeId = active.id as string;
     const overId = over.id as string;
 
+    // Find the post being dragged
+    let draggedPost = posts.find(p => p.id === activeId);
+    if (!draggedPost) {
+      // Check if it's from a scheduled slot
+      for (const slot of timeSlots) {
+        if (slot.post?.id === activeId) {
+          draggedPost = slot.post;
+          break;
+        }
+      }
+    }
+
+    if (!draggedPost) return;
+
     // If dropping on a time slot
     if (overId.startsWith('slot-')) {
-      const post = posts.find(p => p.id === activeId);
-      if (!post) return;
-
       const slotIndex = parseInt(overId.split('-')[1]);
-      const updatedSlots = [...timeSlots];
+      const targetSlot = timeSlots[slotIndex];
       
-      // Remove post from any existing slot
-      updatedSlots.forEach(slot => {
-        if (slot.post?.id === activeId) {
-          slot.post = undefined;
-        }
-      });
-      
-      // Add post to new slot
-      updatedSlots[slotIndex].post = post;
+      // Don't allow dropping on occupied slots (unless it's the same slot)
+      if (targetSlot.post && targetSlot.post.id !== activeId) {
+        toast({
+          title: 'Slot occupied',
+          description: 'This time slot already has a post scheduled',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Save to database
+      try {
+        const scheduledDateTime = targetSlot.datetime.toISOString();
+        
+        await supabase
+          .from('scheduled_posts')
+          .upsert({
+            account_id: '00000000-0000-0000-0000-000000000000', // Default account for now
+            social_media_post_id: draggedPost.id,
+            scheduled_for: scheduledDateTime,
+            status: 'pending',
+            payload: { target_user: draggedPost.target_user }
+          });
+
+        const updatedSlots = [...timeSlots];
+        
+        // Remove post from any existing slot
+        updatedSlots.forEach(slot => {
+          if (slot.post?.id === activeId) {
+            slot.post = undefined;
+          }
+        });
+        
+        // Add post to new slot
+        updatedSlots[slotIndex].post = {
+          ...draggedPost,
+          scheduled_for: scheduledDateTime
+        };
+        setTimeSlots(updatedSlots);
+
+        toast({
+          title: 'Post scheduled',
+          description: `Post scheduled for ${targetSlot.time}`,
+        });
+      } catch (error: any) {
+        toast({
+          title: 'Error scheduling post',
+          description: error.message,
+          variant: 'destructive'
+        });
+      }
+    } 
+    // If dropping outside any droppable area (unscheduling)
+    else if (!overId.startsWith('slot-') && draggedPost.scheduled_for) {
+      handleUnschedule(draggedPost.id);
+    }
+  };
+
+  const handleUnschedule = async (postId: string) => {
+    try {
+      await supabase
+        .from('scheduled_posts')
+        .delete()
+        .eq('social_media_post_id', postId);
+
+      // Remove from time slots
+      const updatedSlots = timeSlots.map(slot => 
+        slot.post?.id === postId ? { ...slot, post: undefined } : slot
+      );
       setTimeSlots(updatedSlots);
 
       toast({
-        title: 'Post scheduled',
-        description: `Post scheduled for ${updatedSlots[slotIndex].time}`,
+        title: 'Post unscheduled',
+        description: 'Post moved back to available queue',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error unscheduling post',
+        description: error.message,
+        variant: 'destructive'
       });
     }
   };
@@ -300,11 +506,20 @@ export function InstagramPlannerTab() {
         .update({
           title: editingPost.title,
           caption: editingPost.caption,
-          target_user: editingPost.target_user,
         })
         .eq('id', editingPost.id);
 
       if (error) throw error;
+
+      // Update scheduled post if it has target_user changes
+      if (editingPost.scheduled_for) {
+        await supabase
+          .from('scheduled_posts')
+          .update({
+            payload: { target_user: editingPost.target_user }
+          })
+          .eq('social_media_post_id', editingPost.id);
+      }
 
       // Update local state
       setPosts(posts.map(p => p.id === editingPost.id ? editingPost : p));
@@ -338,11 +553,22 @@ export function InstagramPlannerTab() {
     setSelectedDate(newDate);
   };
 
-  const availablePosts = posts.filter(post => 
-    !timeSlots.some(slot => slot.post?.id === post.id)
-  );
+  // Filter available posts
+  const availablePosts = posts.filter(post => {
+    const isScheduled = timeSlots.some(slot => slot.post?.id === post.id);
+    if (isScheduled) return false;
+    
+    if (filterPlatform !== 'all' && post.platform !== filterPlatform) return false;
+    if (filterStyle !== 'all' && post.style !== filterStyle) return false;
+    if (filterTarget === 'with_target' && !post.target_user) return false;
+    if (filterTarget === 'no_target' && post.target_user) return false;
+    
+    return true;
+  });
 
-  const draggedPost = posts.find(p => p.id === activeId);
+  // Find the currently dragged post (could be from queue or scheduled)
+  const draggedPost = posts.find(p => p.id === activeId) || 
+    timeSlots.find(slot => slot.post?.id === activeId)?.post;
 
   if (loading) {
     return <div className="p-6">Loading planner...</div>;
@@ -389,7 +615,7 @@ export function InstagramPlannerTab() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[600px]">
+                <ScrollArea className="h-[700px]">
                   <SortableContext 
                     items={timeSlots.map(slot => slot.id)} 
                     strategy={verticalListSortingStrategy}
@@ -398,8 +624,10 @@ export function InstagramPlannerTab() {
                       {timeSlots.map((slot) => (
                         <TimeSlotComponent 
                           key={slot.id} 
-                          slot={slot} 
+                          slot={slot}
+                          images={images}
                           onPostClick={handlePostEdit}
+                          onUnschedule={handleUnschedule}
                         />
                       ))}
                     </div>
@@ -413,26 +641,68 @@ export function InstagramPlannerTab() {
           <div>
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Available Posts ({availablePosts.length})
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Available Posts ({availablePosts.length})
+                  </CardTitle>
+                  <Select value={filterPlatform} onValueChange={setFilterPlatform}>
+                    <SelectTrigger className="w-20">
+                      <Filter className="h-4 w-4" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="instagram">Instagram</SelectItem>
+                      <SelectItem value="linkedin">LinkedIn</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex gap-2 mt-2">
+                  <Select value={filterStyle} onValueChange={setFilterStyle}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Style" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Styles</SelectItem>
+                      <SelectItem value="Photo">Photo</SelectItem>
+                      <SelectItem value="Story">Story</SelectItem>
+                      <SelectItem value="Reel">Reel</SelectItem>
+                      <SelectItem value="Carousel">Carousel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select value={filterTarget} onValueChange={setFilterTarget}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Target" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="with_target">With Target</SelectItem>
+                      <SelectItem value="no_target">No Target</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[600px]">
+                <ScrollArea className="h-[700px]">
                   <SortableContext 
                     items={availablePosts.map(post => post.id)} 
                     strategy={verticalListSortingStrategy}
                   >
                     <div className="space-y-3">
                       {availablePosts.map((post) => (
-                        <PostCard key={post.id} post={post} />
+                        <PostCard 
+                          key={post.id} 
+                          post={post} 
+                          images={images[post.id] || []}
+                        />
                       ))}
                       {availablePosts.length === 0 && (
                         <div className="text-center py-8 text-muted-foreground">
                           <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
-                          <p>No unscheduled posts available</p>
-                          <p className="text-sm">Create posts in the Content Generation tab</p>
+                          <p>No posts match your filters</p>
+                          <p className="text-sm">Try adjusting your filters or create posts in Content Generation</p>
                         </div>
                       )}
                     </div>
@@ -445,7 +715,13 @@ export function InstagramPlannerTab() {
 
         {/* Drag Overlay */}
         <DragOverlay>
-          {draggedPost && <PostCard post={draggedPost} isDragging />}
+          {draggedPost && (
+            <PostCard 
+              post={draggedPost} 
+              images={images[draggedPost.id] || []}
+              isDragging 
+            />
+          )}
         </DragOverlay>
 
         {/* Edit Post Dialog */}
