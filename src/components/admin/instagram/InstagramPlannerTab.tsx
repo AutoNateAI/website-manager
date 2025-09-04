@@ -434,6 +434,7 @@ export function InstagramPlannerTab() {
         await supabase
           .from('scheduled_posts')
           .upsert({
+            account_id: null,
             social_media_post_id: draggedPost.id,
             scheduled_for: scheduledDateTime,
             status: 'pending',

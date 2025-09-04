@@ -2171,7 +2171,7 @@ export type Database = {
       }
       scheduled_posts: {
         Row: {
-          account_id: string
+          account_id: string | null
           created_at: string
           error: string | null
           id: string
@@ -2182,7 +2182,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          account_id: string
+          account_id?: string | null
           created_at?: string
           error?: string | null
           id?: string
@@ -2193,7 +2193,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          account_id?: string
+          account_id?: string | null
           created_at?: string
           error?: string | null
           id?: string
