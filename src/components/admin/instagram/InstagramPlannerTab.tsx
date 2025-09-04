@@ -407,18 +407,19 @@ export function InstagramPlannerTab() {
     const { active, over } = event;
     setActiveId(null);
 
-    if (!over) return;
-
     const activeId = active.id as string;
-    const overId = over.id as string;
+    const overId = over?.id as string;
 
     // Find the post being dragged
     let draggedPost = posts.find(p => p.id === activeId);
+    let isFromSchedule = false;
+    
     if (!draggedPost) {
       // Check if it's from a scheduled slot
       for (const slot of timeSlots) {
         if (slot.post?.id === activeId) {
           draggedPost = slot.post;
+          isFromSchedule = true;
           break;
         }
       }
@@ -426,18 +427,35 @@ export function InstagramPlannerTab() {
 
     if (!draggedPost) return;
 
+    // If no drop target (dropped outside any droppable area) and post is scheduled, unschedule it
+    if (!over && isFromSchedule) {
+      handleUnschedule(draggedPost.id);
+      return;
+    }
+
+    // If dropping on available posts area (unscheduling)
+    if (over && (overId === 'available-posts' || !overId.startsWith('slot-')) && isFromSchedule) {
+      handleUnschedule(draggedPost.id);
+      return;
+    }
+
     // If dropping on a time slot
-    if (overId.startsWith('slot-')) {
+    if (over && overId.startsWith('slot-')) {
       const slotIndex = parseInt(overId.split('-')[1]);
       const targetSlot = timeSlots[slotIndex];
       
-      // Don't allow dropping on occupied slots (unless it's the same slot)
+      // Don't allow dropping on occupied slots (unless it's the same slot or moving from another slot)
       if (targetSlot.post && targetSlot.post.id !== activeId) {
         toast({
           title: 'Slot occupied',
           description: 'This time slot already has a post scheduled',
           variant: 'destructive'
         });
+        return;
+      }
+
+      // If moving within scheduler (same slot), do nothing
+      if (targetSlot.post?.id === activeId) {
         return;
       }
 
@@ -457,7 +475,7 @@ export function InstagramPlannerTab() {
 
         const updatedSlots = [...timeSlots];
         
-        // Remove post from any existing slot
+        // Remove post from any existing slot first
         updatedSlots.forEach(slot => {
           if (slot.post?.id === activeId) {
             slot.post = undefined;
@@ -485,10 +503,6 @@ export function InstagramPlannerTab() {
           variant: 'destructive'
         });
       }
-    } 
-    // If dropping outside any droppable area (unscheduling)
-    else if (!overId.startsWith('slot-') && draggedPost.scheduled_for) {
-      handleUnschedule(draggedPost.id);
     }
   };
 
@@ -724,7 +738,10 @@ export function InstagramPlannerTab() {
                     items={availablePosts.map(post => post.id)} 
                     strategy={verticalListSortingStrategy}
                   >
-                    <div className="space-y-3">
+                    <div 
+                      id="available-posts"
+                      className="space-y-3"
+                    >
                       {availablePosts.map((post) => (
                         <PostCard 
                           key={post.id} 
