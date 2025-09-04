@@ -11,11 +11,61 @@ import {
   ChevronRight,
   Zap,
   Target,
-  Plus
+  Plus,
+  Trash2,
+  AlertCircle
 } from 'lucide-react';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverEvent,
+  DragOverlay,
+  DragStartEvent,
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { format, addHours } from 'date-fns';
+
+interface InstagramTarget {
+  id: string;
+  username: string;
+  display_name: string;
+  location?: string;
+  follower_count?: number;
+  bio?: string;
+  timezone?: string;
+}
+
+interface CampaignTarget {
+  id: string;
+  instagram_user_id: string;
+  wave_assignment: number;
+  target_timezone: string;
+  wave_status: string;
+  instagram_users: InstagramTarget;
+}
+
+interface BlitzCampaign {
+  id: string;
+  campaign_date: string;
+  status: string;
+  campaign_targets: CampaignTarget[];
+}
 
 interface TimeWave {
   id: number;
@@ -26,10 +76,95 @@ interface TimeWave {
   etRange: string;
   ptRange: string;
   color: string;
-  targets: any[];
+  targets: CampaignTarget[];
 }
 
-const timeWaves: TimeWave[] = [
+// Draggable Target Component
+function DraggableTarget({ target, onRemove }: { target: CampaignTarget; onRemove?: (id: string) => void }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: target.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`p-2 bg-card rounded-md text-sm border cursor-move ${
+        isDragging ? 'opacity-50' : ''
+      } hover:border-primary/50`}
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="font-medium">@{target.instagram_users.username}</div>
+          <div className="text-xs text-muted-foreground">
+            {target.target_timezone} • {target.instagram_users.follower_count || 0} followers
+          </div>
+        </div>
+        {onRemove && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(target.id);
+            }}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Available Target Component
+function AvailableTarget({ target }: { target: InstagramTarget }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: target.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`p-2 border rounded-md hover:bg-muted cursor-move text-sm ${
+        isDragging ? 'opacity-50' : ''
+      }`}
+    >
+      <div className="font-medium">@{target.username}</div>
+      <div className="text-xs text-muted-foreground">
+        {target.display_name || target.username}
+      </div>
+    </div>
+  );
+}
+
+const WAVE_CONFIGS = [
   {
     id: 1,
     name: 'Wave 1',
@@ -38,8 +173,7 @@ const timeWaves: TimeWave[] = [
     etRange: '6-9 AM ET',
     ptRange: '3-6 AM PT',
     description: 'East Coast Morning Prime',
-    color: 'bg-blue-500',
-    targets: []
+    color: 'hsl(var(--primary))',
   },
   {
     id: 2,
@@ -49,8 +183,7 @@ const timeWaves: TimeWave[] = [
     etRange: '9 AM-12 PM ET',
     ptRange: '6-9 AM PT',
     description: 'Cross-Timezone Business Hours',
-    color: 'bg-green-500',
-    targets: []
+    color: 'hsl(var(--secondary))',
   },
   {
     id: 3,
@@ -60,8 +193,7 @@ const timeWaves: TimeWave[] = [
     etRange: '12-6 PM ET',
     ptRange: '9 AM-3 PM PT',
     description: 'Afternoon Peak Engagement',
-    color: 'bg-orange-500',
-    targets: []
+    color: 'hsl(var(--accent))',
   },
   {
     id: 4,
@@ -71,16 +203,26 @@ const timeWaves: TimeWave[] = [
     etRange: '6 PM-12 AM ET',
     ptRange: '3-9 PM PT',
     description: 'Hawaii Prime + Mainland Evening',
-    color: 'bg-purple-500',
-    targets: []
+    color: 'hsl(var(--muted-foreground))',
   }
 ];
 
 export function TimePlannerTab() {
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [campaigns, setCampaigns] = useState([]);
-  const [availableTargets, setAvailableTargets] = useState([]);
+  const [currentCampaign, setCurrentCampaign] = useState<BlitzCampaign | null>(null);
+  const [availableTargets, setAvailableTargets] = useState<InstagramTarget[]>([]);
+  const [waves, setWaves] = useState<TimeWave[]>(
+    WAVE_CONFIGS.map(config => ({ ...config, targets: [] }))
+  );
   const [loading, setLoading] = useState(true);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     loadCampaignData();
@@ -102,16 +244,28 @@ export function TimePlannerTab() {
             instagram_users (*)
           )
         `)
-        .eq('campaign_date', campaignDate);
+        .eq('campaign_date', campaignDate)
+        .order('created_at', { ascending: false });
 
       if (campaignError) throw campaignError;
 
-      setCampaigns(campaigns || []);
+      const campaign = campaigns?.[0] || null;
+      setCurrentCampaign(campaign);
+
+      // Organize targets into waves
+      const newWaves = WAVE_CONFIGS.map(config => ({ 
+        ...config, 
+        targets: campaign?.campaign_targets.filter(t => t.wave_assignment === config.id) || []
+      }));
+      setWaves(newWaves);
 
       // Load available Instagram users that aren't in today's campaign
+      const usedUserIds = campaign?.campaign_targets.map(t => t.instagram_user_id) || [];
+      
       const { data: users, error: usersError } = await supabase
         .from('instagram_users')
         .select('*')
+        .not('id', 'in', usedUserIds.length > 0 ? `(${usedUserIds.join(',')})` : '()')
         .limit(50);
 
       if (usersError) throw usersError;
@@ -128,6 +282,135 @@ export function TimePlannerTab() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const detectTimezone = (target: InstagramTarget): string => {
+    // Simple timezone detection based on location
+    const location = target.location?.toLowerCase() || '';
+    if (location.includes('hawaii') || location.includes('hi')) return 'HST';
+    if (location.includes('pacific') || location.includes('ca') || location.includes('california') || 
+        location.includes('wa') || location.includes('oregon') || location.includes('or')) return 'PT';
+    if (location.includes('mountain') || location.includes('denver') || location.includes('utah') || 
+        location.includes('arizona') || location.includes('colorado')) return 'MT';
+    if (location.includes('central') || location.includes('texas') || location.includes('chicago') ||
+        location.includes('il') || location.includes('tx')) return 'CT';
+    if (location.includes('eastern') || location.includes('new york') || location.includes('ny') ||
+        location.includes('florida') || location.includes('fl')) return 'ET';
+    return 'ET'; // Default to Eastern
+  };
+
+  const assignTargetToWave = async (targetId: string, waveId: number) => {
+    if (!currentCampaign) return;
+    
+    try {
+      const target = availableTargets.find(t => t.id === targetId);
+      if (!target) return;
+
+      const timezone = detectTimezone(target);
+      
+      const { data, error } = await supabase
+        .from('campaign_targets')
+        .insert({
+          blitz_campaign_id: currentCampaign.id,
+          instagram_user_id: targetId,
+          wave_assignment: waveId,
+          target_timezone: timezone,
+          wave_status: 'pending'
+        })
+        .select(`
+          *,
+          instagram_users (*)
+        `)
+        .single();
+
+      if (error) throw error;
+
+      // Update local state
+      setWaves(prev => prev.map(wave => 
+        wave.id === waveId 
+          ? { ...wave, targets: [...wave.targets, data] }
+          : wave
+      ));
+      
+      setAvailableTargets(prev => prev.filter(t => t.id !== targetId));
+
+      toast({
+        title: 'Target assigned',
+        description: `@${target.username} assigned to ${WAVE_CONFIGS[waveId - 1].name}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error assigning target',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const removeTargetFromWave = async (campaignTargetId: string) => {
+    try {
+      const { error } = await supabase
+        .from('campaign_targets')
+        .delete()
+        .eq('id', campaignTargetId);
+
+      if (error) throw error;
+
+      // Find the target to move back to available
+      let removedTarget: CampaignTarget | null = null;
+      
+      setWaves(prev => prev.map(wave => {
+        const targetIndex = wave.targets.findIndex(t => t.id === campaignTargetId);
+        if (targetIndex !== -1) {
+          removedTarget = wave.targets[targetIndex];
+          return { 
+            ...wave, 
+            targets: wave.targets.filter(t => t.id !== campaignTargetId) 
+          };
+        }
+        return wave;
+      }));
+
+      if (removedTarget) {
+        setAvailableTargets(prev => [...prev, removedTarget.instagram_users]);
+      }
+
+      toast({
+        title: 'Target removed',
+        description: 'Target moved back to available pool',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error removing target',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Check if dropping onto a wave
+    const targetWaveId = parseInt(overId.replace('wave-', ''));
+    if (overId.startsWith('wave-') && !isNaN(targetWaveId)) {
+      // Check if it's from available targets
+      const isFromAvailable = availableTargets.some(t => t.id === activeId);
+      if (isFromAvailable) {
+        assignTargetToWave(activeId, targetWaveId);
+      }
+    }
+
+    setActiveId(null);
   };
 
   const navigateDate = (direction: 'prev' | 'next') => {
@@ -196,44 +479,69 @@ export function TimePlannerTab() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Date Navigation */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              4-Wave Time Planner
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => navigateDate('prev')}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex items-center gap-2 px-3 py-2 border rounded-md">
-                <Globe className="h-4 w-4" />
-                <span className="font-medium">
-                  {format(selectedDate, 'EEE, MMM dd, yyyy')}
-                </span>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="space-y-6">
+        {/* Date Navigation */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                4-Wave Time Planner
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => navigateDate('prev')}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-2 px-3 py-2 border rounded-md">
+                  <Globe className="h-4 w-4" />
+                  <span className="font-medium">
+                    {format(selectedDate, 'EEE, MMM dd, yyyy')}
+                  </span>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => navigateDate('next')}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={() => navigateDate('next')}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
             </div>
-          </div>
-        </CardHeader>
-      </Card>
+            {currentCampaign && (
+              <div className="flex items-center gap-4 text-sm">
+                <Badge variant="secondary">
+                  Campaign Active
+                </Badge>
+                <div className="text-muted-foreground">
+                  Total targets: {waves.reduce((acc, wave) => acc + wave.targets.length, 0)}/16
+                </div>
+              </div>
+            )}
+          </CardHeader>
+        </Card>
 
       {/* Wave Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {timeWaves.map((wave) => (
-          <Card key={wave.id} className="border-2 border-dashed border-muted">
+        {waves.map((wave) => (
+          <Card 
+            key={wave.id} 
+            className="border-2 border-dashed border-muted hover:border-primary/50 transition-colors"
+          >
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded-full ${wave.color}`} />
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: wave.color }}
+                  />
                   <h3 className="font-semibold">{wave.name}</h3>
                 </div>
-                <Badge variant="outline" className="text-xs">
+                <Badge 
+                  variant={wave.targets.length >= 4 ? "default" : "outline"} 
+                  className="text-xs"
+                >
                   {wave.targets.length}/4
                 </Badge>
               </div>
@@ -245,31 +553,46 @@ export function TimePlannerTab() {
             </CardHeader>
             
             <CardContent className="pt-0">
-              <ScrollArea className="h-32">
-                <div className="space-y-2">
-                  {wave.targets.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-24 text-muted-foreground">
-                      <Target className="h-6 w-6 mb-1" />
-                      <p className="text-xs text-center">Drop targets here</p>
-                    </div>
-                  ) : (
-                    wave.targets.map((target, idx) => (
-                      <div key={idx} className="p-2 bg-muted rounded-md text-sm">
-                        <div className="font-medium">@{target.username}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {target.timezone} • 3 posts
-                        </div>
+              <div
+                id={`wave-${wave.id}`}
+                className="min-h-[128px] p-2 border-2 border-dashed border-muted-foreground/20 rounded-md"
+              >
+                <SortableContext 
+                  items={wave.targets.map(t => t.id)} 
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {wave.targets.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-24 text-muted-foreground">
+                        <Target className="h-6 w-6 mb-1" />
+                        <p className="text-xs text-center">Drop targets here</p>
                       </div>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
+                    ) : (
+                      wave.targets.map((target) => (
+                        <DraggableTarget 
+                          key={target.id} 
+                          target={target}
+                          onRemove={removeTargetFromWave}
+                        />
+                      ))
+                    )}
+                    {wave.targets.length >= 4 && (
+                      <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md">
+                        <AlertCircle className="h-4 w-4 text-amber-600" />
+                        <span className="text-xs text-amber-700 dark:text-amber-400">
+                          Wave at capacity
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </SortableContext>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Available Targets Sidebar */}
+      {/* Available Targets */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -277,7 +600,7 @@ export function TimePlannerTab() {
               <Users className="h-5 w-5" />
               Available Targets ({availableTargets.length})
             </CardTitle>
-            {campaigns.length === 0 && (
+            {!currentCampaign && (
               <Button onClick={createNewCampaign} className="gap-2">
                 <Plus className="h-4 w-4" />
                 Create Today's Campaign
@@ -286,32 +609,37 @@ export function TimePlannerTab() {
           </div>
         </CardHeader>
         <CardContent>
-          {campaigns.length === 0 ? (
+          {!currentCampaign ? (
             <div className="text-center py-8 text-muted-foreground">
               <Zap className="h-8 w-8 mx-auto mb-2" />
               <h3 className="font-medium mb-1">No campaign for today</h3>
               <p className="text-sm">Create a new blitz campaign to start planning</p>
             </div>
           ) : (
-            <ScrollArea className="h-40">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {availableTargets.slice(0, 16).map((target) => (
-                  <div
-                    key={target.id}
-                    className="p-2 border rounded-md hover:bg-muted cursor-move text-sm"
-                    draggable
-                  >
-                    <div className="font-medium">@{target.username}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {target.display_name}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
+            <SortableContext 
+              items={availableTargets.map(t => t.id)} 
+              strategy={verticalListSortingStrategy}
+            >
+              <ScrollArea className="h-40">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {availableTargets.slice(0, 16).map((target) => (
+                    <AvailableTarget key={target.id} target={target} />
+                  ))}
+                </div>
+              </ScrollArea>
+            </SortableContext>
           )}
         </CardContent>
       </Card>
-    </div>
+
+      <DragOverlay>
+        {activeId ? (
+          <div className="p-2 bg-card rounded-md shadow-lg border text-sm">
+            <div className="font-medium">Dragging target...</div>
+          </div>
+        ) : null}
+      </DragOverlay>
+      </div>
+    </DndContext>
   );
 }
