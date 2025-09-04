@@ -95,6 +95,22 @@ export function InstagramAnalyticsTab() {
   const [isCalculatingScores, setIsCalculatingScores] = useState(false);
   const [showAddPostModal, setShowAddPostModal] = useState(false);
   
+  // Tab state
+  const [activeTab, setActiveTab] = useState('posts');
+  
+  // Add User modal state
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [userForm, setUserForm] = useState({
+    username: '',
+    display_name: '',
+    bio: '',
+    follower_count: '',
+    following_count: '',
+    account_type: '',
+    notes: '',
+    influence_score: ''
+  });
+  
   const { toast } = useToast();
 
   useEffect(() => {
@@ -358,6 +374,59 @@ export function InstagramAnalyticsTab() {
     }
   };
 
+  const handleSubmitUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const userData = {
+        username: userForm.username,
+        display_name: userForm.display_name || null,
+        bio: userForm.bio || null,
+        follower_count: userForm.follower_count ? parseInt(userForm.follower_count) : null,
+        following_count: userForm.following_count ? parseInt(userForm.following_count) : null,
+        account_type: userForm.account_type || null,
+        notes: userForm.notes || null,
+        influence_score: userForm.influence_score ? parseFloat(userForm.influence_score) : 0,
+        discovered_through: 'manual',
+        follows_me: false
+      };
+
+      const { error } = await supabase
+        .from('instagram_users')
+        .insert([userData]);
+      
+      if (error) throw error;
+      
+      toast({ 
+        title: 'User added successfully!',
+        description: `@${userData.username} has been added to your database.`
+      });
+      
+      resetUserForm();
+      fetchData();
+    } catch (error: any) {
+      console.error('Error saving user:', error);
+      toast({ 
+        title: 'Error saving user', 
+        description: error.message,
+        variant: 'destructive' 
+      });
+    }
+  };
+
+  const resetUserForm = () => {
+    setUserForm({
+      username: '',
+      display_name: '',
+      bio: '',
+      follower_count: '',
+      following_count: '',
+      account_type: '',
+      notes: '',
+      influence_score: ''
+    });
+    setShowAddUserModal(false);
+  };
+
   if (loading) {
     return <div className="p-6">Loading Instagram analytics...</div>;
   }
@@ -375,10 +444,18 @@ export function InstagramAnalyticsTab() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setShowAddPostModal(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Target Post
-          </Button>
+          {activeTab === 'posts' && (
+            <Button onClick={() => setShowAddPostModal(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Target Post
+            </Button>
+          )}
+          {activeTab === 'users' && (
+            <Button variant="outline" onClick={() => setShowAddUserModal(true)}>
+              <User className="h-4 w-4 mr-2" />
+              Add User
+            </Button>
+          )}
         </div>
       </div>
 
@@ -424,7 +501,7 @@ export function InstagramAnalyticsTab() {
         )}
       </div>
 
-      <Tabs defaultValue="posts" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="posts">Target Posts</TabsTrigger>
           <TabsTrigger value="users">Discovered Users</TabsTrigger>
@@ -779,6 +856,109 @@ export function InstagramAnalyticsTab() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Add User Modal */}
+      <Dialog open={showAddUserModal} onOpenChange={setShowAddUserModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Instagram User</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmitUser} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Username *</label>
+                <Input
+                  value={userForm.username}
+                  onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
+                  required
+                  placeholder="username"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Display Name</label>
+                <Input
+                  value={userForm.display_name}
+                  onChange={(e) => setUserForm({ ...userForm, display_name: e.target.value })}
+                  placeholder="Full Name"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Bio</label>
+              <Textarea
+                value={userForm.bio}
+                onChange={(e) => setUserForm({ ...userForm, bio: e.target.value })}
+                rows={3}
+                placeholder="User bio..."
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Followers</label>
+                <Input
+                  type="number"
+                  value={userForm.follower_count}
+                  onChange={(e) => setUserForm({ ...userForm, follower_count: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Following</label>
+                <Input
+                  type="number"
+                  value={userForm.following_count}
+                  onChange={(e) => setUserForm({ ...userForm, following_count: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Account Type</label>
+              <Select value={userForm.account_type} onValueChange={(value) => setUserForm({ ...userForm, account_type: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select account type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="personal">Personal</SelectItem>
+                  <SelectItem value="business">Business</SelectItem>
+                  <SelectItem value="creator">Creator</SelectItem>
+                  <SelectItem value="influencer">Influencer</SelectItem>
+                  <SelectItem value="brand">Brand</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Influence Score</label>
+              <Input
+                type="number"
+                step="0.1"
+                value={userForm.influence_score}
+                onChange={(e) => setUserForm({ ...userForm, influence_score: e.target.value })}
+                placeholder="0"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Notes</label>
+              <Textarea
+                value={userForm.notes}
+                onChange={(e) => setUserForm({ ...userForm, notes: e.target.value })}
+                rows={2}
+                placeholder="Internal notes about this user..."
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={resetUserForm}>Cancel</Button>
+              <Button type="submit">Add User</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
