@@ -256,6 +256,7 @@ export function InstagramPlannerTab() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingPost, setEditingPost] = useState<ScheduledPost | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [globalScheduledPostIds, setGlobalScheduledPostIds] = useState<Set<string>>(new Set());
   
   // Filter states
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
@@ -275,17 +276,20 @@ export function InstagramPlannerTab() {
   }, []);
 
   useEffect(() => {
-    if (posts.length > 0) {
-      generateTimeSlots();
+    generateTimeSlots();
+  }, [selectedDate]);
+
+  useEffect(() => {
+    if (timeSlots.length > 0) {
       loadScheduledPosts();
     }
-  }, [selectedDate, posts]);
+  }, [timeSlots, selectedDate]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       
-      const [postsData, imagesData] = await Promise.all([
+      const [postsData, imagesData, scheduledData] = await Promise.all([
         supabase
           .from('social_media_posts')
           .select('*')
@@ -294,11 +298,15 @@ export function InstagramPlannerTab() {
           .from('social_media_images')
           .select('*')
           .order('carousel_index')
-          .order('image_index')
+          .order('image_index'),
+        supabase
+          .from('scheduled_posts')
+          .select('social_media_post_id')
       ]);
 
       if (postsData.error) throw postsData.error;
       if (imagesData.error) throw imagesData.error;
+      if (scheduledData.error) throw scheduledData.error;
 
       setPosts((postsData.data as SocialMediaPost[] || []).map(post => ({
         ...post,
@@ -313,6 +321,12 @@ export function InstagramPlannerTab() {
         return acc;
       }, {} as Record<string, SocialMediaImage[]>);
       setImages(imagesByPost);
+
+      // Track all globally scheduled post IDs
+      const scheduledPostIds = new Set(
+        (scheduledData.data || []).map(item => item.social_media_post_id)
+      );
+      setGlobalScheduledPostIds(scheduledPostIds);
 
     } catch (error: any) {
       console.error('Error loading posts:', error);
@@ -457,6 +471,9 @@ export function InstagramPlannerTab() {
         };
         setTimeSlots(updatedSlots);
 
+        // Update global scheduled post IDs
+        setGlobalScheduledPostIds(prev => new Set([...prev, draggedPost.id]));
+
         toast({
           title: 'Post scheduled',
           description: `Post scheduled for ${targetSlot.time}`,
@@ -487,6 +504,13 @@ export function InstagramPlannerTab() {
         slot.post?.id === postId ? { ...slot, post: undefined } : slot
       );
       setTimeSlots(updatedSlots);
+
+      // Update global scheduled post IDs
+      setGlobalScheduledPostIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(postId);
+        return newSet;
+      });
 
       toast({
         title: 'Post unscheduled',
@@ -564,8 +588,9 @@ export function InstagramPlannerTab() {
 
   // Filter available posts
   const availablePosts = posts.filter(post => {
-    const isScheduled = timeSlots.some(slot => slot.post?.id === post.id);
-    if (isScheduled) return false;
+    // Check if post is scheduled globally (any day), not just current day
+    const isScheduledGlobally = globalScheduledPostIds.has(post.id);
+    if (isScheduledGlobally) return false;
     
     if (filterPlatform !== 'all' && post.platform !== filterPlatform) return false;
     if (filterStyle !== 'all' && post.style !== filterStyle) return false;
