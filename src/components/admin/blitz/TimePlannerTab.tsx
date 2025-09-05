@@ -26,6 +26,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -130,7 +131,88 @@ function DraggableTarget({ target, onRemove }: { target: CampaignTarget; onRemov
   );
 }
 
-// Available Target Component
+// Droppable Wave Component
+function DroppableWave({ wave, onRemove }: { wave: TimeWave; onRemove: (id: string) => void }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `wave-${wave.id}`,
+  });
+
+  return (
+    <Card 
+      className={`border-2 border-dashed transition-colors ${
+        isOver 
+          ? 'border-primary bg-primary/5' 
+          : 'border-muted hover:border-primary/50'
+      }`}
+    >
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div 
+              className="w-3 h-3 rounded-full" 
+              style={{ backgroundColor: wave.color }}
+            />
+            <h3 className="font-semibold">{wave.name}</h3>
+          </div>
+          <Badge 
+            variant={wave.targets.length >= 4 ? "default" : "outline"} 
+            className="text-xs"
+          >
+            {wave.targets.length}/4
+          </Badge>
+        </div>
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <div className="font-medium">{wave.timeRange}</div>
+          <div>HST: {wave.hstRange}</div>
+          <div>PT: {wave.ptRange}</div>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="pt-0">
+        <div
+          ref={setNodeRef}
+          className={`min-h-[128px] p-2 border-2 border-dashed rounded-md transition-colors ${
+            isOver
+              ? 'border-primary bg-primary/10'
+              : 'border-muted-foreground/20'
+          }`}
+        >
+          <SortableContext 
+            items={wave.targets.map(t => t.id)} 
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-2">
+              {wave.targets.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-24 text-muted-foreground">
+                  <Target className="h-6 w-6 mb-1" />
+                  <p className="text-xs text-center">
+                    {isOver ? 'Drop target here!' : 'Drop targets here'}
+                  </p>
+                </div>
+              ) : (
+                wave.targets.map((target) => (
+                  <DraggableTarget 
+                    key={target.id} 
+                    target={target}
+                    onRemove={onRemove}
+                  />
+                ))
+              )}
+              {wave.targets.length >= 4 && (
+                <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <span className="text-xs text-amber-700 dark:text-amber-400">
+                    Wave at capacity
+                  </span>
+                </div>
+              )}
+            </div>
+          </SortableContext>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 function AvailableTarget({ target }: { target: InstagramTarget }) {
   const {
     attributes,
@@ -304,7 +386,15 @@ export function TimePlannerTab() {
     
     try {
       const target = availableTargets.find(t => t.id === targetId);
-      if (!target) return;
+      if (!target) {
+        console.log('Target not found:', targetId);
+        return;
+      }
+
+      console.log('Assigning target to wave:', targetId, waveId, target.username);
+
+      // Immediately update UI to prevent visual glitch
+      setAvailableTargets(prev => prev.filter(t => t.id !== targetId));
 
       const timezone = detectTimezone(target);
       
@@ -323,16 +413,21 @@ export function TimePlannerTab() {
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        // Revert UI change on error
+        setAvailableTargets(prev => [...prev, target]);
+        throw error;
+      }
 
-      // Update local state
+      console.log('Target assigned successfully:', data);
+
+      // Update waves with the new target
       setWaves(prev => prev.map(wave => 
         wave.id === waveId 
           ? { ...wave, targets: [...wave.targets, data] }
           : wave
       ));
-      
-      setAvailableTargets(prev => prev.filter(t => t.id !== targetId));
 
       toast({
         title: 'Target assigned',
@@ -525,70 +620,11 @@ export function TimePlannerTab() {
       {/* Wave Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {waves.map((wave) => (
-          <Card 
-            key={wave.id} 
-            className="border-2 border-dashed border-muted hover:border-primary/50 transition-colors"
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: wave.color }}
-                  />
-                  <h3 className="font-semibold">{wave.name}</h3>
-                </div>
-                <Badge 
-                  variant={wave.targets.length >= 4 ? "default" : "outline"} 
-                  className="text-xs"
-                >
-                  {wave.targets.length}/4
-                </Badge>
-              </div>
-              <div className="space-y-1 text-xs text-muted-foreground">
-                <div className="font-medium">{wave.timeRange}</div>
-                <div>HST: {wave.hstRange}</div>
-                <div>PT: {wave.ptRange}</div>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="pt-0">
-              <div
-                id={`wave-${wave.id}`}
-                className="min-h-[128px] p-2 border-2 border-dashed border-muted-foreground/20 rounded-md"
-              >
-                <SortableContext 
-                  items={wave.targets.map(t => t.id)} 
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-2">
-                    {wave.targets.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-24 text-muted-foreground">
-                        <Target className="h-6 w-6 mb-1" />
-                        <p className="text-xs text-center">Drop targets here</p>
-                      </div>
-                    ) : (
-                      wave.targets.map((target) => (
-                        <DraggableTarget 
-                          key={target.id} 
-                          target={target}
-                          onRemove={removeTargetFromWave}
-                        />
-                      ))
-                    )}
-                    {wave.targets.length >= 4 && (
-                      <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md">
-                        <AlertCircle className="h-4 w-4 text-amber-600" />
-                        <span className="text-xs text-amber-700 dark:text-amber-400">
-                          Wave at capacity
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </SortableContext>
-              </div>
-            </CardContent>
-          </Card>
+          <DroppableWave 
+            key={wave.id}
+            wave={wave} 
+            onRemove={removeTargetFromWave}
+          />
         ))}
       </div>
 
