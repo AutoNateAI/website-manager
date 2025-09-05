@@ -450,6 +450,65 @@ export function TimePlannerTab() {
     }
   };
 
+  const moveTargetBetweenWaves = async (campaignTargetId: string, sourceWaveId: number, targetWaveId: number) => {
+    try {
+      console.log('Moving target between waves:', campaignTargetId, sourceWaveId, '→', targetWaveId);
+
+      // Update the database
+      const { error } = await supabase
+        .from('campaign_targets')
+        .update({ 
+          wave_assignment: targetWaveId,
+          wave_status: 'pending' 
+        })
+        .eq('id', campaignTargetId);
+
+      if (error) throw error;
+
+      // Update local state
+      setWaves(prev => {
+        let targetToMove: CampaignTarget | null = null;
+        
+        // Remove from source wave and find the target
+        const updatedWaves = prev.map(wave => {
+          if (wave.id === sourceWaveId) {
+            const targetIndex = wave.targets.findIndex(t => t.id === campaignTargetId);
+            if (targetIndex !== -1) {
+              targetToMove = { ...wave.targets[targetIndex], wave_assignment: targetWaveId };
+              return { 
+                ...wave, 
+                targets: wave.targets.filter(t => t.id !== campaignTargetId) 
+              };
+            }
+          }
+          return wave;
+        });
+
+        // Add to target wave
+        if (targetToMove) {
+          return updatedWaves.map(wave => 
+            wave.id === targetWaveId 
+              ? { ...wave, targets: [...wave.targets, targetToMove] }
+              : wave
+          );
+        }
+
+        return updatedWaves;
+      });
+
+      toast({
+        title: 'Target moved',
+        description: `Target moved from ${WAVE_CONFIGS[sourceWaveId - 1].name} to ${WAVE_CONFIGS[targetWaveId - 1].name}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error moving target',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  };
+
   const removeTargetFromWave = async (campaignTargetId: string) => {
     try {
       const { error } = await supabase
@@ -508,8 +567,15 @@ export function TimePlannerTab() {
     if (overId.startsWith('wave-') && !isNaN(targetWaveId)) {
       // Check if it's from available targets
       const isFromAvailable = availableTargets.some(t => t.id === activeId);
+      
       if (isFromAvailable) {
         assignTargetToWave(activeId, targetWaveId);
+      } else {
+        // Check if it's from another wave
+        const sourceWave = waves.find(wave => wave.targets.some(t => t.id === activeId));
+        if (sourceWave && sourceWave.id !== targetWaveId) {
+          moveTargetBetweenWaves(activeId, sourceWave.id, targetWaveId);
+        }
       }
     }
 
