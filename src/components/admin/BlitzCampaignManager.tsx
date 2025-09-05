@@ -41,17 +41,17 @@ export function BlitzCampaignManager() {
             </div>
           </div>
           <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <Globe className="h-4 w-4 text-green-600" />
-              <span className="font-medium">4 Time Zones</span>
+            <div className="flex items-center gap-2 px-3 py-2 bg-accent/20 border border-accent/30 rounded-lg backdrop-blur-sm">
+              <Globe className="h-4 w-4 text-accent-foreground" />
+              <span className="font-medium text-accent-foreground">4 Time Zones</span>
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <Users className="h-4 w-4 text-blue-600" />
-              <span className="font-medium">16 Targets/Day</span>
+            <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 border border-primary/30 rounded-lg backdrop-blur-sm">
+              <Users className="h-4 w-4 text-primary" />
+              <span className="font-medium text-primary">16 Targets/Day</span>
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-              <Target className="h-4 w-4 text-purple-600" />
-              <span className="font-medium">3 Waves Max</span>
+            <div className="flex items-center gap-2 px-3 py-2 bg-secondary/20 border border-secondary/30 rounded-lg backdrop-blur-sm">
+              <Target className="h-4 w-4 text-secondary-foreground" />
+              <span className="font-medium text-secondary-foreground">3 Waves Max</span>
             </div>
           </div>
         </div>
