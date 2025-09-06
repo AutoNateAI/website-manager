@@ -26,7 +26,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
           {
             role: 'system',
@@ -62,6 +62,7 @@ IMPORTANT: Respond with ONLY a valid JSON array. Do not include backticks or any
 Each array item must be an object with exactly these keys: title, angle, solutions (array), metaphor, painPoint.`
           }
         ],
+        response_format: { type: 'json_object' },
         max_completion_tokens: 1500,
       }),
     });
@@ -102,7 +103,7 @@ Each array item must be an object with exactly these keys: title, angle, solutio
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-5-2025-08-07',
+          model: 'gpt-5-mini-2025-08-07',
           messages: [
             {
               role: 'system',

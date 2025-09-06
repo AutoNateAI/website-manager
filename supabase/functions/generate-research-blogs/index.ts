@@ -26,7 +26,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
           {
             role: 'system',
@@ -45,6 +45,7 @@ IMPORTANT: Respond with ONLY a valid JSON array. Do not include backticks or any
 Each array item must be an object with exactly these keys: title, direction, key_findings (array), research_approach, target_audience.`
           }
         ],
+        response_format: { type: 'json_object' },
         max_completion_tokens: 2000
       }),
     });
@@ -91,7 +92,7 @@ Each array item must be an object with exactly these keys: title, direction, key
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-5-2025-08-07',
+          model: 'gpt-5-mini-2025-08-07',
           messages: [
             {
               role: 'system',
@@ -132,6 +133,7 @@ IMPORTANT: You must respond with ONLY a valid JSON object. Do not include any ma
 Make the content research-focused, data-driven, and provide original analytical insights based on the research brief.`
             }
           ],
+          response_format: { type: 'json_object' },
           max_completion_tokens: 4000
         }),
       });

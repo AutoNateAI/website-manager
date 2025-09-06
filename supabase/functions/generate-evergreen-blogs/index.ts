@@ -26,7 +26,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
           {
             role: 'system',
@@ -49,6 +49,7 @@ Return a JSON array with exactly 3 objects, each containing:
 Focus on foundational concepts, best practices, step-by-step guides, and educational content that will be valuable for years to come.`
           }
         ],
+        response_format: { type: 'json_object' },
         max_completion_tokens: 2000
       }),
     });
@@ -100,7 +101,7 @@ Focus on foundational concepts, best practices, step-by-step guides, and educati
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-5-2025-08-07',
+          model: 'gpt-5-mini-2025-08-07',
           messages: [
             {
               role: 'system',
@@ -136,6 +137,7 @@ Return a JSON object with:
 Make the content evergreen, actionable, and valuable for the target audience.`
             }
           ],
+          response_format: { type: 'json_object' },
           max_completion_tokens: 4000
         }),
       });
