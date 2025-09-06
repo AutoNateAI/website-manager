@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, size = "1536x864", quality = "high", referenceImage } = await req.json();
+    const { prompt, size: requestedSize = "1536x1024", quality = "high", referenceImage } = await req.json();
 
     console.log('Generating image for prompt:', prompt);
 
@@ -22,12 +22,16 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
+    // Validate/normalize size to supported values
+    const allowedSizes = new Set(["1024x1024", "1024x1536", "1536x1024", "auto"]);
+    const size = allowedSizes.has(requestedSize) ? requestedSize : "1536x1024";
+
     const requestBody: any = {
       model: 'gpt-image-1',
       prompt: referenceImage ? `${prompt}. Use this reference image for style and composition: ${referenceImage}` : prompt,
       n: 1,
-      size: size,
-      quality: quality,
+      size,
+      quality,
       output_format: 'png'
     };
 
