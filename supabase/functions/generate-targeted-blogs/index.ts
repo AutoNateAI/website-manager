@@ -58,7 +58,8 @@ Create 3 unique blog directions for the ${category} category. For each direction
 4. Primary metaphor/framework to use
 5. Target business pain point addressed
 
-Format as JSON with 3 objects, each containing: title, angle, solutions, metaphor, painPoint`
+IMPORTANT: Respond with ONLY a valid JSON array. Do not include backticks or any extra text.
+Each array item must be an object with exactly these keys: title, angle, solutions (array), metaphor, painPoint.`
           }
         ],
         max_completion_tokens: 1500,
@@ -66,30 +67,33 @@ Format as JSON with 3 objects, each containing: title, angle, solutions, metapho
     });
 
     const directionsData = await directionsResponse.json();
-    
-    if (!directionsResponse.ok) {
-      console.error('OpenAI API error (directions):', directionsData);
-      throw new Error(directionsData.error?.message || 'Failed to generate blog directions');
+
+    console.log('OpenAI directions (targeted) raw:', directionsData);
+
+    if (!directionsData.choices || !directionsData.choices[0] || !directionsData.choices[0].message) {
+      throw new Error('Invalid OpenAI response structure for directions');
+    }
+
+    const rawDirections = directionsData.choices[0].message.content;
+    console.log('Raw directions content (targeted):', rawDirections);
+
+    if (!rawDirections || rawDirections.trim() === '') {
+      throw new Error('Empty directions response from OpenAI');
     }
 
     let directions;
     try {
-      const directionsContent = directionsData.choices[0].message.content;
-      // Extract JSON from the response
-      const jsonMatch = directionsContent.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        directions = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('Could not parse directions JSON');
-      }
+      const clean = rawDirections.replace(/```json\n?|\n?```/g, '').trim();
+      directions = JSON.parse(clean);
     } catch (parseError) {
-      console.error('Failed to parse directions:', parseError);
+      console.error('Failed to parse directions JSON (targeted):', rawDirections);
+      console.error('Parse error:', parseError);
       throw new Error('Failed to parse blog directions');
     }
 
-    console.log('Generated blog directions:', directions);
-
-    // Step 2: Generate the actual blog content based on each direction
+    if (!Array.isArray(directions) || directions.length !== 3) {
+      throw new Error('Expected exactly 3 blog directions from AI');
+    }
     const blogPromises = directions.map(async (direction: any, index: number) => {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',

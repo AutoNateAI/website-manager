@@ -41,14 +41,8 @@ ${researchBrief}
 
 Each direction should be research-focused, data-driven, and provide analytical insights. Include references to studies, case studies, or research findings where relevant.
 
-Return your response as a JSON array with exactly 3 objects, each containing:
-- title: A compelling, research-focused title
-- direction: A detailed description of the blog post direction and research angle
-- key_findings: An array of 4-5 key research points or findings to highlight
-- research_approach: The type of research or case study analysis to feature
-- target_audience: Who would benefit from this research
-
-Focus on original analysis, case study insights, research synthesis, and data-driven conclusions.`
+IMPORTANT: Respond with ONLY a valid JSON array. Do not include backticks or any extra text.
+Each array item must be an object with exactly these keys: title, direction, key_findings (array), research_approach, target_audience.`
           }
         ],
         max_completion_tokens: 2000
@@ -61,11 +55,22 @@ Focus on original analysis, case study insights, research synthesis, and data-dr
 
     const directionsData = await directionsResponse.json();
     let directions;
-    
+
+    console.log('OpenAI research directions response:', directionsData);
+
+    if (!directionsData.choices || !directionsData.choices[0] || !directionsData.choices[0].message) {
+      throw new Error('Invalid OpenAI response structure for directions');
+    }
+
+    const rawDirections = directionsData.choices[0].message.content;
+    console.log('Raw research directions content:', rawDirections);
+
     try {
-      directions = JSON.parse(directionsData.choices[0].message.content);
+      const clean = rawDirections.replace(/```json\n?|\n?```/g, '').trim();
+      directions = JSON.parse(clean);
     } catch (e) {
-      console.error('Failed to parse directions JSON:', directionsData.choices[0].message.content);
+      console.error('Failed to parse directions JSON:', rawDirections);
+      console.error('Parse error:', e);
       throw new Error('Failed to parse blog directions from AI response');
     }
 
@@ -122,6 +127,8 @@ Return your response as a JSON object with:
 - slug: URL-friendly slug
 - imageSuggestions: Array of 3-4 objects with {title, prompt, alt_text, position} for charts, graphs, or visual research representations
 
+IMPORTANT: You must respond with ONLY a valid JSON object. Do not include any markdown formatting, backticks, or other text. Just the raw JSON.
+
 Make the content research-focused, data-driven, and provide original analytical insights based on the research brief.`
             }
           ],
@@ -137,9 +144,14 @@ Make the content research-focused, data-driven, and provide original analytical 
       let blogContent;
       
       try {
-        blogContent = JSON.parse(contentData.choices[0].message.content);
+        const rawContent = contentData.choices?.[0]?.message?.content ?? '';
+        console.log(`Raw research blog content ${i + 1}:`, rawContent);
+        const clean = rawContent.replace(/```json\n?|\n?```/g, '').trim();
+        if (!clean) throw new Error('Empty content from OpenAI');
+        blogContent = JSON.parse(clean);
       } catch (e) {
-        console.error(`Failed to parse blog content JSON for blog ${i + 1}:`, contentData.choices[0].message.content);
+        console.error(`Failed to parse blog content JSON for blog ${i + 1}:`, contentData.choices?.[0]?.message?.content);
+        console.error('Parse error:', e);
         throw new Error(`Failed to parse blog content for blog ${i + 1}`);
       }
 
