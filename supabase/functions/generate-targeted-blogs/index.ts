@@ -26,44 +26,11 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
+        model: 'gpt-4o-mini',
+        temperature: 0.2,
         messages: [
-          {
-            role: 'system',
-            content: `You are AutoNateAI's strategic content architect. Based on company research briefs, you create 3 distinct blog directions that showcase how custom AI-integrated software can transform businesses.
-
-Target Audience: SMB owners, foundation leaders, community organization leaders, VCs, and startup leaders.
-
-AutoNateAI Identity:
-- The bridge between critical thinking and intelligent software
-- We solve complex problems with custom AI-integrated solutions
-- We use critical thinking frameworks, graph theory, and prompt engineering
-- We build transparently using Lovable.dev
-- We offer: Workflow Automation, AI Copilots, Intelligent Dashboards, Cross-tool Integrations, Custom Software Builds
-
-Your task: Create 3 unique blog directions that each offer different value propositions, ensuring readers don't feel like they're reading the same content three times. Each direction should:
-1. Address different aspects of the company's challenges/opportunities
-2. Showcase different AutoNateAI solutions
-3. Use distinct angles and metaphors
-4. Speak authoritatively to business leaders with relevant industry insights`
-          },
-          {
-            role: 'user',
-            content: `Based on this company research brief: "${companyBrief}"
-
-Create 3 unique blog directions for the ${category} category. For each direction, provide:
-1. Title (compelling and specific)
-2. Core angle (what unique perspective/value this blog offers)
-3. Key AutoNateAI solutions to highlight
-4. Primary metaphor/framework to use
-5. Target business pain point addressed
-
-IMPORTANT: Respond with ONLY a valid JSON array. Do not include backticks or any extra text.
-Each array item must be an object with exactly these keys: title, angle, solutions (array), metaphor, painPoint.`
-          }
-        ],
-        response_format: { type: 'json_object' },
-        max_completion_tokens: 1500,
+...
+        max_tokens: 1000
       }),
     });
 
@@ -103,57 +70,11 @@ Each array item must be an object with exactly these keys: title, angle, solutio
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-5-mini-2025-08-07',
+          model: 'gpt-4o-mini',
+          temperature: 0.2,
           messages: [
-            {
-              role: 'system',
-              content: `You are AutoNateAI's senior content strategist writing for business leaders. Create authoritative, insightful blog content that demonstrates deep industry understanding while naturally showcasing how AutoNateAI's custom AI-integrated software solves complex business problems.
-
-Writing Style:
-- Authoritative yet conversational tone
-- Rich, relevant metaphors that resonate with business leaders
-- Deep, nuanced insights that demonstrate expertise  
-- Strategic perspective that positions AI as a business multiplier
-- Professional but engaging voice that builds trust
-
-AutoNateAI Solutions Context:
-- Workflow Automation: Saves time, reduces costs, unlocks opportunities
-- AI Copilots: Industry-tailored intelligent assistants
-- Intelligent Dashboards: Data platforms with predictive insights
-- Cross-tool Integrations: Seamless ecosystem connections
-- Custom Software Builds: AI-infused throughout the workflow
-
-Target Audience: SMB owners, foundation leaders, community organizations, VCs, startup leaders who need:
-- Strategic advantage through intelligent software
-- Operational efficiency and cost reduction
-- Data-driven decision making capabilities
-- Competitive differentiation through AI integration
-
-Content Structure: Use markdown with proper headings (#, ##, ###), bullet points, and strategic image placement suggestions.`
-            },
-            {
-              role: 'user',
-              content: `Company Research Brief: "${companyBrief}"
-
-Blog Direction: ${JSON.stringify(direction)}
-
-Category: ${category}
-Target Length: ${targetLength} words
-
-Write a comprehensive, authoritative blog post that:
-1. Opens with a compelling hook using the specified metaphor/framework
-2. Addresses the target pain point with deep industry insight
-3. Naturally weaves in how AutoNateAI's solutions solve these challenges
-4. Uses rich, relevant metaphors throughout
-5. Provides actionable insights that demonstrate expertise
-6. Concludes with a strategic call-to-action
-
-Include [IMAGE SUGGESTION: description] markers for 3-5 strategic image placements.
-
-Make this content uniquely valuable - not generic advice, but specific insights that position AutoNateAI as the strategic partner for intelligent software solutions.`
-            }
-          ],
-          max_completion_tokens: 3000,
+...
+          max_tokens: 3500,
         }),
       });
 
