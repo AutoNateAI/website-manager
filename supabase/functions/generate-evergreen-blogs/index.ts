@@ -38,7 +38,9 @@ serve(async (req) => {
 
 Each direction should be timeless, educational, and provide lasting value. Avoid time-sensitive references, current events, or trending topics.
 
-Return your response as a JSON array with exactly 3 objects, each containing:
+IMPORTANT: You must respond with ONLY a valid JSON array. Do not include any markdown formatting, backticks, or other text. Just the raw JSON.
+
+Return a JSON array with exactly 3 objects, each containing:
 - title: A compelling, evergreen title
 - direction: A detailed description of the blog post direction and approach
 - key_points: An array of 4-5 main points to cover
@@ -56,12 +58,28 @@ Focus on foundational concepts, best practices, step-by-step guides, and educati
     }
 
     const directionsData = await directionsResponse.json();
-    let directions;
     
+    console.log('OpenAI directions response:', directionsData);
+    
+    if (!directionsData.choices || !directionsData.choices[0] || !directionsData.choices[0].message) {
+      throw new Error('Invalid OpenAI response structure');
+    }
+    
+    const rawContent = directionsData.choices[0].message.content;
+    console.log('Raw directions content:', rawContent);
+    
+    if (!rawContent || rawContent.trim() === '') {
+      throw new Error('Empty response from OpenAI');
+    }
+    
+    let directions;
     try {
-      directions = JSON.parse(directionsData.choices[0].message.content);
+      // Clean the content in case it has markdown formatting
+      const cleanContent = rawContent.replace(/```json\n?|\n?```/g, '').trim();
+      directions = JSON.parse(cleanContent);
     } catch (e) {
-      console.error('Failed to parse directions JSON:', directionsData.choices[0].message.content);
+      console.error('Failed to parse directions JSON:', rawContent);
+      console.error('Parse error:', e);
       throw new Error('Failed to parse blog directions from AI response');
     }
 
@@ -103,7 +121,9 @@ Target Audience: ${direction.target_audience}
 Category: ${category}
 Target Length: ${targetLength} words
 
-Return your response as a JSON object with:
+IMPORTANT: You must respond with ONLY a valid JSON object. Do not include any markdown formatting, backticks, or other text. Just the raw JSON.
+
+Return a JSON object with:
 - title: The final blog title
 - excerpt: A compelling 2-3 sentence summary (max 160 characters)
 - content: The full blog post content in markdown format with proper headings
@@ -125,12 +145,28 @@ Make the content evergreen, actionable, and valuable for the target audience.`
       }
 
       const contentData = await contentResponse.json();
-      let blogContent;
       
+      console.log(`OpenAI blog content response ${i + 1}:`, contentData);
+      
+      if (!contentData.choices || !contentData.choices[0] || !contentData.choices[0].message) {
+        throw new Error(`Invalid OpenAI response structure for blog ${i + 1}`);
+      }
+      
+      const rawContent = contentData.choices[0].message.content;
+      console.log(`Raw blog content ${i + 1}:`, rawContent);
+      
+      if (!rawContent || rawContent.trim() === '') {
+        throw new Error(`Empty response from OpenAI for blog ${i + 1}`);
+      }
+      
+      let blogContent;
       try {
-        blogContent = JSON.parse(contentData.choices[0].message.content);
+        // Clean the content in case it has markdown formatting
+        const cleanContent = rawContent.replace(/```json\n?|\n?```/g, '').trim();
+        blogContent = JSON.parse(cleanContent);
       } catch (e) {
-        console.error(`Failed to parse blog content JSON for blog ${i + 1}:`, contentData.choices[0].message.content);
+        console.error(`Failed to parse blog content JSON for blog ${i + 1}:`, rawContent);
+        console.error('Parse error:', e);
         throw new Error(`Failed to parse blog content for blog ${i + 1}`);
       }
 
