@@ -29,7 +29,27 @@ serve(async (req) => {
         model: 'gpt-4o-mini',
         temperature: 0.2,
         messages: [
-...
+          {
+            role: 'system',
+            content: 'You are an expert content strategist who creates evergreen, timeless blog content that provides lasting value to readers. You understand that evergreen content should be educational, actionable, and relevant regardless of current trends or time.'
+          },
+          {
+            role: 'user',
+            content: `Create 3 unique evergreen blog post directions for the topic: "${topic}" in the category: "${category}".
+
+Each direction should be timeless, educational, and provide lasting value. Avoid time-sensitive references, current events, or trending topics.
+
+IMPORTANT: You must respond with ONLY a valid JSON array. Do not include any markdown formatting, backticks, or other text. Just the raw JSON.
+
+Return a JSON array with exactly 3 objects, each containing:
+- title: A compelling, evergreen title
+- direction: A detailed description of the blog post direction and approach
+- key_points: An array of 4-5 main points to cover
+- target_audience: Who this content is for
+
+Focus on foundational concepts, best practices, step-by-step guides, and educational content that will be valuable for years to come.`
+          }
+        ],
         max_tokens: 1000
       }),
     });
@@ -84,7 +104,40 @@ serve(async (req) => {
           model: 'gpt-4o-mini',
           temperature: 0.2,
           messages: [
-...
+            {
+              role: 'system',
+              content: `You are an expert content writer who creates evergreen, high-quality blog posts. Your content should be timeless, educational, and provide lasting value to readers.
+
+Write in a professional yet engaging tone. Use clear headings, bullet points, and actionable advice. Avoid time-sensitive references or current events.
+
+The target length is ${targetLength} words. Focus on depth, actionability, and educational value.`
+            },
+            {
+              role: 'user',
+              content: `Create a comprehensive evergreen blog post based on this direction:
+
+Title: ${direction.title}
+Direction: ${direction.direction}
+Key Points to Cover: ${direction.key_points.join(', ')}
+Target Audience: ${direction.target_audience}
+Category: ${category}
+Target Length: ${targetLength} words
+
+IMPORTANT: You must respond with ONLY a valid JSON object. Do not include any markdown formatting, backticks, or other text. Just the raw JSON.
+
+Return a JSON object with:
+- title: The final blog title
+- excerpt: A compelling 2-3 sentence summary (max 160 characters)
+- content: The full blog post content in markdown format with proper headings
+- category: "${category}"
+- author: "AutoNate"
+- read_time: Estimated read time based on word count
+- slug: URL-friendly slug
+- imageSuggestions: Array of 3-4 objects with {title, prompt, alt_text, position} for relevant images
+
+Make the content evergreen, actionable, and valuable for the target audience.`
+            }
+          ],
           max_tokens: 3500
         }),
       });
