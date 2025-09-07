@@ -10,14 +10,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Filter, MapPin, Building2, Users, Calendar, Package, Share2, PenTool } from 'lucide-react';
 
-interface EntityNode {
+interface LocationNode {
   id: string;
-  type: 'company' | 'person' | 'event' | 'product' | 'service' | 'social_post' | 'blog';
   name: string;
-  location?: string;
+  city?: string;
+  state?: string;
+  country: string;
+  continent: string;
   coordinates?: [number, number];
+  timezone?: string;
   data: any;
-  connections: string[];
 }
 
 interface NetworkMapProps {
@@ -32,11 +34,11 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
   const map = useRef<mapboxgl.Map | null>(null);
   const { toast } = useToast();
   
-  const [nodes, setNodes] = useState<EntityNode[]>([]);
+  const [locations, setLocations] = useState<LocationNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
-  const [selectedNode, setSelectedNode] = useState<EntityNode | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<LocationNode | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string>('');
 
   // Fetch Mapbox token from edge function
@@ -82,114 +84,45 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
     };
   }, [mapboxToken]);
 
-  // Fetch and process entity data
+  // Fetch and process location data
   useEffect(() => {
-    fetchEntityData();
+    fetchLocationData();
   }, []);
 
-  const fetchEntityData = async () => {
+  const fetchLocationData = async () => {
     try {
       setLoading(true);
       
-      // Fetch all entities
-      const [companiesRes, peopleRes, eventsRes, servicesRes, postsRes, blogsRes] = await Promise.all([
-        supabase.from('companies').select('*'),
-        supabase.from('people').select('*'),
-        supabase.from('events').select('*'),
-        supabase.from('services').select('*'),
-        supabase.from('social_media_posts').select('*'),
-        supabase.from('blogs').select('*')
-      ]);
+      // Fetch all locations
+      const { data: locationsData, error } = await supabase
+        .from('locations')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      const allNodes: EntityNode[] = [];
+      if (error) throw error;
 
-      // Process companies
-      companiesRes.data?.forEach(company => {
-        if (company.location) {
-          allNodes.push({
-            id: `company-${company.id}`,
-            type: 'company',
-            name: company.name,
-            location: company.location,
-            data: company,
-            connections: []
-          });
-        }
-      });
+      const locationNodes: LocationNode[] = locationsData?.map(location => ({
+        id: location.id,
+        name: [location.city, location.state, location.country].filter(Boolean).join(', '),
+        city: location.city,
+        state: location.state,
+        country: location.country,
+        continent: location.continent,
+        coordinates: location.latitude && location.longitude ? 
+          [location.longitude, location.latitude] : undefined,
+        timezone: location.timezone,
+        data: location
+      })) || [];
 
-      // Process people
-      peopleRes.data?.forEach(person => {
-        if (person.location) {
-          allNodes.push({
-            id: `person-${person.id}`,
-            type: 'person',
-            name: person.name,
-            location: person.location,
-            data: person,
-            connections: person.company_id ? [`company-${person.company_id}`] : []
-          });
-        }
-      });
-
-      // Process events
-      eventsRes.data?.forEach(event => {
-        if (event.location && event.event_type === 'in_person') {
-          allNodes.push({
-            id: `event-${event.id}`,
-            type: 'event',
-            name: event.title,
-            location: event.location,
-            data: event,
-            connections: event.company_id ? [`company-${event.company_id}`] : []
-          });
-        }
-      });
-
-      // Process services
-      servicesRes.data?.forEach(service => {
-        allNodes.push({
-          id: `service-${service.id}`,
-          type: 'service',
-          name: service.name,
-          location: '', // Services inherit location from company
-          data: service,
-          connections: [`company-${service.company_id}`]
-        });
-      });
-
-      // Process social media posts
-      postsRes.data?.forEach(post => {
-        allNodes.push({
-          id: `post-${post.id}`,
-          type: 'social_post',
-          name: post.title,
-          location: '', // Posts inherit location from company
-          data: post,
-          connections: []
-        });
-      });
-
-      // Process blogs
-      blogsRes.data?.forEach(blog => {
-        allNodes.push({
-          id: `blog-${blog.id}`,
-          type: 'blog',
-          name: blog.title,
-          location: '', // Blogs can target multiple locations
-          data: blog,
-          connections: []
-        });
-      });
-
-      // Geocode locations and add markers
-      await geocodeAndAddMarkers(allNodes);
-      setNodes(allNodes);
+      // Add markers to map
+      await addLocationMarkers(locationNodes);
+      setLocations(locationNodes);
 
     } catch (error) {
-      console.error('Error fetching entity data:', error);
+      console.error('Error fetching location data:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch entity data",
+        description: "Failed to fetch location data",
         variant: "destructive",
       });
     } finally {
@@ -197,43 +130,41 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
     }
   };
 
-  const geocodeAndAddMarkers = async (nodes: EntityNode[]) => {
+  const addLocationMarkers = async (locationNodes: LocationNode[]) => {
     if (!map.current) return;
-
-    const locationCache = new Map<string, [number, number]>();
     
-    for (const node of nodes) {
-      if (!node.location) continue;
-      
+    for (const location of locationNodes) {
       let coordinates: [number, number];
       
-      if (locationCache.has(node.location)) {
-        coordinates = locationCache.get(node.location)!;
+      if (location.coordinates) {
+        coordinates = location.coordinates;
       } else {
-        // Simple geocoding using Mapbox (in a real app, you'd want proper geocoding)
-        // For now, we'll use approximate coordinates for common locations
-        coordinates = getApproximateCoordinates(node.location);
-        locationCache.set(node.location, coordinates);
+        // Use approximate coordinates if exact coordinates not available
+        coordinates = getApproximateCoordinates(location.name);
       }
       
-      node.coordinates = coordinates;
+      location.coordinates = coordinates;
       
-      // Create marker with different colors for different entity types
-      const color = getEntityColor(node.type);
-      const marker = new mapboxgl.Marker({ color })
+      // Create marker for location
+      const marker = new mapboxgl.Marker({ color: '#8B5CF6' })
         .setLngLat(coordinates)
         .setPopup(new mapboxgl.Popup().setHTML(`
-          <div class="p-2">
-            <h3 class="font-semibold">${node.name}</h3>
-            <p class="text-sm text-muted-foreground">${node.type}</p>
-            <p class="text-xs">${node.location}</p>
+          <div class="p-3">
+            <h3 class="font-semibold">${location.name}</h3>
+            <div class="text-sm space-y-1 mt-2">
+              ${location.city ? `<p><strong>City:</strong> ${location.city}</p>` : ''}
+              ${location.state ? `<p><strong>State:</strong> ${location.state}</p>` : ''}
+              <p><strong>Country:</strong> ${location.country}</p>
+              <p><strong>Continent:</strong> ${location.continent}</p>
+              ${location.timezone ? `<p><strong>Timezone:</strong> ${location.timezone}</p>` : ''}
+            </div>
           </div>
         `))
         .addTo(map.current);
 
       // Add click handler
       marker.getElement().addEventListener('click', () => {
-        setSelectedNode(node);
+        setSelectedLocation(location);
       });
     }
   };
@@ -296,10 +227,19 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
     return icons[type as keyof typeof icons] || Building2;
   };
 
-  const filteredNodes = nodes.filter(node => {
-    const matchesSearch = node.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         node.location?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterType === 'all' || node.type === filterType;
+  const filteredLocations = locations.filter(location => {
+    const matchesSearch = location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         location.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         location.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         location.country.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         location.continent.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesFilter = filterType === 'all' || 
+                         filterType === 'city' && location.city ||
+                         filterType === 'state' && location.state ||
+                         filterType === 'country' && !location.city && !location.state ||
+                         filterType === 'continent';
+    
     return matchesSearch && matchesFilter;
   });
 
@@ -319,7 +259,7 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search entities or locations..."
+                  placeholder="Search locations..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9"
@@ -332,38 +272,22 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Entities</SelectItem>
-                <SelectItem value="company">Companies</SelectItem>
-                <SelectItem value="person">People</SelectItem>
-                <SelectItem value="event">Events</SelectItem>
-                <SelectItem value="product">Products</SelectItem>
-                <SelectItem value="service">Services</SelectItem>
-                <SelectItem value="social_post">Social Posts</SelectItem>
-                <SelectItem value="blog">Blogs</SelectItem>
+                <SelectItem value="all">All Locations</SelectItem>
+                <SelectItem value="city">Cities</SelectItem>
+                <SelectItem value="state">States</SelectItem>
+                <SelectItem value="country">Countries</SelectItem>
+                <SelectItem value="continent">Continents</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Legend */}
+          {/* Location Summary */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {['company', 'person', 'event', 'product', 'service', 'social_post', 'blog'].map(type => {
-              const Icon = getEntityIcon(type);
-              return (
-                <Badge 
-                  key={type} 
-                  variant="outline" 
-                  className="flex items-center gap-1"
-                  style={{ borderColor: getEntityColor(type) }}
-                >
-                  <div 
-                    className="w-2 h-2 rounded-full" 
-                    style={{ backgroundColor: getEntityColor(type) }}
-                  />
-                  <Icon className="h-3 w-3" />
-                  {type.replace('_', ' ')}
-                </Badge>
-              );
-            })}
+            <Badge variant="outline" className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-purple-500" />
+              <MapPin className="h-3 w-3" />
+              {locations.length} Locations
+            </Badge>
           </div>
         </CardContent>
       </Card>
@@ -389,71 +313,57 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
           <Card className="glass-card h-[600px] overflow-y-auto">
             <CardHeader>
               <CardTitle className="text-lg">
-                {selectedNode ? 'Entity Details' : 'Entity List'}
+                {selectedLocation ? 'Location Details' : 'Location List'}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {selectedNode ? (
+              {selectedLocation ? (
                 <div className="space-y-4">
                   <div>
-                    <Badge variant="outline" className="mb-2">
-                      {selectedNode.type.replace('_', ' ')}
-                    </Badge>
-                    <h3 className="font-semibold">{selectedNode.name}</h3>
-                    {selectedNode.location && (
-                      <p className="text-sm text-muted-foreground">{selectedNode.location}</p>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Details</h4>
-                    <div className="text-sm space-y-1">
-                      {Object.entries(selectedNode.data).map(([key, value]) => (
-                        <div key={key} className="flex justify-between">
-                          <span className="text-muted-foreground">{key}:</span>
-                          <span className="text-right">{String(value)}</span>
-                        </div>
-                      ))}
+                    <h3 className="font-semibold">{selectedLocation.name}</h3>
+                    <div className="space-y-1 text-sm text-muted-foreground mt-2">
+                      {selectedLocation.city && <p><strong>City:</strong> {selectedLocation.city}</p>}
+                      {selectedLocation.state && <p><strong>State:</strong> {selectedLocation.state}</p>}
+                      <p><strong>Country:</strong> {selectedLocation.country}</p>
+                      <p><strong>Continent:</strong> {selectedLocation.continent}</p>
+                      {selectedLocation.timezone && <p><strong>Timezone:</strong> {selectedLocation.timezone}</p>}
+                      {selectedLocation.coordinates && (
+                        <p><strong>Coordinates:</strong> {selectedLocation.coordinates[1]}, {selectedLocation.coordinates[0]}</p>
+                      )}
                     </div>
                   </div>
                   
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => setSelectedNode(null)}
+                    onClick={() => setSelectedLocation(null)}
                   >
                     Back to List
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {filteredNodes.slice(0, 20).map(node => {
-                    const Icon = getEntityIcon(node.type);
-                    return (
-                      <div
-                        key={node.id}
-                        className="p-2 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => setSelectedNode(node)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: getEntityColor(node.type) }}
-                          />
-                          <Icon className="h-4 w-4" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{node.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {node.location || 'No location'}
-                            </p>
-                          </div>
+                  {filteredLocations.slice(0, 20).map(location => (
+                    <div
+                      key={location.id}
+                      className="p-2 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => setSelectedLocation(location)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-purple-500" />
+                        <MapPin className="h-4 w-4" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{location.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {location.continent}
+                          </p>
                         </div>
                       </div>
-                    );
-                  })}
-                  {filteredNodes.length > 20 && (
+                    </div>
+                  ))}
+                  {filteredLocations.length > 20 && (
                     <p className="text-xs text-muted-foreground text-center pt-2">
-                      Showing 20 of {filteredNodes.length} entities
+                      Showing 20 of {filteredLocations.length} locations
                     </p>
                   )}
                 </div>
