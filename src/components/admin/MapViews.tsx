@@ -9,6 +9,7 @@ import { MapPin, Users, Building2, Calendar, Map as MapIcon, StickyNote } from "
 import { NetworkMap } from "./NetworkMap";
 import { AddLocationDialog } from "./AddLocationDialog";
 import { LocationNotesManager } from "./LocationNotesManager";
+import { EventsManager } from "./EventsManager";
 
 interface LocationData {
   location: string;
@@ -294,16 +295,19 @@ export const MapViews = () => {
       </div>
 
       <Tabs defaultValue="network" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="network">
             <MapIcon className="h-4 w-4 mr-2" />
             Network Map
           </TabsTrigger>
-          <TabsTrigger value="locations">Locations ({locations.length})</TabsTrigger>
-          <TabsTrigger value="cities">Cities ({cityData.length})</TabsTrigger>
-          <TabsTrigger value="states">States ({stateData.length})</TabsTrigger>
-          <TabsTrigger value="countries">Countries ({countryData.length})</TabsTrigger>
-          <TabsTrigger value="continents">Continents ({continentData.length})</TabsTrigger>
+          <TabsTrigger value="locations">
+            <MapPin className="h-4 w-4 mr-2" />
+            Locations ({locations.length})
+          </TabsTrigger>
+          <TabsTrigger value="events">
+            <Calendar className="h-4 w-4 mr-2" />
+            Events
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="network" className="space-y-6">
@@ -311,68 +315,84 @@ export const MapViews = () => {
         </TabsContent>
 
         <TabsContent value="locations" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {locations.map((location) => (
-              <StructuredLocationCard key={location.id} location={location} />
-            ))}
-            {locations.length === 0 && (
-              <div className="col-span-full text-center text-muted-foreground py-8">
-                No locations added yet. Click "Add Location" to get started.
+          <Tabs defaultValue="all" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="all">All ({locations.length})</TabsTrigger>
+              <TabsTrigger value="cities">Cities ({cityData.length})</TabsTrigger>
+              <TabsTrigger value="states">States ({stateData.length})</TabsTrigger>
+              <TabsTrigger value="countries">Countries ({countryData.length})</TabsTrigger>
+              <TabsTrigger value="continents">Continents ({continentData.length})</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="all">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {locations.map((location) => (
+                  <StructuredLocationCard key={location.id} location={location} />
+                ))}
+                {locations.length === 0 && (
+                  <div className="col-span-full text-center text-muted-foreground py-8">
+                    No locations added yet. Click "Add Location" to get started.
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </TabsContent>
+
+            <TabsContent value="cities">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {cityData.map((city, index) => (
+                  <LocationCard key={index} location={city} />
+                ))}
+                {cityData.length === 0 && (
+                  <div className="col-span-full text-center text-muted-foreground py-8">
+                    No city data found. Add locations to your companies, people, or events.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="states">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {stateData.map((state, index) => (
+                  <LocationCard key={index} location={state} />
+                ))}
+                {stateData.length === 0 && (
+                  <div className="col-span-full text-center text-muted-foreground py-8">
+                    No state data found. Add locations to your companies, people, or events.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="countries">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {countryData.map((country, index) => (
+                  <LocationCard key={index} location={country} />
+                ))}
+                {countryData.length === 0 && (
+                  <div className="col-span-full text-center text-muted-foreground py-8">
+                    No country data found. Add locations to your companies, people, or events.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="continents">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {continentData.map((continent, index) => (
+                  <LocationCard key={index} location={continent} />
+                ))}
+                {continentData.length === 0 && (
+                  <div className="col-span-full text-center text-muted-foreground py-8">
+                    No continent data found. Add locations to your companies, people, or events.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
-        <TabsContent value="cities" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {cityData.map((city, index) => (
-              <LocationCard key={index} location={city} />
-            ))}
-            {cityData.length === 0 && (
-              <div className="col-span-full text-center text-muted-foreground py-8">
-                No city data found. Add locations to your companies, people, or events.
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="states" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {stateData.map((state, index) => (
-              <LocationCard key={index} location={state} />
-            ))}
-            {stateData.length === 0 && (
-              <div className="col-span-full text-center text-muted-foreground py-8">
-                No state data found. Add locations to your companies, people, or events.
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="countries" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {countryData.map((country, index) => (
-              <LocationCard key={index} location={country} />
-            ))}
-            {countryData.length === 0 && (
-              <div className="col-span-full text-center text-muted-foreground py-8">
-                No country data found. Add locations to your companies, people, or events.
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="continents" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {continentData.map((continent, index) => (
-              <LocationCard key={index} location={continent} />
-            ))}
-            {continentData.length === 0 && (
-              <div className="col-span-full text-center text-muted-foreground py-8">
-                No continent data found. Add locations to your companies, people, or events.
-              </div>
-            )}
-          </div>
+        <TabsContent value="events" className="space-y-6">
+          <EventsManager />
         </TabsContent>
       </Tabs>
 
