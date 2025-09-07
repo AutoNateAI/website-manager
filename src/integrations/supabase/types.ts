@@ -1756,6 +1756,84 @@ export type Database = {
         }
         Relationships: []
       }
+      location_companies: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          location_id: string
+          relationship_type: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          location_id: string
+          relationship_type?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          relationship_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_companies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_companies_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          location_id: string
+          relationship_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          location_id: string
+          relationship_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          location_id?: string
+          relationship_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_events_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_intelligence: {
         Row: {
           active_times: Json | null
@@ -1798,6 +1876,122 @@ export type Database = {
           trending_topics?: string[] | null
           updated_at?: string
           user_count?: number | null
+        }
+        Relationships: []
+      }
+      location_notes: {
+        Row: {
+          created_at: string
+          id: string
+          location_id: string
+          note_category: string | null
+          note_text: string
+          priority: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_id: string
+          note_category?: string | null
+          note_text: string
+          priority?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_id?: string
+          note_category?: string | null
+          note_text?: string
+          priority?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_notes_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_people: {
+        Row: {
+          created_at: string
+          id: string
+          location_id: string
+          person_id: string
+          relationship_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_id: string
+          person_id: string
+          relationship_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_id?: string
+          person_id?: string
+          relationship_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_people_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_people_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locations: {
+        Row: {
+          city: string | null
+          continent: string
+          country: string
+          created_at: string
+          id: string
+          latitude: number | null
+          longitude: number | null
+          state: string | null
+          timezone: string | null
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          continent?: string
+          country?: string
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          state?: string | null
+          timezone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          continent?: string
+          country?: string
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          state?: string | null
+          timezone?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

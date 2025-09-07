@@ -4,8 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Users, Building2, Calendar, Map as MapIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MapPin, Users, Building2, Calendar, Map as MapIcon, StickyNote } from "lucide-react";
 import { NetworkMap } from "./NetworkMap";
+import { AddLocationDialog } from "./AddLocationDialog";
+import { LocationNotesManager } from "./LocationNotesManager";
 
 interface LocationData {
   location: string;
@@ -36,7 +39,10 @@ export const MapViews = () => {
   const [stateData, setStateData] = useState<StateData[]>([]);
   const [countryData, setCountryData] = useState<CountryData[]>([]);
   const [continentData, setContinentData] = useState<LocationData[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchLocationData();
@@ -45,6 +51,15 @@ export const MapViews = () => {
   const fetchLocationData = async () => {
     try {
       setLoading(true);
+      
+      // Fetch structured locations from new table
+      const { data: structuredLocations, error: locationsError } = await supabase
+        .from('locations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (locationsError) throw locationsError;
+      setLocations(structuredLocations || []);
       
       // Fetch companies with locations
       const { data: companies, error: companiesError } = await supabase
@@ -185,6 +200,11 @@ export const MapViews = () => {
     }
   };
 
+  const handleShowNotes = (locationId: string, locationName: string) => {
+    setSelectedLocation({ id: locationId, name: locationName });
+    setNotesDialogOpen(true);
+  };
+
   const LocationCard = ({ location }: { location: LocationData }) => (
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
@@ -218,6 +238,43 @@ export const MapViews = () => {
     </Card>
   );
 
+  const StructuredLocationCard = ({ location }: { location: any }) => (
+    <Card className="hover:shadow-lg transition-shadow">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <MapPin className="h-5 w-5 text-muted-foreground" />
+          {[location.city, location.state, location.country].filter(Boolean).join(', ')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1 text-sm">
+          {location.city && <div><strong>City:</strong> {location.city}</div>}
+          {location.state && <div><strong>State:</strong> {location.state}</div>}
+          <div><strong>Country:</strong> {location.country}</div>
+          <div><strong>Continent:</strong> {location.continent}</div>
+          {location.timezone && <div><strong>Timezone:</strong> {location.timezone}</div>}
+        </div>
+        
+        {location.latitude && location.longitude && (
+          <div className="text-xs text-muted-foreground">
+            📍 {location.latitude}, {location.longitude}
+          </div>
+        )}
+
+        <div className="flex gap-2 mt-4">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleShowNotes(location.id, [location.city, location.state, location.country].filter(Boolean).join(', '))}
+          >
+            <StickyNote className="h-3 w-3 mr-1" />
+            Notes
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -233,14 +290,16 @@ export const MapViews = () => {
           <h2 className="text-3xl font-bold">Map Views</h2>
           <p className="text-muted-foreground">Interactive network visualization of leads and connections</p>
         </div>
+        <AddLocationDialog onLocationAdded={fetchLocationData} />
       </div>
 
       <Tabs defaultValue="network" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="network">
             <MapIcon className="h-4 w-4 mr-2" />
             Network Map
           </TabsTrigger>
+          <TabsTrigger value="locations">Locations ({locations.length})</TabsTrigger>
           <TabsTrigger value="cities">Cities ({cityData.length})</TabsTrigger>
           <TabsTrigger value="states">States ({stateData.length})</TabsTrigger>
           <TabsTrigger value="countries">Countries ({countryData.length})</TabsTrigger>
@@ -249,6 +308,19 @@ export const MapViews = () => {
 
         <TabsContent value="network" className="space-y-6">
           <NetworkMap />
+        </TabsContent>
+
+        <TabsContent value="locations" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {locations.map((location) => (
+              <StructuredLocationCard key={location.id} location={location} />
+            ))}
+            {locations.length === 0 && (
+              <div className="col-span-full text-center text-muted-foreground py-8">
+                No locations added yet. Click "Add Location" to get started.
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="cities" className="space-y-6">
@@ -303,6 +375,15 @@ export const MapViews = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {selectedLocation && (
+        <LocationNotesManager
+          locationId={selectedLocation.id}
+          locationName={selectedLocation.name}
+          open={notesDialogOpen}
+          onOpenChange={setNotesDialogOpen}
+        />
+      )}
     </div>
   );
 };
