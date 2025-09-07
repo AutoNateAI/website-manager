@@ -180,9 +180,9 @@ const NetworkMap = ({ className }: NetworkMapProps) => {
             description: `Added coordinates for ${location.name}`,
           });
         } else {
-          // Use fallback coordinates as last resort
-          coordinates = getApproximateCoordinates(location.name);
-          console.log(`Using fallback coordinates for ${location.name}:`, coordinates);
+          // Skip locations without coordinates for now - they'll be geocoded when selected
+          console.log(`Skipping ${location.name} - will geocode when selected`);
+          continue;
         }
       }
       
@@ -268,7 +268,53 @@ const NetworkMap = ({ className }: NetworkMapProps) => {
     
     setSelectedLocation(location);
     
-    // Pan camera to location
+    // If location doesn't have coordinates, geocode it first
+    if (!location.coordinates && map.current) {
+      console.log(`Geocoding ${location.name} on first selection...`);
+      const geocodedCoords = await geocodeAndUpdateLocation(location);
+      
+      if (geocodedCoords) {
+        location.coordinates = geocodedCoords;
+        
+        // Update the locations array with the new coordinates
+        setLocations(prevLocations => 
+          prevLocations.map(loc => 
+            loc.id === location.id 
+              ? { ...loc, coordinates: geocodedCoords }
+              : loc
+          )
+        );
+        
+        // Add marker to map now that we have coordinates
+        const marker = new mapboxgl.Marker({ color: '#8B5CF6' })
+          .setLngLat(geocodedCoords)
+          .setPopup(new mapboxgl.Popup().setHTML(`
+            <div class="p-3">
+              <h3 class="font-semibold">${location.name}</h3>
+              <div class="text-sm space-y-1 mt-2">
+                ${location.city ? `<p><strong>City:</strong> ${location.city}</p>` : ''}
+                ${location.state ? `<p><strong>State:</strong> ${location.state}</p>` : ''}
+                <p><strong>Country:</strong> ${location.country}</p>
+                <p><strong>Continent:</strong> ${location.continent}</p>
+                ${location.timezone ? `<p><strong>Timezone:</strong> ${location.timezone}</p>` : ''}
+              </div>
+            </div>
+          `))
+          .addTo(map.current);
+
+        // Add click handler
+        marker.getElement().addEventListener('click', () => {
+          handleLocationSelect(location);
+        });
+        
+        toast({
+          title: "Location Mapped",
+          description: `Successfully geocoded and saved coordinates for ${location.name}`,
+        });
+      }
+    }
+    
+    // Pan camera to location if we have coordinates
     if (map.current && location.coordinates) {
       console.log('Flying to coordinates:', location.coordinates);
       map.current.flyTo({
@@ -277,22 +323,12 @@ const NetworkMap = ({ className }: NetworkMapProps) => {
         duration: 2000
       });
     } else {
-      console.log('Cannot fly to location:', {
-        hasMap: !!map.current,
-        hasCoordinates: !!location.coordinates,
-        coordinates: location.coordinates
+      console.log('Cannot fly to location - no coordinates available');
+      toast({
+        title: "Location Not Found",
+        description: `Could not determine coordinates for ${location.name}`,
+        variant: "destructive",
       });
-      
-      // Try to use approximate coordinates if exact ones aren't available
-      if (map.current && location.name) {
-        const approximateCoords = getApproximateCoordinates(location.name);
-        console.log('Using approximate coordinates:', approximateCoords);
-        map.current.flyTo({
-          center: approximateCoords,
-          zoom: 10,
-          duration: 2000
-        });
-      }
     }
     
     // Fetch associated data for this location
