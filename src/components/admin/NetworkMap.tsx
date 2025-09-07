@@ -235,7 +235,7 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
 
   const fetchLocationDetails = async (location: LocationNode) => {
     try {
-      // Fetch events at this location
+      // Fetch events at this location using separate filters to avoid comma parsing issues
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select(`
@@ -243,7 +243,7 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
           companies!events_company_id_fkey(id, name, location, website),
           people!events_organizer_person_id_fkey(id, name, location, linkedin_url)
         `)
-        .or(`location.eq.${location.name},location.ilike.%${location.city}%,location.ilike.%${location.state}%`);
+        .or(`location.eq."${location.name}",location.ilike."%${location.city || ''}%",location.ilike."%${location.state || ''}%"`);
 
       if (eventsError) throw eventsError;
       setLocationEvents(events || []);
