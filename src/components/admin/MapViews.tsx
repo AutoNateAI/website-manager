@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Users, Building2, Calendar, Map as MapIcon, StickyNote } from "lucide-react";
-import { NetworkMap } from "./NetworkMap";
+import NetworkMap from "./NetworkMap";
 import { AddLocationDialog } from "./AddLocationDialog";
 import { LocationNotesManager } from "./LocationNotesManager";
 import { EventsManager } from "./EventsManager";

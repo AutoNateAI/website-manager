@@ -29,7 +29,7 @@ interface NetworkMapProps {
 // Mapbox public token - will be set from edge function
 const MAPBOX_TOKEN = 'pk.eyJ1IjoidGVzdC11c2VyIiwiYSI6ImNsb3ZkaXgwdjA1aGYya2x3bXJ3NDJwY3kifQ.dummy'; // This will be replaced by the actual token
 
-export const NetworkMap = ({ className }: NetworkMapProps) => {
+const NetworkMap = ({ className }: NetworkMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const { toast } = useToast();
@@ -92,6 +92,29 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
     fetchLocationData();
   }, []);
 
+  const geocodeAndUpdateLocation = async (location: LocationNode): Promise<[number, number] | null> => {
+    try {
+      const locationString = [location.city, location.state, location.country].filter(Boolean).join(', ');
+      
+      const { data, error } = await supabase.functions.invoke('geocode-location', {
+        body: { 
+          locationString,
+          locationId: location.id 
+        }
+      });
+
+      if (error) {
+        console.error('Geocoding error:', error);
+        return null;
+      }
+
+      return [data.longitude, data.latitude] as [number, number];
+    } catch (error) {
+      console.error('Error geocoding location:', error);
+      return null;
+    }
+  };
+
   const fetchLocationData = async () => {
     try {
       setLoading(true);
@@ -145,8 +168,22 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
       if (location.coordinates) {
         coordinates = location.coordinates;
       } else {
-        // Use approximate coordinates if exact coordinates not available
-        coordinates = getApproximateCoordinates(location.name);
+        // Try to geocode the location and update database
+        console.log(`Geocoding missing coordinates for ${location.name}`);
+        const geocodedCoords = await geocodeAndUpdateLocation(location);
+        
+        if (geocodedCoords) {
+          coordinates = geocodedCoords;
+          location.coordinates = coordinates;
+          toast({
+            title: "Location Updated",
+            description: `Added coordinates for ${location.name}`,
+          });
+        } else {
+          // Use fallback coordinates as last resort
+          coordinates = getApproximateCoordinates(location.name);
+          console.log(`Using fallback coordinates for ${location.name}:`, coordinates);
+        }
       }
       
       location.coordinates = coordinates;
@@ -176,7 +213,7 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
   };
 
   const getApproximateCoordinates = (location: string): [number, number] => {
-    // Simple location mapping - in a real app, use proper geocoding
+    // Expanded location mapping with Hawaii and more US cities
     const locationMap: { [key: string]: [number, number] } = {
       'New York, NY': [-74.006, 40.7128],
       'Los Angeles, CA': [-118.2437, 34.0522],
@@ -188,6 +225,10 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
       'San Diego, CA': [-117.1611, 32.7157],
       'Dallas, TX': [-96.7970, 32.7767],
       'San Jose, CA': [-121.8863, 37.3382],
+      'Honolulu, HI': [-157.8583, 21.3099],
+      'Haleiwa, HI': [-158.1101, 21.5929],
+      'Hawaii': [-155.5828, 19.8968],
+      'HI': [-155.5828, 19.8968],
     };
 
     // Try exact match first
@@ -203,8 +244,8 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
       }
     }
 
-    // Default to center US with some random offset
-    return [-98.5795 + (Math.random() - 0.5) * 20, 39.8283 + (Math.random() - 0.5) * 10];
+    // Default to center of US if no match found
+    return [-98.5795, 39.8283];
   };
 
   const getEntityColor = (type: string): string => {
@@ -519,3 +560,5 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
     </div>
   );
 };
+
+export default NetworkMap;
