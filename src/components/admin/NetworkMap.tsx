@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Filter, MapPin, Building2, Users, Calendar, Package, Share2, PenTool } from 'lucide-react';
+import { Search, Filter, MapPin, Building2, Users, Calendar } from 'lucide-react';
 
 interface LocationNode {
   id: string;
@@ -39,6 +39,9 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [selectedLocation, setSelectedLocation] = useState<LocationNode | null>(null);
+  const [locationEvents, setLocationEvents] = useState<any[]>([]);
+  const [locationCompanies, setLocationCompanies] = useState<any[]>([]);
+  const [locationPeople, setLocationPeople] = useState<any[]>([]);
   const [mapboxToken, setMapboxToken] = useState<string>('');
 
   // Fetch Mapbox token from edge function
@@ -164,7 +167,7 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
 
       // Add click handler
       marker.getElement().addEventListener('click', () => {
-        setSelectedLocation(location);
+        handleLocationSelect(location);
       });
     }
   };
@@ -214,17 +217,61 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
     return colors[type as keyof typeof colors] || '#64748B';
   };
 
-  const getEntityIcon = (type: string) => {
-    const icons = {
-      company: Building2,
-      person: Users,
-      event: Calendar,
-      product: Package,
-      service: Package,
-      social_post: Share2,
-      blog: PenTool
-    };
-    return icons[type as keyof typeof icons] || Building2;
+  const handleLocationSelect = async (location: LocationNode) => {
+    setSelectedLocation(location);
+    
+    // Pan camera to location
+    if (map.current && location.coordinates) {
+      map.current.flyTo({
+        center: location.coordinates,
+        zoom: 10,
+        duration: 2000
+      });
+    }
+    
+    // Fetch associated data for this location
+    await fetchLocationDetails(location);
+  };
+
+  const fetchLocationDetails = async (location: LocationNode) => {
+    try {
+      // Fetch events at this location
+      const { data: events, error: eventsError } = await supabase
+        .from('events')
+        .select(`
+          *,
+          companies!events_company_id_fkey(id, name, location, website),
+          people!events_organizer_person_id_fkey(id, name, location, linkedin_url)
+        `)
+        .or(`location.eq.${location.name},location.ilike.%${location.city}%,location.ilike.%${location.state}%`);
+
+      if (eventsError) throw eventsError;
+      setLocationEvents(events || []);
+
+      // Extract unique companies and people from events
+      const companies = new Map();
+      const people = new Map();
+
+      events?.forEach(event => {
+        if (event.companies) {
+          companies.set(event.companies.id, event.companies);
+        }
+        if (event.people) {
+          people.set(event.people.id, event.people);
+        }
+      });
+
+      setLocationCompanies(Array.from(companies.values()));
+      setLocationPeople(Array.from(people.values()));
+
+    } catch (error) {
+      console.error('Error fetching location data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch location details",
+        variant: "destructive",
+      });
+    }
   };
 
   const filteredLocations = locations.filter(location => {
@@ -332,11 +379,83 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
                       )}
                     </div>
                   </div>
+
+                  {/* Events Section */}
+                  {locationEvents.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Events ({locationEvents.length})
+                      </h4>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {locationEvents.map(event => (
+                          <div key={event.id} className="p-2 bg-muted/50 rounded text-xs">
+                            <p className="font-medium">{event.title}</p>
+                            <p className="text-muted-foreground">
+                              {event.date_time ? new Date(event.date_time).toLocaleDateString() : 'Date TBD'}
+                            </p>
+                            <p className="text-muted-foreground capitalize">{event.event_type}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Companies Section */}
+                  {locationCompanies.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        Companies ({locationCompanies.length})
+                      </h4>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {locationCompanies.map(company => (
+                          <div key={company.id} className="p-2 bg-muted/50 rounded text-xs">
+                            <p className="font-medium">{company.name}</p>
+                            {company.location && (
+                              <p className="text-muted-foreground">{company.location}</p>
+                            )}
+                            {company.website && (
+                              <p className="text-muted-foreground truncate">{company.website}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* People Section */}
+                  {locationPeople.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        People ({locationPeople.length})
+                      </h4>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {locationPeople.map(person => (
+                          <div key={person.id} className="p-2 bg-muted/50 rounded text-xs">
+                            <p className="font-medium">{person.name}</p>
+                            {person.location && (
+                              <p className="text-muted-foreground">{person.location}</p>
+                            )}
+                            {person.linkedin_url && (
+                              <p className="text-muted-foreground truncate">LinkedIn Profile</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => setSelectedLocation(null)}
+                    onClick={() => {
+                      setSelectedLocation(null);
+                      setLocationEvents([]);
+                      setLocationCompanies([]);
+                      setLocationPeople([]);
+                    }}
                   >
                     Back to List
                   </Button>
@@ -347,7 +466,7 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
                     <div
                       key={location.id}
                       className="p-2 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => setSelectedLocation(location)}
+                      onClick={() => handleLocationSelect(location)}
                     >
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-purple-500" />
