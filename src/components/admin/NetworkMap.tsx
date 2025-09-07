@@ -112,10 +112,13 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
         country: location.country,
         continent: location.continent,
         coordinates: location.latitude && location.longitude ? 
-          [location.longitude, location.latitude] : undefined,
+          [Number(location.longitude), Number(location.latitude)] : undefined,
         timezone: location.timezone,
         data: location
       })) || [];
+
+      console.log('Fetched location nodes:', locationNodes);
+      console.log('Location nodes with coordinates:', locationNodes.filter(l => l.coordinates));
 
       // Add markers to map
       await addLocationMarkers(locationNodes);
@@ -218,15 +221,37 @@ export const NetworkMap = ({ className }: NetworkMapProps) => {
   };
 
   const handleLocationSelect = async (location: LocationNode) => {
+    console.log('Location selected:', location);
+    console.log('Location coordinates:', location.coordinates);
+    console.log('Map current:', !!map.current);
+    
     setSelectedLocation(location);
     
     // Pan camera to location
     if (map.current && location.coordinates) {
+      console.log('Flying to coordinates:', location.coordinates);
       map.current.flyTo({
         center: location.coordinates,
-        zoom: 10,
+        zoom: 12,
         duration: 2000
       });
+    } else {
+      console.log('Cannot fly to location:', {
+        hasMap: !!map.current,
+        hasCoordinates: !!location.coordinates,
+        coordinates: location.coordinates
+      });
+      
+      // Try to use approximate coordinates if exact ones aren't available
+      if (map.current && location.name) {
+        const approximateCoords = getApproximateCoordinates(location.name);
+        console.log('Using approximate coordinates:', approximateCoords);
+        map.current.flyTo({
+          center: approximateCoords,
+          zoom: 10,
+          duration: 2000
+        });
+      }
     }
     
     // Fetch associated data for this location
